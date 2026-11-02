@@ -35,11 +35,13 @@ let
   # Raw + processed snapshot from the running relay, for tuning (`duet-camera analyze`).
   cameraSnapshot = pkgs.writeShellApplication {
     name = "duet-camera-snapshot";
-    runtimeInputs = [ pkgs.coreutils pkgs.systemd ];
+    runtimeInputs = [ pkgs.coreutils pkgs.findutils pkgs.systemd ];
     text = ''
       systemctl kill -s USR1 duet-camera-relay.service
       sleep 2
-      ls -1t /var/lib/duet-camera/snapshots/ | head -n 2 | sed 's|^|/var/lib/duet-camera/snapshots/|'
+      # newest two files (the .raw16 and the .png just written)
+      find /var/lib/duet-camera/snapshots -maxdepth 1 -type f -printf '%T@ %p\n' \
+        | sort -rn | head -n 2 | cut -d' ' -f2-
     '';
   };
 in
