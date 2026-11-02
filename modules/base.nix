@@ -34,7 +34,7 @@ in
   services.openssh = {
     enable = true;
     # Port 22 is open on tailscale0 (trusted interface) always, and on the
-    # LAN only when duet.ssh.lan is set.
+    # LAN too while duet.ssh.lan is true (the default).
     openFirewall = cfg.ssh.lan;
     settings = {
       PasswordAuthentication = false;

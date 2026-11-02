@@ -20,11 +20,11 @@ in
 
     ssh.lan = mkOption {
       type = types.bool;
-      default = false;
+      default = true;
       description = ''
-        Also accept SSH from the local network. Off by default: SSH is reachable
-        over Tailscale only. Recovery if Tailscale is down: use a keyboard on the
-        laptop (Ctrl+Alt+F2 for a login console), or flip this on from there.
+        Accept SSH from the local network as well as over Tailscale (key-only).
+        Set to false to make Tailscale the only way in; recovery is then a
+        keyboard on the laptop (Ctrl+Alt+F2 for a login console).
       '';
     };
 
