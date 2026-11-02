@@ -15,14 +15,23 @@ in
     sshKeys = mkOption {
       type = types.listOf types.str;
       default = [ ];
-      description = "Authorized SSH public keys for the admin account. Password SSH login is disabled.";
+      description = "Authorized SSH public keys for the admin account (optional while password login is on).";
+    };
+
+    ssh.passwordAuth = mkOption {
+      type = types.bool;
+      default = true;
+      description = ''
+        Allow SSH logins with the account password (LAN and tailnet). Convenient
+        to start with; once you have keys in `duet.sshKeys`, set this to false.
+      '';
     };
 
     ssh.lan = mkOption {
       type = types.bool;
       default = true;
       description = ''
-        Accept SSH from the local network as well as over Tailscale (key-only).
+        Accept SSH from the local network as well as over Tailscale (subject to `duet.ssh.passwordAuth`).
         Set to false to make Tailscale the only way in; recovery is then a
         keyboard on the laptop (Ctrl+Alt+F2 for a login console).
       '';

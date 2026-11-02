@@ -74,18 +74,15 @@ Set, using what you learned in stage 0:
   # system.stateVersion = "26.05";        # uncomment and match your install if it differs
 
   duet = {
-    user = "yourusername";                # from `whoami`
-    sshKeys = [ "ssh-ed25519 AAAA... you@pc" ];
+    user = "alex";                        # from `whoami`
   };
 ```
 
-- **SSH key**: on the computer you will connect *from*, run `cat ~/.ssh/id_ed25519.pub`
-  (create one first with `ssh-keygen -t ed25519` if it does not exist). Paste the whole
-  line, as one line.
+- **SSH keys are skipped for now**: SSH logs in with your account password (the one you use at the console). Later: put keys in `duet.sshKeys` and set `duet.ssh.passwordAuth = false`.
 - If stage 0 showed the EFI partition at `/boot/efi`, also add at the top level of the file:
   `boot.loader.efi.efiSysMountPoint = "/boot/efi";`
 
-Save in nano with Ctrl+O, Enter, Ctrl+X, then `git add -A` again.
+Save in nano with Ctrl+O, Enter, Ctrl+X.
 
 ## Stage 4: Build it without switching to it
 
@@ -95,8 +92,7 @@ nixos-rebuild build --flake .#duet
 ```
 
 This evaluates the config and downloads/builds everything (a few GB: Chromium, Home
-Assistant, Jellyfin), then stops. It does **not** touch the running system. A warning about
-an empty `sshKeys` is expected if you skipped it.
+Assistant, Jellyfin), then stops. It does **not** touch the running system.
 
 Check: it ends without `error:` and leaves a `result` symlink. Errors here are safe; send
 me the text.
@@ -135,11 +131,11 @@ Open the URL it prints (on any device), approve the machine. Then, from another 
 your tailnet:
 
 ```bash
-ssh duet            # Tailscale SSH: identity-based, no key needed
-ssh youruser@duet   # normal key-based sshd over the tailnet (needs sshKeys)
+ssh duet            # Tailscale SSH: identity-based, no password needed
+ssh alex@duet      # normal sshd over the tailnet: asks for your password
 ```
 
-LAN SSH works too: `ssh youruser@duet.local` (or use the IP from `ip -br a`).
+LAN SSH works too (password): `ssh alex@duet.local` (or use the IP from `ip -br a`).
 
 ## Stage 8: Check the services
 

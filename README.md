@@ -38,7 +38,7 @@ The config imports `hosts/duet/hardware-configuration.nix` (your installer-gener
 
 ## First-boot checklist
 
-- **Tailscale + SSH**: run `sudo tailscale up` once (or set `duet.network.tailscale.authKeyFile`). Tailscale SSH is always on, so `ssh duet` works from any tailnet device using your tailnet identity (allow it in your tailnet ACL); regular sshd (key-only) is reachable over the tailnet too. SSH is also open on the LAN (key-only); set `duet.ssh.lan = false` to make Tailscale the only way in.
+- **Tailscale + SSH**: run `sudo tailscale up` once (or set `duet.network.tailscale.authKeyFile`). Tailscale SSH is always on, so `ssh duet` works from any tailnet device using your tailnet identity (allow it in your tailnet ACL); regular sshd is reachable over the tailnet too. SSH is also open on the LAN. For now both use your account password; later add `duet.sshKeys` and set `duet.ssh.passwordAuth = false`. Set `duet.ssh.lan = false` to make Tailscale the only way in.
 - **Local recovery** (Tailscale or network down): attach a keyboard to the Duet and press Ctrl+Alt+F2 for a login console (`duet` user, `sudo` available), or pick an older generation in the boot menu (last 10 kept). From there you can fix the config and rebuild.
 - **Immich** (photos) is **off**. nixpkgs 26.05 marks it insecure (two known CVEs, no more 2.x updates; 3.x arrives in 26.11). Enable with `duet.media.immich.enable = true` only if you accept that, and keep it LAN/tailnet-only.
 - **Zigbee**: plug in a coordinator, set `duet.homeAutomation.zigbee = { enable = true; serialPort = "/dev/serial/by-id/..."; };`.

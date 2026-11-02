@@ -25,9 +25,6 @@ in
     isNormalUser = true;
     extraGroups = [ "wheel" "networkmanager" "media" ];
     openssh.authorizedKeys.keys = cfg.sshKeys;
-    # Console-only bootstrap password (SSH password login is off). Change it
-    # with `passwd` after first login.
-    initialPassword = "duet";
   };
   users.groups.media = { };
 
@@ -37,15 +34,14 @@ in
     # LAN too while duet.ssh.lan is true (the default).
     openFirewall = cfg.ssh.lan;
     settings = {
-      PasswordAuthentication = false;
+      PasswordAuthentication = cfg.ssh.passwordAuth;
       KbdInteractiveAuthentication = false;
       PermitRootLogin = "no";
     };
   };
 
-  # Tailscale SSH (below) works without keys; plain sshd does not.
-  warnings = lib.optional (cfg.sshKeys == [ ] && !cfg.network.enable)
-    "duet.sshKeys is empty and Tailscale is disabled: SSH login is impossible until you add a public key.";
+  warnings = lib.optional (cfg.sshKeys == [ ] && !cfg.ssh.passwordAuth && !cfg.network.enable)
+    "SSH password login is off, no sshKeys are set and Tailscale is disabled: remote login is impossible.";
 
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
