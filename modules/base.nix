@@ -71,5 +71,5 @@ in
     usbutils
   ];
 
-  system.stateVersion = "26.05";
+  system.stateVersion = lib.mkDefault "26.05"; # match what your first install used
 }

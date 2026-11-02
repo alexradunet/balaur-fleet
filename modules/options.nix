@@ -53,24 +53,11 @@ in
 
     files.enable = mkEnableOption "file sync (Syncthing)";
 
-    network.enable = mkEnableOption "network + privacy (AdGuard Home, Tailscale, mDNS)" // { default = true; };
+    network.enable = mkEnableOption "network + privacy (Tailscale, mDNS)" // { default = true; };
     network.tailscale.authKeyFile = mkOption {
       type = types.nullOr types.path;
       default = null;
       description = "File holding a Tailscale auth key. If null, run `sudo tailscale up` once by hand.";
-    };
-    network.adguard.users = mkOption {
-      type = types.listOf (types.submodule {
-        options = {
-          name = mkOption { type = types.str; };
-          password = mkOption {
-            type = types.str;
-            description = "bcrypt hash, e.g. from `htpasswd -nbB \"\" 'pass' | cut -d: -f2`.";
-          };
-        };
-      });
-      default = [ ];
-      description = "AdGuard Home admin users. With none, the admin UI has NO authentication.";
     };
 
     homeAutomation.enable = mkEnableOption "home automation (Home Assistant, MQTT)" // { default = true; };
