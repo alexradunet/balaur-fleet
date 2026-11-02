@@ -11,6 +11,7 @@ let
 
     exec ${pkgs.chromium}/bin/chromium \
       --kiosk \
+      --start-fullscreen \
       --ozone-platform=wayland \
       --user-data-dir="$XDG_RUNTIME_DIR/chromium-kiosk" \
       --no-first-run \
@@ -23,10 +24,29 @@ let
       --touch-events=enabled \
       --password-store=basic \
       --check-for-update-interval=31536000 \
-      ${url}
+      --app=${url}
   '';
 in
 lib.mkIf cfg.kiosk.enable {
+  # Managed Chromium policy: the kiosk may only ever show the dashboard.
+  programs.chromium = {
+    enable = true;
+    extraOpts = {
+      URLBlocklist = [ "*" ];
+      URLAllowlist = [ "http://127.0.0.1" "http://localhost" ];
+      DeveloperToolsAvailability = 2; # never
+      IncognitoModeAvailability = 1; # disabled
+      BrowserAddProfileEnabled = false;
+      BrowserGuestModeEnabled = false;
+      BookmarkBarEnabled = false;
+      PasswordManagerEnabled = false;
+      TranslateEnabled = false;
+      DefaultBrowserSettingEnabled = false;
+      MetricsReportingEnabled = false;
+      SpellcheckEnabled = false;
+    };
+  };
+
   users.users.kiosk = {
     isNormalUser = true;
     description = "Kiosk";
