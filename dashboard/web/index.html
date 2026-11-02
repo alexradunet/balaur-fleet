@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>Duet</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="logo" aria-hidden="true"></span><span id="host">duet</span></div>
+    <div class="clock"><time id="clock">--:--</time><span id="date"></span></div>
+    <div class="pills">
+      <span class="pill" id="bat-pill" hidden></span>
+      <span class="pill" id="up-pill"></span>
+    </div>
+  </header>
+
+  <main>
+    <section class="tiles" id="tiles" aria-label="Services"></section>
+
+    <aside class="panel" aria-label="System">
+      <div class="meter"><label>CPU <b id="cpu-v"></b></label><div class="bar"><i id="cpu-b"></i></div></div>
+      <div class="meter"><label>Memory <b id="mem-v"></b></label><div class="bar"><i id="mem-b"></i></div></div>
+      <div id="disks"></div>
+      <div class="meter"><label>Temperature <b id="temp-v"></b></label><div class="bar"><i id="temp-b"></i></div></div>
+      <div class="meter"><label>Load <b id="load-v"></b></label></div>
+
+      <div class="meter" id="bright" hidden>
+        <label>Screen <b id="bright-v"></b></label>
+        <input type="range" id="bright-r" min="1" max="100" step="1" aria-label="Screen brightness">
+      </div>
+    </aside>
+  </main>
+
+  <div class="offline" id="offline" hidden>Dashboard unreachable — retrying…</div>
+  <script src="app.js"></script>
+</body>
+</html>
