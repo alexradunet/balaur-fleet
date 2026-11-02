@@ -40,6 +40,9 @@ lib.mkIf cfg.kiosk.enable {
     program = kiosk;
     # Start even though the touchscreen may enumerate late.
     environment.WLR_LIBINPUT_NO_DEVICES = "1";
+    # -s: allow Ctrl+Alt+F2..F6 from an attached keyboard to reach a login
+    # console on the laptop itself (recovery).
+    extraArguments = [ "-s" ];
   };
 
   # Cage restarts whenever Chromium exits/crashes; bring the dashboard up first.

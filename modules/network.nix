@@ -25,7 +25,9 @@ in
     openFirewall = true;
     useRoutingFeatures = "server"; # can be an exit node / subnet router
     authKeyFile = net.tailscale.authKeyFile;
-    extraUpFlags = lib.optional (net.tailscale.authKeyFile != null) "--ssh";
+    # Tailscale SSH: login via tailnet identity, no authorized_keys needed, so it
+    # still works as a recovery path if the key setup is broken.
+    extraSetFlags = [ "--ssh" ];
   };
   # Reach the admin UIs over the tailnet as well as the LAN.
   networking.firewall.trustedInterfaces = lib.mkIf net.enable [ "tailscale0" ];

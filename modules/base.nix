@@ -33,6 +33,9 @@ in
 
   services.openssh = {
     enable = true;
+    # Port 22 is open on tailscale0 (trusted interface) always, and on the
+    # LAN only when duet.ssh.lan is set.
+    openFirewall = cfg.ssh.lan;
     settings = {
       PasswordAuthentication = false;
       KbdInteractiveAuthentication = false;
@@ -40,8 +43,9 @@ in
     };
   };
 
-  warnings = lib.optional (cfg.sshKeys == [ ])
-    "duet.sshKeys is empty: SSH login is impossible until you add a public key.";
+  # Tailscale SSH (below) works without keys; plain sshd does not.
+  warnings = lib.optional (cfg.sshKeys == [ ] && !cfg.network.enable)
+    "duet.sshKeys is empty and Tailscale is disabled: SSH login is impossible until you add a public key.";
 
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];

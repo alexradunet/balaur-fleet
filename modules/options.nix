@@ -18,6 +18,16 @@ in
       description = "Authorized SSH public keys for the admin account. Password SSH login is disabled.";
     };
 
+    ssh.lan = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Also accept SSH from the local network. Off by default: SSH is reachable
+        over Tailscale only. Recovery if Tailscale is down: use a keyboard on the
+        laptop (Ctrl+Alt+F2 for a login console), or flip this on from there.
+      '';
+    };
+
     storage.root = mkOption {
       type = types.path;
       default = "/srv";
@@ -41,7 +51,7 @@ in
       description = "Run Immich's ML (faces/search). Heavy on a U-series CPU during the initial import.";
     };
 
-    files.enable = mkEnableOption "file sync (Syncthing)" // { default = true; };
+    files.enable = mkEnableOption "file sync (Syncthing)";
 
     network.enable = mkEnableOption "network + privacy (AdGuard Home, Tailscale, mDNS)" // { default = true; };
     network.tailscale.authKeyFile = mkOption {
