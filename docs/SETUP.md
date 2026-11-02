@@ -154,3 +154,41 @@ git add -A && git commit -m "..."  # the repo is your system's source of truth
 
 Optional things you can turn on later (all in `hosts/duet/default.nix`):
 `duet.files.enable` (Syncthing). The repo grows as we add services; each one registers its own dashboard tile.
+
+## Stage 9: Code on the Duet
+
+The agent harnesses come from [numtide/llm-agents.nix](https://github.com/numtide/llm-agents.nix)
+(updated daily, pre-built in a binary cache), not from nixpkgs, which lags by months:
+`claude` (Claude Code) and `pi` ([pi.dev](https://pi.dev)).
+
+**The first rebuild after adding them** should use the numtide cache so nothing compiles on
+the Duet. The flake declares the cache, but Nix asks you to accept flake-provided settings
+once:
+
+```bash
+cd ~/yoda-duet-7-home-server && git pull
+nixos-rebuild switch --flake .#duet --sudo --accept-flake-config
+```
+
+(After that first switch the cache is part of the system config, so the flag is not needed.)
+
+Then, over SSH, work inside `tmux` so a dropped connection never kills a session:
+
+```bash
+tmux new -s code        # reattach later with: tmux attach -t code
+cd ~/yoda-duet-7-home-server
+claude                  # first run: follow the login prompt (open the URL on another device)
+pi                      # first run: log in or set your provider's API key; see `pi --help`
+```
+
+**Updating the agents** (they move fast):
+
+```bash
+cd ~/yoda-duet-7-home-server
+nix flake update llm-agents
+nixos-rebuild switch --flake .#duet --sudo
+git add flake.lock && git commit -m "Bump agents"
+```
+
+`gh`, `ripgrep`, `fd`, `tree` and Node are installed system-wide. Per-project compilers and
+toolchains should come from each project's own `nix develop` shell instead of system packages.

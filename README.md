@@ -12,6 +12,7 @@ modules/                  the opinions
   power.nix               never sleep, ignore lid, battery = UPS, 80% charge cap
   network.nix             Tailscale (+ SSH), duet.local (mDNS)
   files.nix               Syncthing (opt-in: duet.files.enable)
+  dev.nix                 Claude Code + pi (from numtide/llm-agents.nix, daily updates), tmux, gh, ripgrep
   dashboard.nix           Go service on :80, tiles registered by the modules above
   kiosk.nix               Cage + Chromium on the built-in screen
 dashboard/                Go (stdlib only) backend + embedded HTML/CSS/JS frontend
