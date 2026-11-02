@@ -172,10 +172,10 @@ nixos-rebuild switch --flake .#duet --sudo --accept-flake-config
 
 (After that first switch the cache is part of the system config, so the flag is not needed.)
 
-Then, over SSH, work inside `tmux` so a dropped connection never kills a session:
+Then, over SSH, start `herdr` ([herdr.dev](https://herdr.dev)), the terminal workspace manager for agent sessions (`herdr --help` for keys, panes and reattaching), and run the agents inside it:
 
 ```bash
-tmux new -s code        # reattach later with: tmux attach -t code
+herdr
 cd ~/yoda-duet-7-home-server
 claude                  # first run: follow the login prompt (open the URL on another device)
 pi                      # first run: log in or set your provider's API key; see `pi --help`

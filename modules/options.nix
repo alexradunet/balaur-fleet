@@ -43,7 +43,7 @@ in
       description = "Root for bulk data (synced files).";
     };
 
-    dev.enable = mkEnableOption "coding on the box (Claude Code, pi, tmux, gh)" // { default = true; };
+    dev.enable = mkEnableOption "coding on the box (Claude Code, pi, herdr, gh)" // { default = true; };
 
     files.enable = mkEnableOption "file sync (Syncthing)";
 

@@ -12,9 +12,9 @@ lib.mkIf cfg.dev.enable {
   environment.systemPackages = [
     agents.claude-code # `claude`
     agents.pi # `pi` (pi.dev)
+    agents.herdr # workspace manager for agent sessions (herdr.dev)
   ] ++ (with pkgs; [
     gh
-    tmux # sessions that survive an SSH disconnect
     ripgrep
     fd
     tree
