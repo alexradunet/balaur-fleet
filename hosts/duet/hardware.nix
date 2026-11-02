@@ -1,4 +1,4 @@
-# Lenovo Yoga Duet 7i 13IML05 (Comet Lake i5-10210U / i7-10510U, NVMe, AX201 Wi-Fi).
+# Lenovo Yoga Duet 7 13ITL6 (Tiger Lake i5-1135G7 / i7-1165G7, Intel IPU6 cameras, NVMe, AX201 Wi-Fi).
 # Disks and kernel modules come from hardware-configuration.nix (see default.nix).
 { ... }:
 {

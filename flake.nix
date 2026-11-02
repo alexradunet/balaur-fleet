@@ -1,5 +1,5 @@
 {
-  description = "Opinionated home server on a Lenovo Yoga Duet 7 (13IML05), with a touch kiosk + web dashboard";
+  description = "Opinionated home server on a Lenovo Yoga Duet 7 (13ITL6), with a touch kiosk + web dashboard";
 
   inputs = {
     # Stable channel tarball (carries a flake.nix). Pinned by flake.lock.
@@ -22,6 +22,7 @@
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
       dashboard = pkgs.callPackage ./pkgs/dashboard.nix { };
+      duet-camera = pkgs.callPackage ./pkgs/duet-camera.nix { };
     in
     {
       nixosConfigurations.duet = nixpkgs.lib.nixosSystem {
@@ -31,13 +32,13 @@
       };
 
       packages.${system} = {
-        inherit dashboard;
+        inherit dashboard duet-camera;
         # The patched camera modules for the kernel the system actually boots (`nix build .#camera-modules` checks the patch still applies).
         camera-modules = self.nixosConfigurations.duet.config.boot.kernelPackages.callPackage ./pkgs/camera-modules.nix { };
         default = dashboard;
       };
 
-      checks.${system}.dashboard = dashboard;
+      checks.${system} = { inherit dashboard duet-camera; };
 
       devShells.${system}.default = pkgs.mkShell {
         packages = [ pkgs.go pkgs.gopls ];

@@ -66,7 +66,41 @@ in
 
     kiosk.enable = mkEnableOption "touch kiosk on the built-in screen" // { default = true; };
 
-    camera.enable = mkEnableOption "front camera (patched kernel modules + libcamera relay) with a live preview in the kiosk corner";
+    camera = {
+      enable = mkEnableOption "front camera (patched kernel modules + webcam relay) with a live preview in the kiosk corner";
+
+      backend = mkOption {
+        type = types.enum [ "rgbir" "libcamera" ];
+        default = "rgbir";
+        description = ''
+          How raw sensor frames become a webcam.
+          `rgbir`: duet-camera (camera/), which treats the sensor as the RGB-IR
+          part it is: rebuilds R/G/B, subtracts infrared, then auto white
+          balance, colour matrix, gamma and auto exposure.
+          `libcamera`: libcamera's software ISP via GStreamer. It reads the
+          sensor as plain Bayer, which gives the yellow-green tint; kept as a
+          fallback.
+        '';
+      };
+
+      tuning = mkOption {
+        type = types.attrsOf types.anything;
+        default = { };
+        example = {
+          cfa = "GIGI/RGBG/GIGI/BGRG";
+          irCoeffs = [ 1.0 0.9 1.1 ];
+          flipV = true;
+        };
+        description = ''
+          Overrides for the rgbir pipeline, written to /etc/duet-camera.json.
+          Keys: sensor, capture, width, height, outWidth, outHeight, cfa,
+          blackLevel, whiteLevel, irCoeffs, ccm, awbGains, saturation, flipH,
+          flipV, aeTarget, maxGain, antiFlicker. Defaults are in
+          camera/config.go. Try values live first in
+          /var/lib/duet-camera/tuning.json + `systemctl reload duet-camera-relay`.
+        '';
+      };
+    };
 
     dashboard = {
       listen = mkOption {

@@ -200,33 +200,111 @@ toolchains should come from each project's own `nix develop` shell instead of sy
 1. Builds three patched kernel modules (`ipu-bridge`, `ov5675`, `intel_skl_int3472_discrete`) from the running kernel's
    source, so the front OVTI5678 sensor is recognised. The patch is `pkgs/camera-yoga-duet-ov5678.patch`; it
    is applied with zero fuzz, so a kernel bump that moves the code fails the build instead of misapplying.
-2. Runs `duet-camera-relay`: libcamera -> GStreamer -> a v4l2loopback webcam named "Duet Front Camera" (`/dev/video64`).
-   Chromium cannot use the raw IPU nodes, only this webcam.
+2. Runs `duet-camera-relay`, which turns raw sensor frames into a v4l2loopback webcam named "Duet Front Camera"
+   (`/dev/video64`). Chromium cannot use the raw IPU nodes, only this webcam.
 3. Shows that webcam as a small live tile at the bottom of the kiosk's side panel. Tap it to turn the camera off (it is released) and on again.
    Chromium's policy lets only the local dashboard use the camera, and the microphone is blocked.
 
-Apply it (this compiles the three modules, a minute or two), then **reboot** so the new modules load:
+### Why the picture was yellow-green, and what fixes it
+
+The front camera is an **RGB-IR** sensor (Lenovo: "IR + RGB hybrid", the same chip does the Windows Hello IR image).
+Its colour filter repeats every 4x4 pixels and has **infrared pixels** where an ordinary camera has blue:
+
+```
+B G R G
+G I G I      I = infrared
+R G B G
+G I G I
+```
+
+The kernel driver reports it as an ordinary 2x2 Bayer sensor, and libcamera has no RGB-IR support. So libcamera
+reads the infrared pixels as "blue" and averages red and blue together as "red". No colour tuning can undo that,
+which is why it looked yellow-green on both installs.
+
+Windows gets it right because the IPU's hardware ISP, driven by Lenovo's tuning file, rebuilds R, G, B and IR,
+subtracts the infrared that leaks into the colour pixels, then runs auto exposure, white balance, a colour matrix and gamma.
+`duet-camera` (Go, in `camera/`) does those same steps on the CPU: raw frames from the IPU6 capture node in,
+1280x720 YUYV out. It is the default (`duet.camera.backend = "rgbir"`); `"libcamera"` brings back the old path.
+
+### Apply, then calibrate once
+
+This compiles the three modules (a minute or two). **Reboot** so the new modules load:
 
 ```bash
 cd ~/yoda-duet-7-home-server && git pull
+```
+
+```bash
 nixos-rebuild boot --flake .#duet --sudo
+```
+
+```bash
 reboot
 ```
 
 Check, in this order, and stop at the first failure (send me the output):
 
 ```bash
-ls /sys/bus/acpi/devices | grep -i OVTI          # the sensor: expect OVTI5678:00 (see the caveat below)
+cat /sys/class/dmi/id/product_version            # 13ITL6 (or "Yoga Duet 7 13ITL6")
+ls /sys/bus/acpi/devices | grep -i OVTI          # the sensor: OVTI5678:00
 journalctl -k -b | grep -iE 'ipu|ov5675|int3472' # the driver bound, no "probe failed"
-cam -l                                           # libcamera lists a camera
-systemctl status duet-camera-relay               # active (running)
+duet-camera probe                                # the media graph and the pipeline the relay uses
+systemctl status duet-camera-relay               # active (running), logs fps / exposure / white balance
 duet-camera-check                                # PASS: webcam is delivering a non-black image
 ```
+
+**The one thing that must be calibrated on the real laptop is which corner of the 4x4 tile the pattern starts in**
+(it depends on the sensor's crop and how it is mounted). Point the camera at something with clear red **and**
+blue (a book cover, a towel), then:
+
+```bash
+sudo duet-camera-snapshot
+```
+
+```bash
+duet-camera analyze -out ~/cfa "$(ls -t /var/lib/duet-camera/snapshots/*.raw16 | head -n 1)"
+```
+
+(If the relay won't start, take the raw frame with libcamera instead and analyze that file:
+`sudo systemctl stop duet-camera-relay && cam -c1 --stream role=raw,width=2592,height=1944 -C4 --file=/tmp/raw#.bin`.)
+
+It prints the brightness of each of the 16 tile positions (the IR ones are clearly darker indoors), marks the
+layouts whose IR position matches with `*`, and writes one PNG per layout into `~/cfa`. Copy them to your
+PC (`scp -r alex@duet.local:cfa .`) and pick the one where red is red and blue is blue. Its layout goes in
+`hosts/duet/default.nix`:
+
+```nix
+camera.tuning = {
+  cfa = "GIGI/RGBG/GIGI/BGRG"; # the layout from the file name of the good PNG
+};
+```
+
+To try a value without rebuilding, write it to the live overlay and reload (the kiosk updates in a second):
+
+```bash
+echo '{"cfa":"GIGI/RGBG/GIGI/BGRG"}' | sudo tee /var/lib/duet-camera/tuning.json
+```
+
+```bash
+sudo systemctl reload duet-camera-relay && journalctl -u duet-camera-relay -n 3
+```
+
+Other knobs, same way (defaults in `camera/config.go`):
+
+| Key | What it does |
+|---|---|
+| `irCoeffs` | `[r, g, b]`: how much of the IR pixel to subtract from each colour. Raise if colours look washed out/pinkish under sunlight or halogen, lower if shadows turn green/black. |
+| `ccm` | 3x3 colour matrix (row-major), after white balance. Identity by default. |
+| `awbGains` | `[r, g, b]` to lock white balance; `null` = automatic. |
+| `saturation` | 1.0 = as is. |
+| `flipH`, `flipV` | Rotate/mirror in software (the kiosk tile already mirrors like a selfie camera). |
+| `aeTarget`, `maxGain`, `antiFlicker` | Brightness target (0.18), gain ceiling (8x), mains frequency for flicker-free exposure (50 Hz; 60 in the Americas). |
 
 Then `sudo systemctl restart cage-tty1` (or reboot) and the tile appears. "No camera found" on the tile
 means the relay or the device is missing; the dashboard's **Camera** tile dot shows the relay's state.
 
-**Caveat, honestly:** this patch was written for the Duet 7 **13ITL6** (Tiger Lake, IPU6). Your machine is the
-**13IML05** (Comet Lake, which has the older IPU3). The patched files and libcamera's `ipu3` pipeline are
-shared, so it may work unchanged, but that is unverified. If the first line prints a different ID than
-`OVTI5678`, or `cam -l` is empty, send me those outputs rather than debugging blind.
+### Later: the Windows colour matrix
+
+Lenovo's Windows camera driver for the 13ITL6 contains the sensor's tuning file (`.aiqb`) with colour matrices
+measured in a lab. Once the layout above is right, those numbers can be extracted into `ccm`
+for colour as close to Windows as this pipeline gets. That's a separate step.

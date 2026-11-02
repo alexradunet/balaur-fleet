@@ -27,8 +27,10 @@
     # create a new user and drop yours, so set it before the first rebuild.
     user = "alex";
 
-    # Front camera + live preview in the kiosk corner (patched kernel modules, see pkgs/camera-modules.nix).
+    # Front camera + live preview in the kiosk corner (patched kernel modules + the RGB-IR pipeline in camera/).
     camera.enable = true;
+    # After the one-time calibration in docs/SETUP.md (Stage 10), pin the layout you picked:
+    # camera.tuning.cfa = "BGRG/GIGI/RGBG/GIGI";
     # SSH uses your account password for now. Later: add sshKeys, set ssh.passwordAuth = false.
     # sshKeys = [ "ssh-ed25519 AAAA... you@laptop" ];
     # network.tailscale.authKeyFile = "/var/lib/secrets/tailscale-authkey";

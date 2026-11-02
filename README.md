@@ -1,7 +1,6 @@
-| Kiosk corner (opt-in `duet.camera.enable`) | Live front-camera preview at the bottom of the side panel; tap it to switch the camera off/on. Kiosk only: the camera is never streamed to the LAN. |
 # Yoga Duet 7 home server
 
-An opinionated, fully declarative NixOS home server for the **Lenovo Yoga Duet 7i (13IML05)**.
+An opinionated, fully declarative NixOS home server for the **Lenovo Yoga Duet 7 (13ITL6)**.
 The detachable-tablet laptop becomes an appliance: the built-in touchscreen is a kiosk
 dashboard, the same dashboard is a launcher for every device on your LAN, and the battery
 is the UPS.
@@ -16,9 +15,9 @@ modules/                  the opinions
   dev.nix                 Claude Code + pi + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep
   dashboard.nix           Go service on :80, tiles registered by the modules above
   kiosk.nix               Cage + Chromium on the built-in screen
-  camera.nix              Front camera: patched kernel modules + libcamera relay (opt-in: duet.camera.enable)
-  camera.nix              Front camera: patched kernel modules + libcamera relay (preview in the kiosk corner)
+  camera.nix              Front camera: patched kernel modules + RGB-IR relay (opt-in: duet.camera.enable)
 dashboard/                Go (stdlib only) backend + embedded HTML/CSS/JS frontend
+camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 frames -> webcam
 ```
 
 ## What you get
