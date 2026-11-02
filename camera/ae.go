@@ -68,15 +68,16 @@ func (a *AE) String() string {
 }
 
 // Update runs every few frames (the sensor applies new values with a delay).
-func (a *AE) Update(meanG, clipFrac float64, frameDur time.Duration) {
+// meanY is the raw sensor level (Stats.MeanY), not the processed colour.
+func (a *AE) Update(meanY, clipFrac float64, frameDur time.Duration) {
 	a.frames++
 	if a.Disabled != "" || a.frames%4 != 0 {
 		return
 	}
-	if meanG < 1e-4 {
-		meanG = 1e-4
+	if meanY < 1e-4 {
+		meanY = 1e-4
 	}
-	ratio := a.cfg.AETarget / meanG
+	ratio := a.cfg.AETarget / meanY
 	if clipFrac > 0.02 && ratio > 0.85 {
 		ratio = 0.85 // highlights blowing out: back off even if the mean looks fine
 	}

@@ -299,9 +299,41 @@ Other knobs, same way (defaults in `camera/config.go`):
 | `saturation` | 1.0 = as is. |
 | `flipH`, `flipV` | Rotate/mirror in software (the kiosk tile already mirrors like a selfie camera). |
 | `aeTarget`, `maxGain`, `antiFlicker` | Brightness target (0.18), gain ceiling (8x), mains frequency for flicker-free exposure (50 Hz; 60 in the Americas). |
+| `view` | `"color"` (default); `"raw"`: grey picture straight from the sensor, no layout/IR/colour processing; `"noir"`: colour without IR subtraction. |
 
 Then `sudo systemctl restart cage-tty1` (or reboot) and the tile appears. "No camera found" on the tile
 means the relay or the device is missing; the dashboard's **Camera** tile dot shows the relay's state.
+
+### If the tile is black
+
+Look at what the relay says about its first frames:
+
+```bash
+journalctl -u duet-camera-relay -b --no-pager | tail -n 40
+```
+
+- **Restarting over and over / an error on every start**: the relay can't set up or start the capture. Send that output
+  plus `duet-camera probe`.
+- **"no signal (all pixels at or below black level)"**: frames arrive but are empty: a capture or exposure problem, not colour.
+- **"WARNING cfa ... puts IR where the statistics see colour"**: the layout is wrong, so infrared subtraction is
+  erasing the picture. Try the candidate it names (overlay below) or calibrate as above.
+
+Two quick checks without rebuilding:
+
+```bash
+echo '{"view":"raw"}' | sudo tee /var/lib/duet-camera/tuning.json && sudo systemctl reload duet-camera-relay
+```
+
+A grey but properly exposed picture means capture works and only the colour settings are off.
+
+```bash
+echo '{"view":"noir"}' | sudo tee /var/lib/duet-camera/tuning.json && sudo systemctl reload duet-camera-relay
+```
+
+Colour without infrared subtraction: if this shows a picture and `"color"` doesn't, the layout or `irCoeffs` is the problem.
+Remove the overlay afterwards with `sudo rm /var/lib/duet-camera/tuning.json && sudo systemctl reload duet-camera-relay`.
+
+As a stop-gap, `duet.camera.backend = "libcamera";` in `hosts/duet/default.nix` brings back the old (tinted) picture.
 
 ### Later: the Windows colour matrix
 

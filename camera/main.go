@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -109,7 +110,7 @@ func cmdRun(args []string) error {
 	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGUSR1, syscall.SIGTERM, syscall.SIGINT)
 
 	var lastTs, frameDur time.Duration
-	var frames int
+	var frames, total int
 	var busy time.Duration
 	lastLog := time.Now()
 	snapshot := false
@@ -124,7 +125,7 @@ func cmdRun(args []string) error {
 					log.Printf("reload: %v (keeping the old tuning)", err)
 				} else {
 					cfg = c
-					log.Printf("reloaded tuning: cfa %s, ir %v, ccm %v", proc.cfa, cfg.IRCoeffs, cfg.CCM)
+					log.Printf("reloaded tuning: view %s, cfa %s, ir %v, ccm %v", cfg.View, proc.cfa, cfg.IRCoeffs, cfg.CCM)
 				}
 			case syscall.SIGUSR1:
 				snapshot = true
@@ -162,9 +163,14 @@ func cmdRun(args []string) error {
 			return fmt.Errorf("write %s: %w", *output, err)
 		}
 		proc.UpdateAWB(st)
-		ae.Update(st.MeanG(), st.ClipFrac(), frameDur)
+		ae.Update(st.MeanY(), st.ClipFrac(), frameDur)
 		busy += time.Since(start)
 		frames++
+		total++
+		// Once at the first frame and again when exposure has had ~3 s to settle.
+		if total == 1 || total == 90 {
+			logDiagnostics(total, raw, proc, &cfg, ae)
+		}
 
 		if snapshot {
 			snapshot = false
@@ -174,11 +180,41 @@ func cmdRun(args []string) error {
 		}
 		if since := time.Since(lastLog); since >= 30*time.Second {
 			g := proc.Gains()
-			log.Printf("%.1f fps (sensor %.1f), %.1f ms/frame, mean %.3f, clipped %.1f%%, awb %.2f/%.2f/%.2f, %s",
+			log.Printf("%.1f fps (sensor %.1f), %.1f ms/frame, raw level %.3f, green %.3f, clipped %.1f%%, awb %.2f/%.2f/%.2f, %s",
 				float64(frames)/since.Seconds(), 1/math.Max(frameDur.Seconds(), 1e-6),
-				busy.Seconds()*1000/float64(frames), st.MeanG(), st.ClipFrac()*100, g[0], g[1], g[2], ae)
+				busy.Seconds()*1000/float64(frames), st.MeanY(), st.MeanG(), st.ClipFrac()*100, g[0], g[1], g[2], ae)
 			frames, busy, lastLog = 0, 0, time.Now()
 		}
+	}
+}
+
+// logDiagnostics tells "no signal" (raw level ~0: capture/format/exposure)
+// apart from "wrong layout" (IR position in the statistics doesn't match cfa).
+func logDiagnostics(n int, raw *RawFrame, proc *Processor, cfg *Config, ae *AE) {
+	lo, hi, sum := uint16(0xffff), uint16(0), 0.0
+	for _, v := range raw.Pix {
+		lo, hi = min(lo, v), max(hi, v)
+		sum += float64(v)
+	}
+	log.Printf("frame %d: raw min %d / mean %.1f / max %d (black %v, white %v), %s, view %s",
+		n, lo, sum/float64(len(raw.Pix)), hi, cfg.BlackLevel, cfg.WhiteLevel, ae, cfg.View)
+	if float64(hi) <= cfg.BlackLevel+4 {
+		log.Printf("frame %d: the sensor delivers no signal (all pixels at or below black level): capture or exposure problem, not colour", n)
+		return
+	}
+	a := analyzeRaw(raw, cfg.BlackLevel)
+	for _, line := range strings.Split(strings.TrimRight(a.text, "\n"), "\n") {
+		log.Printf("frame %d: %s", n, line)
+	}
+	if a.irX >= 0 && !a.matches(proc.cfa) {
+		var ok []string
+		for _, c := range candidateCFAs() {
+			if a.matches(c) {
+				ok = append(ok, c.String())
+			}
+		}
+		log.Printf("frame %d: WARNING cfa %s puts IR where the statistics see colour; IR subtraction will darken or blacken the image. Candidates: %s (calibrate: docs/SETUP.md Stage 10)",
+			n, proc.cfa, strings.Join(ok, " or "))
 	}
 }
 

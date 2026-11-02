@@ -95,7 +95,7 @@ in
           Overrides for the rgbir pipeline, written to /etc/duet-camera.json.
           Keys: sensor, capture, width, height, outWidth, outHeight, cfa,
           blackLevel, whiteLevel, irCoeffs, ccm, awbGains, saturation, flipH,
-          flipV, aeTarget, maxGain, antiFlicker. Defaults are in
+          flipV, view (color/raw/noir), aeTarget, maxGain, antiFlicker. Defaults are in
           camera/config.go. Try values live first in
           /var/lib/duet-camera/tuning.json + `systemctl reload duet-camera-relay`.
         '';

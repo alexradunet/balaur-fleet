@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 	"unsafe"
@@ -312,5 +315,89 @@ func TestAnalyzeCommand(t *testing.T) {
 	pngs, _ := filepath.Glob(path + ".cfa-*.png")
 	if len(pngs) != 8 {
 		t.Fatalf("want 8 candidate images, got %v", pngs)
+	}
+}
+
+// A wrong layout puts "IR" on bright colour pixels; the subtraction then
+// blackens the image. Exposure must still see the real scene level.
+func TestMeanYIgnoresLayoutAndIR(t *testing.T) {
+	scene := flat([4]float64{0.2, 0.2, 0.2, 0.05})
+	f := mosaic("BGRG/GIGI/RGBG/GIGI", 2592, 1944, 1, scene)
+	want := (0.2+0.05)*3/4 + 0.05/4 // cell mean: 3 colour pixels with leak + 1 IR pixel
+	for _, cfa := range []string{"BGRG/GIGI/RGBG/GIGI", "GIGI/BGRG/GIGI/RGBG", "IGIG/GRGB/IGIG/GBGR"} {
+		for _, view := range []string{"color", "raw", "noir"} {
+			cfg := testConfig(cfa)
+			cfg.View = view
+			p, err := NewProcessor(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			st := p.Frame(f, 1280, 720, make([]byte, 1280*720*2))
+			if math.Abs(st.MeanY()-want) > 0.005 {
+				t.Errorf("cfa %s view %s: MeanY %.3f, want %.3f", cfa, view, st.MeanY(), want)
+			}
+		}
+	}
+}
+
+func TestRawViewIsGrey(t *testing.T) {
+	const cfa = "BGRG/GIGI/RGBG/GIGI"
+	f := mosaic(cfa, 2592, 1944, 1, flat([4]float64{0.6, 0.1, 0.05, 0.3})) // strongly coloured
+	cfg := testConfig("GIGI/BGRG/GIGI/RGBG")                               // and the wrong layout
+	cfg.View = "raw"
+	p, _ := NewProcessor(cfg)
+	out := make([]byte, 1280*720*2)
+	st := p.Frame(f, 1280, 720, out)
+	if absDiff(out[1], 128) > 1 || absDiff(out[3], 128) > 1 {
+		t.Fatalf("raw view should be grey, U=%d V=%d", out[1], out[3])
+	}
+	if out[0] < 60 {
+		t.Fatalf("raw view should show the scene level %.2f, luma %d", st.MeanY(), out[0])
+	}
+	cfg.View = "sepia"
+	if err := cfg.validate(); err == nil {
+		t.Fatal("unknown view should be rejected")
+	}
+}
+
+func TestNoirViewSkipsIRSubtraction(t *testing.T) {
+	const cfa = "BGRG/GIGI/RGBG/GIGI"
+	f := mosaic(cfa, 32, 24, 1, flat([4]float64{0.2, 0.2, 0.2, 0.3}))
+	cfg := testConfig(cfa)
+	cfg.View = "noir"
+	p, _ := NewProcessor(cfg)
+	_, g, _, _, _ := p.cell(f, 4, 4)
+	if math.Abs(float64(g)-0.5) > 0.005 {
+		t.Fatalf("noir keeps the IR in green: got %.3f want 0.5", g)
+	}
+}
+
+func TestDiagnosticsExplainBlack(t *testing.T) {
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	defer log.SetOutput(os.Stderr)
+	cfg := testConfig("BGRG/GIGI/RGBG/GIGI")
+	p, _ := NewProcessor(cfg)
+	ae := &AE{Disabled: "test"}
+
+	dark := newRawFrame(64, 48)
+	for i := range dark.Pix {
+		dark.Pix[i] = 64
+	}
+	logDiagnostics(1, dark, p, &cfg, ae)
+	if !strings.Contains(buf.String(), "no signal") {
+		t.Fatalf("an all-black frame should be reported as no signal:\n%s", buf.String())
+	}
+
+	buf.Reset()
+	f := mosaic("GIGI/RGBG/GIGI/BGRG", 64, 48, 1, func(cx, cy int) [4]float64 {
+		if cx < 16 {
+			return [4]float64{0.7, 0.3, 0.1, 0.05}
+		}
+		return [4]float64{0.1, 0.3, 0.7, 0.05}
+	})
+	logDiagnostics(90, f, p, &cfg, ae)
+	if !strings.Contains(buf.String(), "WARNING cfa BGRG/GIGI/RGBG/GIGI") || !strings.Contains(buf.String(), "GIGI/RGBG/GIGI/BGRG") {
+		t.Fatalf("a wrong layout should be flagged with the right candidates:\n%s", buf.String())
 	}
 }

@@ -23,6 +23,7 @@ type Processor struct {
 	sat          float32
 	gains        [3]float32
 	lut          [lutSize]uint8
+	rawView      bool
 }
 
 const lutSize = 4096
@@ -30,7 +31,8 @@ const lutSize = 4096
 // Stats are gathered on a subsample of each frame, before white balance.
 type Stats struct {
 	SumR, SumG, SumB float64
-	N                int // unclipped samples
+	N                int     // unclipped samples
+	SumY             float64 // raw cell mean (all 4 pixels): independent of the CFA layout and IR tuning
 	Clipped, Total   int
 }
 
@@ -38,6 +40,7 @@ func (s *Stats) add(o Stats) {
 	s.SumR += o.SumR
 	s.SumG += o.SumG
 	s.SumB += o.SumB
+	s.SumY += o.SumY
 	s.N += o.N
 	s.Clipped += o.Clipped
 	s.Total += o.Total
@@ -48,6 +51,15 @@ func (s Stats) MeanG() float64 {
 		return 0
 	}
 	return s.SumG / float64(s.N)
+}
+
+// MeanY is what auto exposure steers on: the plain sensor level, so a wrong
+// layout or IR coefficient can't drive exposure to its limits.
+func (s Stats) MeanY() float64 {
+	if s.Total == 0 {
+		return 0
+	}
+	return s.SumY / float64(s.Total)
 }
 
 func (s Stats) ClipFrac() float64 {
@@ -82,7 +94,11 @@ func (p *Processor) Reconfigure(cfg Config) error {
 	p.scale = float32(1 / (cfg.WhiteLevel - cfg.BlackLevel))
 	for i := range p.ir {
 		p.ir[i] = float32(cfg.IRCoeffs[i])
+		if cfg.View == "noir" {
+			p.ir[i] = 0
+		}
 	}
+	p.rawView = cfg.View == "raw"
 	for i := range p.ccm {
 		p.ccm[i] = float32(cfg.CCM[i])
 	}
@@ -102,6 +118,31 @@ func (p *Processor) at(f *RawFrame, x, y int) float32 {
 }
 
 const clipLevel = 0.97
+
+// cellMean is the black-subtracted mean of a cell's four pixels.
+func (p *Processor) cellMean(f *RawFrame, cx, cy int) float32 {
+	i := 2*cy*f.W + 2*cx
+	s := float32(f.Pix[i]) + float32(f.Pix[i+1]) + float32(f.Pix[i+f.W]) + float32(f.Pix[i+f.W+1])
+	return (s*0.25 - p.black) * p.scale
+}
+
+// shade is one output pixel plus what the statistics need. In the "raw" view
+// it is the grey cell mean, untouched by layout, IR, white balance or CCM.
+func (p *Processor) shade(f *RawFrame, cx, cy int, st *Stats) (uint8, uint8, uint8) {
+	if p.rawView {
+		y := p.cellMean(f, cx, cy)
+		if st != nil {
+			st.sample(y, y, y, y, y >= clipLevel)
+		}
+		v := p.lut[p.lutIndex(y)]
+		return v, v, v
+	}
+	r, g, b, _, clipped := p.cell(f, cx, cy)
+	if st != nil {
+		st.sample(r, g, b, p.cellMean(f, cx, cy), clipped)
+	}
+	return p.finish(r, g, b, clipped)
+}
 
 // cell rebuilds linear R, G, B (infrared already subtracted) and IR for one
 // 2x2 cell. Green is the mean of the cell's two greens. The cell has red or
@@ -189,8 +230,9 @@ func (p *Processor) finish(r, g, b float32, clipped bool) (uint8, uint8, uint8) 
 	return p.lut[p.lutIndex(R)], p.lut[p.lutIndex(G)], p.lut[p.lutIndex(B)]
 }
 
-func (st *Stats) sample(r, g, b float32, clipped bool) {
+func (st *Stats) sample(r, g, b, y float32, clipped bool) {
 	st.Total++
+	st.SumY += float64(y)
 	if clipped {
 		st.Clipped++
 		return
@@ -226,11 +268,11 @@ func (p *Processor) Frame(f *RawFrame, outW, outH int, yuyv []byte) Stats {
 				var rgb [2][3]int32
 				for k := 0; k < 2; k++ {
 					cx, cy := p.source(f, outW, outH, x+k, y)
-					r, g, b, _, clipped := p.cell(f, cx, cy)
+					var s *Stats
 					if sampleRow && (x+k)%4 == 0 {
-						st.sample(r, g, b, clipped)
+						s = st
 					}
-					R, G, B := p.finish(r, g, b, clipped)
+					R, G, B := p.shade(f, cx, cy, s)
 					rgb[k] = [3]int32{int32(R), int32(G), int32(B)}
 				}
 				y0 := 16 + (66*rgb[0][0]+129*rgb[0][1]+25*rgb[0][2]+128)>>8
@@ -266,8 +308,7 @@ func (p *Processor) Measure(f *RawFrame) Stats {
 	parallel(ch/4, func(lo, hi, w int) {
 		for y := lo * 4; y < hi*4; y += 4 {
 			for x := 0; x < cw; x += 4 {
-				r, g, b, _, clipped := p.cell(f, x, y)
-				perWorker[w].sample(r, g, b, clipped)
+				p.shade(f, x, y, &perWorker[w])
 			}
 		}
 	})
@@ -288,7 +329,7 @@ func awbTarget(s Stats) ([3]float32, bool) {
 
 // UpdateAWB moves the gains a step towards grey world (unless fixed in config).
 func (p *Processor) UpdateAWB(s Stats) {
-	if p.cfg.AWBGains != nil {
+	if p.cfg.AWBGains != nil || p.rawView {
 		return
 	}
 	t, ok := awbTarget(s)
@@ -318,8 +359,7 @@ func (p *Processor) Image(f *RawFrame) *image.RGBA {
 		for y := lo; y < hi; y++ {
 			for x := 0; x < cw; x++ {
 				cx, cy := p.source(f, cw, ch, x, y)
-				r, g, b, _, clipped := p.cell(f, cx, cy)
-				R, G, B := p.finish(r, g, b, clipped)
+				R, G, B := p.shade(f, cx, cy, nil)
 				img.SetRGBA(x, y, color.RGBA{R, G, B, 255})
 			}
 		}

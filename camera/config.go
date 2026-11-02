@@ -30,8 +30,11 @@ type Config struct {
 	Saturation float64     `json:"saturation"`
 	FlipH      bool        `json:"flipH"`
 	FlipV      bool        `json:"flipV"`
+	// "color" (default); "raw" = grey cell mean, no layout/IR/colour processing
+	// (shows whether capture and exposure work); "noir" = colour, no IR subtraction.
+	View string `json:"view"`
 
-	AETarget    float64 `json:"aeTarget"`    // mean linear green to aim for
+	AETarget    float64 `json:"aeTarget"`    // mean linear sensor level to aim for
 	MaxGain     float64 `json:"maxGain"`     // analogue gain ceiling, in multiples of 1x
 	AntiFlicker int     `json:"antiFlicker"` // mains frequency in Hz (50/60), 0 = off
 }
@@ -49,6 +52,7 @@ func defaultConfig() Config {
 		IRCoeffs:    [3]float64{1, 1, 1},
 		CCM:         [9]float64{1, 0, 0, 0, 1, 0, 0, 0, 1},
 		Saturation:  1,
+		View:        "color",
 		AETarget:    0.18,
 		MaxGain:     8,
 		AntiFlicker: 50,
@@ -91,6 +95,8 @@ func (c *Config) validate() error {
 		return err
 	}
 	switch {
+	case c.View != "color" && c.View != "raw" && c.View != "noir":
+		return fmt.Errorf("view %q: want color, raw or noir", c.View)
 	case c.Width%4 != 0 || c.Height%4 != 0 || c.Width <= 0 || c.Height <= 0:
 		return fmt.Errorf("sensor size %dx%d must be a positive multiple of 4", c.Width, c.Height)
 	case c.OutWidth%2 != 0 || c.OutWidth > c.Width/2 || c.OutHeight > c.Height/2 || c.OutWidth <= 0 || c.OutHeight <= 0:
