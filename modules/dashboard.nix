@@ -14,6 +14,7 @@ let
     hostname = config.networking.hostName;
     listen = cfg.dashboard.listen;
     services = map (s: s // { port = if s.port == null then 0 else s.port; }) sorted;
+    camera = cfg.camera.enable;
   });
 in
 {

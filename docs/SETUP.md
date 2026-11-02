@@ -192,3 +192,41 @@ git add flake.lock && git commit -m "Bump agents"
 
 `gh`, `ripgrep`, `fd`, `tree` and Node are installed system-wide. Per-project compilers and
 toolchains should come from each project's own `nix develop` shell instead of system packages.
+
+## Stage 10: Front camera in the kiosk corner
+
+`duet.camera.enable = true` (already set in `hosts/duet/default.nix`) does three things:
+
+1. Builds three patched kernel modules (`ipu-bridge`, `ov5675`, `intel_skl_int3472_discrete`) from the running kernel's
+   source, so the front OVTI5678 sensor is recognised. The patch is `pkgs/camera-yoga-duet-ov5678.patch`; it
+   is applied with zero fuzz, so a kernel bump that moves the code fails the build instead of misapplying.
+2. Runs `duet-camera-relay`: libcamera -> GStreamer -> a v4l2loopback webcam named "Duet Front Camera" (`/dev/video64`).
+   Chromium cannot use the raw IPU nodes, only this webcam.
+3. Shows that webcam as a small live tile at the bottom of the kiosk's side panel. Tap it to turn the camera off (it is released) and on again.
+   Chromium's policy lets only the local dashboard use the camera, and the microphone is blocked.
+
+Apply it (this compiles the three modules, a minute or two), then **reboot** so the new modules load:
+
+```bash
+cd ~/yoda-duet-7-home-server && git pull
+nixos-rebuild boot --flake .#duet --sudo
+reboot
+```
+
+Check, in this order, and stop at the first failure (send me the output):
+
+```bash
+ls /sys/bus/acpi/devices | grep -i OVTI          # the sensor: expect OVTI5678:00 (see the caveat below)
+journalctl -k -b | grep -iE 'ipu|ov5675|int3472' # the driver bound, no "probe failed"
+cam -l                                           # libcamera lists a camera
+systemctl status duet-camera-relay               # active (running)
+duet-camera-check                                # PASS: webcam is delivering a non-black image
+```
+
+Then `sudo systemctl restart cage-tty1` (or reboot) and the tile appears. "No camera found" on the tile
+means the relay or the device is missing; the dashboard's **Camera** tile dot shows the relay's state.
+
+**Caveat, honestly:** this patch was written for the Duet 7 **13ITL6** (Tiger Lake, IPU6). Your machine is the
+**13IML05** (Comet Lake, which has the older IPU3). The patched files and libcamera's `ipu3` pipeline are
+shared, so it may work unchanged, but that is unverified. If the first line prints a different ID than
+`OVTI5678`, or `cam -l` is empty, send me those outputs rather than debugging blind.

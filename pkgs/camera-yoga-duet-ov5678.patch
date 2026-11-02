@@ -1,0 +1,104 @@
+--- a/drivers/media/i2c/ov5675.c
++++ b/drivers/media/i2c/ov5675.c
+@@ -1355,6 +1355,7 @@
+ #ifdef CONFIG_ACPI
+ static const struct acpi_device_id ov5675_acpi_ids[] = {
+ 	{"OVTI5675"},
++	{"OVTI5678"},
+ 	{}
+ };
+ 
+--- a/drivers/media/pci/intel/ipu-bridge.c
++++ b/drivers/media/pci/intel/ipu-bridge.c
+@@ -88,6 +88,8 @@
+ 	IPU_SENSOR_CONFIG("OVTIDB10", 1, 560000000),
+ 	/* Omnivision OV2680 */
+ 	IPU_SENSOR_CONFIG("OVTI2680", 1, 331200000),
++	/* Omnivision OV5675-compatible OV5678 */
++	IPU_SENSOR_CONFIG("OVTI5678", 1, 450000000),
+ 	/* Omnivision OV8856 */
+ 	IPU_SENSOR_CONFIG("OVTI8856", 3, 180000000, 360000000, 720000000),
+ 	/* Toshiba T4KA3 */
+--- a/drivers/platform/x86/intel/int3472/discrete.c
++++ b/drivers/platform/x86/intel/int3472/discrete.c
+@@ -164,6 +164,20 @@
+ 		.con_id = "dvdd",
+ 		.enable_time_us = 45 * USEC_PER_MSEC,
+ 	},
++	{	/* OVTI5678 firmware type 0x0f controls AVDD */
++		.hid = "OVTI5678",
++		.type_from = INT3472_GPIO_TYPE_AVDD,
++		.type_to = INT3472_GPIO_TYPE_POWER_ENABLE,
++		.con_id = "avdd",
++		.enable_time_us = GPIO_REGULATOR_ENABLE_TIME,
++	},
++	{	/* OVTI5678 firmware type 0x11 controls DVDD */
++		.hid = "OVTI5678",
++		.type_from = INT3472_GPIO_TYPE_DVDD,
++		.type_to = INT3472_GPIO_TYPE_HANDSHAKE,
++		.con_id = "dvdd",
++		.enable_time_us = GPIO_REGULATOR_ENABLE_TIME,
++	},
+ };
+ 
+ static void int3472_get_con_id_and_polarity(struct int3472_discrete_device *int3472, u8 *type,
+@@ -223,6 +237,10 @@
+ 		*con_id = "avdd";
+ 		*gpio_flags = GPIO_ACTIVE_HIGH;
+ 		break;
++	case INT3472_GPIO_TYPE_DOVDD:
++		*con_id = "dovdd";
++		*gpio_flags = GPIO_ACTIVE_HIGH;
++		break;
+ 	case INT3472_GPIO_TYPE_HANDSHAKE:
+ 		*con_id = "dvdd";
+ 		*gpio_flags = GPIO_ACTIVE_HIGH;
+@@ -251,6 +269,9 @@
+  * 0x0b Power enable
+  * 0x0c Clock enable
+  * 0x0d Privacy LED
++ * 0x0f AVDD on OVTI5678
++ * 0x10 DOVDD
++ * 0x11 DVDD on OVTI5678
+  * 0x13 Hotplug detect
+  *
+  * There are some known platform specific quirks where that does not quite
+@@ -332,6 +353,7 @@
+ 	case INT3472_GPIO_TYPE_CLK_ENABLE:
+ 	case INT3472_GPIO_TYPE_PRIVACY_LED:
+ 	case INT3472_GPIO_TYPE_POWER_ENABLE:
++	case INT3472_GPIO_TYPE_DOVDD:
+ 	case INT3472_GPIO_TYPE_HANDSHAKE:
+ 		gpio = skl_int3472_gpiod_get_from_temp_lookup(int3472, agpio, con_id, gpio_flags);
+ 		if (IS_ERR(gpio)) {
+@@ -356,6 +378,7 @@
+ 		case INT3472_GPIO_TYPE_POWER_ENABLE:
+ 			second_sensor = int3472->quirks.avdd_second_sensor;
+ 			fallthrough;
++		case INT3472_GPIO_TYPE_DOVDD:
+ 		case INT3472_GPIO_TYPE_HANDSHAKE:
+ 			ret = skl_int3472_register_regulator(int3472, gpio, enable_time_us,
+ 							     con_id, second_sensor);
+--- a/include/linux/platform_data/x86/int3472.h
++++ b/include/linux/platform_data/x86/int3472.h
+@@ -26,6 +26,9 @@
+ #define INT3472_GPIO_TYPE_POWER_ENABLE				0x0b
+ #define INT3472_GPIO_TYPE_CLK_ENABLE				0x0c
+ #define INT3472_GPIO_TYPE_PRIVACY_LED				0x0d
++#define INT3472_GPIO_TYPE_AVDD					0x0f
++#define INT3472_GPIO_TYPE_DOVDD					0x10
++#define INT3472_GPIO_TYPE_DVDD					0x11
+ #define INT3472_GPIO_TYPE_HANDSHAKE				0x12
+ #define INT3472_GPIO_TYPE_HOTPLUG_DETECT			0x13
+ 
+@@ -33,8 +36,8 @@
+ #define INT3472_MAX_SENSOR_GPIOS				3
+ #define INT3472_MAX_REGULATORS					3
+ 
+-/* E.g. "avdd\0" */
+-#define GPIO_SUPPLY_NAME_LENGTH				5
++/* E.g. "dovdd\0" */
++#define GPIO_SUPPLY_NAME_LENGTH				6
+ /* 12 chars for acpi_dev_name() + "-", e.g. "ABCD1234:00-" */
+ #define GPIO_REGULATOR_NAME_LENGTH				(12 + GPIO_SUPPLY_NAME_LENGTH)
+ /* lower- and upper-case mapping */

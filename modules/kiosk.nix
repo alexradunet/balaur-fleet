@@ -44,6 +44,12 @@ lib.mkIf cfg.kiosk.enable {
       DefaultBrowserSettingEnabled = false;
       MetricsReportingEnabled = false;
       SpellcheckEnabled = false;
+    } // lib.optionalAttrs cfg.camera.enable {
+      # The dashboard shows the front camera; nothing else may use it, and the
+      # microphone stays off.
+      VideoCaptureAllowed = true;
+      VideoCaptureAllowedUrls = [ "http://127.0.0.1" ];
+      AudioCaptureAllowed = false;
     };
   };
 

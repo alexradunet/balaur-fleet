@@ -32,6 +32,8 @@
 
       packages.${system} = {
         inherit dashboard;
+        # The patched camera modules for the kernel the system actually boots (`nix build .#camera-modules` checks the patch still applies).
+        camera-modules = self.nixosConfigurations.duet.config.boot.kernelPackages.callPackage ./pkgs/camera-modules.nix { };
         default = dashboard;
       };
 

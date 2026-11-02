@@ -66,6 +66,8 @@ in
 
     kiosk.enable = mkEnableOption "touch kiosk on the built-in screen" // { default = true; };
 
+    camera.enable = mkEnableOption "front camera (patched kernel modules + libcamera relay) with a live preview in the kiosk corner";
+
     dashboard = {
       listen = mkOption {
         type = types.str;

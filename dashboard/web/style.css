@@ -87,3 +87,21 @@ body.kiosk .clock time { font-size: 2.8rem; }
   .top { flex-wrap: wrap; }
   .clock { margin-left: 0; }
 }
+
+/* Front camera preview: bottom of the side panel (a screen corner), kiosk only. */
+.cam {
+  position: relative; display: block; width: 100%; margin-top: auto; padding: 0;
+  aspect-ratio: 16 / 9; overflow: hidden; border: 1px solid var(--line);
+  border-radius: calc(var(--radius) - 6px); background: #091019; color: var(--muted);
+  font: inherit; cursor: default;
+}
+.cam[hidden] { display: none; }
+.cam video { width: 100%; height: 100%; object-fit: cover; display: block; transform: scaleX(-1); opacity: 0; transition: opacity .25s ease; }
+.cam[data-state="live"] video { opacity: 1; }
+.cam-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 12px; font-size: .85rem; }
+.cam[data-state="live"] .cam-msg { display: none; }
+.cam-tag { position: absolute; left: 8px; bottom: 8px; display: flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; font-size: .75rem; color: var(--text); background: rgba(11, 14, 20, .65); }
+.cam-tag i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.cam[data-state="live"] .cam-tag i { background: var(--ok); }
+.cam[data-state="error"] .cam-tag i { background: var(--bad); }
+.cam[data-state="off"] .cam-tag i { background: var(--muted); }

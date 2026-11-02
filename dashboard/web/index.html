@@ -31,6 +31,12 @@
         <label>Screen <b id="bright-v"></b></label>
         <input type="range" id="bright-r" min="1" max="100" step="1" aria-label="Screen brightness">
       </div>
+
+      <button type="button" class="cam" id="cam" hidden aria-label="Front camera (tap to turn off)">
+        <video id="cam-v" autoplay muted playsinline></video>
+        <span class="cam-msg" id="cam-msg">Camera starting…</span>
+        <span class="cam-tag"><i></i>Front camera</span>
+      </button>
     </aside>
   </main>
 

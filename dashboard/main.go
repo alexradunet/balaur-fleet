@@ -38,6 +38,7 @@ type Config struct {
 	Hostname string    `json:"hostname"`
 	Listen   string    `json:"listen"`
 	Services []Service `json:"services"`
+	Camera   bool      `json:"camera"` // front camera preview enabled (kiosk only)
 }
 
 func loadConfig() Config {

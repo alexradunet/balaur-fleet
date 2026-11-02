@@ -117,6 +117,7 @@ type Status struct {
 	Battery    Battery         `json:"battery"`
 	Brightness Brightness      `json:"brightness"`
 	Services   []ServiceStatus `json:"services"`
+	Camera     bool            `json:"camera"`
 }
 
 func collectStatus(ctx context.Context, cfg Config, s *sampler) Status {
@@ -129,6 +130,7 @@ func collectStatus(ctx context.Context, cfg Config, s *sampler) Status {
 		Battery:    readBattery(),
 		Brightness: readBrightness(),
 		Services:   serviceStates(ctx, cfg.Services),
+		Camera:     cfg.Camera,
 	}
 	st.UptimeSec = readUptime()
 	st.Load = readLoad()

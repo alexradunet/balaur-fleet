@@ -26,6 +26,9 @@
     # An EXISTING login on the Duet (its password is kept as is). If this differed from `whoami`, NixOS would
     # create a new user and drop yours, so set it before the first rebuild.
     user = "alex";
+
+    # Front camera + live preview in the kiosk corner (patched kernel modules, see pkgs/camera-modules.nix).
+    camera.enable = true;
     # SSH uses your account password for now. Later: add sshKeys, set ssh.passwordAuth = false.
     # sshKeys = [ "ssh-ed25519 AAAA... you@laptop" ];
     # network.tailscale.authKeyFile = "/var/lib/secrets/tailscale-authkey";

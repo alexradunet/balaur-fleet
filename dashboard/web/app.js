@@ -82,6 +82,84 @@ slider.addEventListener("change", async () => {
   }
 });
 
+// ---- front camera preview (kiosk only) ----
+// The device is the "Duet Front Camera" webcam that duet-camera-relay exposes;
+// Chromium may not offer the raw IPU nodes, so prefer it by label. Tap the
+// preview to switch it off (the camera is released) and on again.
+const cam = $("cam");
+const camVideo = $("cam-v");
+let camWanted = false;   // the server says a camera is configured (and we are the kiosk)
+let camOn = true;        // user's tap toggle
+let camStream = null;
+let camBusy = false;
+let camRetry = 0;
+
+function camState(state, msg) {
+  cam.dataset.state = state;
+  $("cam-msg").textContent = msg || "";
+}
+
+function camStop(state, msg) {
+  const s = camStream;
+  camStream = null;
+  camVideo.srcObject = null;
+  if (s) s.getTracks().forEach((t) => t.stop());
+  camState(state, msg);
+}
+
+async function camFind() {
+  const devs = await navigator.mediaDevices.enumerateDevices();
+  return devs.find((d) => d.kind === "videoinput" && d.label.toLowerCase().includes("duet front camera"));
+}
+
+async function camStart() {
+  if (camBusy || camStream || !camOn || !camWanted) return;
+  if (!navigator.mediaDevices?.getUserMedia) { camState("error", "Camera not supported"); return; }
+  camBusy = true;
+  if (cam.dataset.state !== "error") camState("starting", "Camera starting…"); // no flicker while retrying
+  let s = null;
+  try {
+    const video = { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } };
+    let dev = await camFind();
+    s = await navigator.mediaDevices.getUserMedia({ audio: false, video: dev ? { ...video, deviceId: { exact: dev.deviceId } } : video });
+    if (!dev) { // labels are only visible after the first grant; switch if Chromium picked another node
+      dev = await camFind();
+      if (dev && dev.deviceId !== s.getVideoTracks()[0]?.getSettings().deviceId) {
+        s.getTracks().forEach((t) => t.stop());
+        s = await navigator.mediaDevices.getUserMedia({ audio: false, video: { ...video, deviceId: { exact: dev.deviceId } } });
+      }
+    }
+    camStream = s;
+    camVideo.srcObject = s;
+    await camVideo.play();
+    s.getVideoTracks()[0]?.addEventListener("ended", () => {
+      if (camStream === s) camStop("error", "Camera stream stopped");
+    }, { once: true });
+    camState("live");
+  } catch (e) {
+    if (s && s !== camStream) s.getTracks().forEach((t) => t.stop());
+    camStop("error", e?.name === "NotFoundError" || e?.name === "OverconstrainedError" ? "No camera found" : "Camera unavailable");
+  } finally {
+    camBusy = false;
+  }
+}
+
+cam.addEventListener("click", () => {
+  camOn = !camOn;
+  if (camOn) camStart();
+  else camStop("off", "Camera off — tap to turn on");
+});
+
+// Called from render(): show the tile once, then keep trying while it is wanted.
+function camSync(enabled) {
+  camWanted = kiosk && !!enabled;
+  cam.hidden = !camWanted;
+  if (camWanted && camOn && !camStream && !camBusy && Date.now() >= camRetry) {
+    camRetry = Date.now() + 10000; // the relay may start after the dashboard
+    camStart();
+  }
+}
+
 // ---- status polling ----
 function render(st) {
   document.title = st.hostname;
@@ -132,6 +210,7 @@ function render(st) {
   }
 
   renderServices(st.services);
+  camSync(st.camera);
 }
 
 let failures = 0;
