@@ -23,9 +23,9 @@
   # boot.loader.efi.efiSysMountPoint = "/boot/efi";   # only if your EFI partition is mounted there
 
   duet = {
-    # Your existing login on the Duet (`whoami`). If this differs, NixOS would
+    # Your existing login on the Duet. If this differed from `whoami`, NixOS would
     # create a new user and drop yours, so set it before the first rebuild.
-    user = "duet";
+    user = "alex";
     # sshKeys = [ "ssh-ed25519 AAAA... you@laptop" ];   # <- add yours, then rebuild
     # network.tailscale.authKeyFile = "/var/lib/secrets/tailscale-authkey";
     # homeAutomation.zigbee = { enable = true; serialPort = "/dev/serial/by-id/usb-..."; };
