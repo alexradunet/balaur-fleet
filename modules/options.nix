@@ -40,24 +40,7 @@ in
     storage.root = mkOption {
       type = types.path;
       default = "/srv";
-      description = "Root for bulk data: media, photos and synced files.";
-    };
-
-    media.enable = mkEnableOption "media + photos (Jellyfin, Immich)" // { default = true; };
-    media.immich.enable = mkOption {
-      type = types.bool;
-      default = false;
-      description = ''
-        Photos via Immich. OFF by default: nixpkgs 26.05 marks Immich 2.x as
-        insecure (known CVEs, no further 2.x updates; 3.x lands in 26.11).
-        Enabling this explicitly permits that package. Only expose it to
-        the LAN/tailnet, never the open internet.
-      '';
-    };
-    media.immich.machineLearning = mkOption {
-      type = types.bool;
-      default = true;
-      description = "Run Immich's ML (faces/search). Heavy on a U-series CPU during the initial import.";
+      description = "Root for bulk data (synced files).";
     };
 
     files.enable = mkEnableOption "file sync (Syncthing)";
@@ -67,16 +50,6 @@ in
       type = types.nullOr types.path;
       default = null;
       description = "File holding a Tailscale auth key. If null, run `sudo tailscale up` once by hand.";
-    };
-
-    homeAutomation.enable = mkEnableOption "home automation (Home Assistant, MQTT)" // { default = true; };
-    homeAutomation.zigbee = {
-      enable = mkEnableOption "Zigbee2MQTT (needs a Zigbee USB coordinator)";
-      serialPort = mkOption {
-        type = types.str;
-        default = "/dev/serial/by-id/CHANGE-ME";
-        description = "Path to the coordinator, ideally under /dev/serial/by-id.";
-      };
     };
 
     power.chargeLimit = mkOption {

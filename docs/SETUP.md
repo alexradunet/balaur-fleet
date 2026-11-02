@@ -91,8 +91,7 @@ df -h /                                   # want 15+ GB free
 nixos-rebuild build --flake .#duet
 ```
 
-This evaluates the config and downloads/builds everything (a few GB: Chromium, Home
-Assistant, Jellyfin), then stops. It does **not** touch the running system.
+This evaluates the config and downloads/builds everything (a few GB, mostly Chromium), then stops. It does **not** touch the running system.
 
 Check: it ends without `error:` and leaves a `result` symlink. Errors here are safe; send
 me the text.
@@ -137,14 +136,12 @@ ssh alex@duet      # normal sshd over the tailnet: asks for your password
 
 LAN SSH works too (password): `ssh alex@duet.local` (or use the IP from `ip -br a`).
 
-## Stage 8: Check the services
+## Stage 8: Check the dashboard
 
-From another device: `http://duet.local` (dashboard with launcher tiles; if `.local` does not
-resolve on your device, use the IP).
+From another device: `http://duet.local` (or `http://<the Duet IP>` if `.local` does not
+resolve). It lists the running services; for now that is Tailscale. As we add services each
+one gets a tile.
 
-- **Jellyfin** `:8096`: first-run wizard. Add libraries from `/srv/media/movies`, `/srv/media/shows`, `/srv/media/music`.
-- **Home Assistant** `:8123`: onboarding wizard (creates its own admin user).
-- Copy media in with `scp` or `rsync` to `/srv/media/...` (you are in the `media` group).
 
 ## Day to day
 
@@ -156,6 +153,4 @@ git add -A && git commit -m "..."  # the repo is your system's source of truth
 ```
 
 Optional things you can turn on later (all in `hosts/duet/default.nix`):
-`duet.files.enable`
-(Syncthing), `duet.media.immich.enable` (read the CVE note in the README first),
-`duet.homeAutomation.zigbee`.
+`duet.files.enable` (Syncthing). The repo grows as we add services; each one registers its own dashboard tile.

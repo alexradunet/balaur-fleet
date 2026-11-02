@@ -29,7 +29,6 @@
     # SSH uses your account password for now. Later: add sshKeys, set ssh.passwordAuth = false.
     # sshKeys = [ "ssh-ed25519 AAAA... you@laptop" ];
     # network.tailscale.authKeyFile = "/var/lib/secrets/tailscale-authkey";
-    # homeAutomation.zigbee = { enable = true; serialPort = "/dev/serial/by-id/usb-..."; };
     # storage.root = "/srv";
   };
 }
