@@ -38,6 +38,34 @@
       </div>
     </aside>
 
+    <section class="tvpage page" id="tvpage" data-page="tv" aria-label="TV" hidden>
+      <div class="tv-head">
+        <div><h2 id="tv-name">TV</h2><span class="tv-state" id="tv-state"></span></div>
+        <button type="button" class="btn power" id="tv-power">⏻ Power</button>
+      </div>
+      <div class="tv-apps" id="tv-apps"></div>
+      <div class="remote">
+        <div class="dpad">
+          <button type="button" class="btn" data-key="KEY_UP" style="grid-area:u" aria-label="Up">▲</button>
+          <button type="button" class="btn" data-key="KEY_LEFT" style="grid-area:l" aria-label="Left">◀</button>
+          <button type="button" class="btn ok" data-key="KEY_ENTER" style="grid-area:o">OK</button>
+          <button type="button" class="btn" data-key="KEY_RIGHT" style="grid-area:r" aria-label="Right">▶</button>
+          <button type="button" class="btn" data-key="KEY_DOWN" style="grid-area:d" aria-label="Down">▼</button>
+        </div>
+        <div class="keys">
+          <button type="button" class="btn" data-key="KEY_RETURN">↩ Back</button>
+          <button type="button" class="btn" data-key="KEY_HOME">⌂ Home</button>
+          <button type="button" class="btn" data-key="KEY_PLAY">▶ Play</button>
+          <button type="button" class="btn" data-key="KEY_PAUSE">❚❚ Pause</button>
+          <button type="button" class="btn" data-key="KEY_VOLDOWN">🔉 −</button>
+          <button type="button" class="btn" data-key="KEY_VOLUP">🔊 +</button>
+          <button type="button" class="btn" data-key="KEY_MUTE">🔇 Mute</button>
+          <button type="button" class="btn" data-key="KEY_SOURCE">⇄ Source</button>
+        </div>
+      </div>
+      <div class="tv-msg" id="tv-msg" hidden></div>
+    </section>
+
     <section class="camview page" id="camview" data-page="camera" aria-label="Camera" hidden>
       <button type="button" class="cam" id="cam" aria-label="Front camera (tap to turn off)">
         <img id="cam-v" alt="">
@@ -50,6 +78,7 @@
   <nav class="tabbar" id="tabbar" aria-label="Pages">
     <button type="button" class="tab active" data-tab="services"><span aria-hidden="true">▦</span>Services</button>
     <button type="button" class="tab" data-tab="system"><span aria-hidden="true">◔</span>System</button>
+    <button type="button" class="tab" data-tab="tv" id="tab-tv" hidden><span aria-hidden="true">▭</span>TV</button>
     <button type="button" class="tab" data-tab="camera" id="tab-camera" hidden><span aria-hidden="true">◉</span>Camera</button>
   </nav>
 

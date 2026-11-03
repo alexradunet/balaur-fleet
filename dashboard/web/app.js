@@ -1,7 +1,31 @@
 "use strict";
 
-const kiosk = new URLSearchParams(location.search).has("kiosk");
+// Samsung TVs from 2021 (Tizen 6) run Chromium 76: no optional chaining, no
+// Element.replaceChildren. Keep this file to ES2019 and polyfill the rest.
+if (!Element.prototype.replaceChildren) {
+  Element.prototype.replaceChildren = function (...nodes) {
+    while (this.firstChild) this.removeChild(this.firstChild);
+    this.append(...nodes);
+  };
+}
+const activeTab = () => { const t = document.querySelector(".tab.active"); return t ? t.dataset.tab : ""; };
+// Flexbox gap arrived in Chromium 84; older ones get margins instead (style.css, .no-flexgap).
+(() => {
+  const f = document.createElement("div");
+  f.style.cssText = "display:flex;flex-direction:column;row-gap:1px;position:absolute";
+  f.append(document.createElement("div"), document.createElement("div"));
+  document.documentElement.append(f);
+  if (f.scrollHeight !== 1) document.documentElement.classList.add("no-flexgap");
+  f.remove();
+})();
+
+const params = new URLSearchParams(location.search);
+const kiosk = params.has("kiosk");
+// The "Duet" app on the Samsung TV (tv-app/) opens the dashboard with ?tv:
+// remote-control navigation and services opened in place.
+const tvMode = params.has("tv");
 if (kiosk) document.body.classList.add("kiosk");
+if (tvMode) document.body.classList.add("tv");
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -94,7 +118,7 @@ function fillSheet() {
   const open = $("sheet-open");
   open.hidden = !s.port;
   open.href = s.port ? serviceURL(s) : "";
-  open.target = kiosk ? "_self" : "_blank";
+  open.target = kiosk || tvMode ? "_self" : "_blank";
 }
 function openSheet(name) { sheetFor = name; fillSheet(); sheet.hidden = false; }
 function closeSheet() { sheetFor = null; sheet.hidden = true; }
@@ -117,7 +141,7 @@ if (kiosk) {
   const arm = () => {
     clearTimeout(idle);
     idle = setTimeout(() => {
-      if (document.querySelector(".tab.active")?.dataset.tab !== "services" || sheetFor) showTab("services");
+      if (activeTab() !== "services" || sheetFor) showTab("services");
     }, 60000);
   };
   addEventListener("pointerdown", arm, true);
@@ -198,6 +222,101 @@ function camSync(allowed, viewers) {
   camUpdate();
 }
 
+// ---- TV remote (duet.tv) ----
+let tvPower = "off";
+let tvAppsKey = "";
+let tvMsgTimer;
+
+function tvMsg(text, bad) {
+  const m = $("tv-msg");
+  m.textContent = text;
+  m.classList.toggle("bad", !!bad);
+  m.hidden = !text;
+  clearTimeout(tvMsgTimer);
+  if (text) tvMsgTimer = setTimeout(() => { m.hidden = true; }, bad ? 8000 : 2500);
+}
+
+async function tvPost(path, body, busyText) {
+  if (busyText) tvMsg(busyText);
+  try {
+    const r = await fetch("/api/tv/" + path, { method: "POST", body: JSON.stringify(body) });
+    if (!r.ok) throw new Error((await r.text()).trim() || r.statusText);
+    tvRender(await r.json());
+    if (busyText) tvMsg("");
+  } catch (e) {
+    tvMsg(e.message, true);
+  }
+}
+
+function tvRender(t) {
+  tvPower = t.power;
+  $("tv-name").textContent = t.name;
+  const s = $("tv-state");
+  s.textContent = { on: "On", standby: "Standby", off: "Off" }[t.power] || t.power;
+  s.dataset.state = t.power;
+  const key = t.apps.map((a) => a.id).join("|");
+  if (key !== tvAppsKey) {
+    tvAppsKey = key;
+    $("tv-apps").replaceChildren(...t.apps.map((a) => {
+      const b = el("button", "btn app");
+      b.type = "button";
+      b.append(el("span", "icon", a.icon || "▶"), el("span", "", a.name));
+      b.addEventListener("click", () => tvPost("launch", { id: a.id }, tvPower === "on" ? `Opening ${a.name}…` : `Turning on the TV and opening ${a.name}…`));
+      return b;
+    }));
+  }
+}
+
+function tvSync(t) {
+  $("tab-tv").hidden = !t;
+  $("tvpage").hidden = !t;
+  if (t) tvRender(t);
+}
+
+$("tv-power").addEventListener("click", () => tvPost("power", { on: tvPower !== "on" }, tvPower === "on" ? "Turning off…" : "Turning on…"));
+document.querySelectorAll("[data-key]").forEach((b) => b.addEventListener("click", () => tvPost("key", { key: b.dataset.key })));
+
+// ---- TV mode: arrow keys move focus to the nearest control in that direction ----
+if (tvMode) {
+  const focusables = () => [...document.querySelectorAll(sheetFor
+      ? "#sheet .btn:not([hidden])"
+      : ".page.active .tile, .page.active .btn:not([hidden]), .page.active input, .tab:not([hidden])")]
+    .filter((e) => e.offsetParent !== null);
+  const dirs = { 37: [-1, 0], 38: [0, -1], 39: [1, 0], 40: [0, 1] };
+  const center = (r) => [r.left + r.width / 2, r.top + r.height / 2];
+
+  function move([dx, dy]) {
+    const all = focusables();
+    const cur = all.includes(document.activeElement) ? document.activeElement : null;
+    if (!cur) { if (all[0]) all[0].focus(); return; }
+    const [cx, cy] = center(cur.getBoundingClientRect());
+    let best = null, bestScore = Infinity;
+    for (const e of all) {
+      if (e === cur) continue;
+      const [x, y] = center(e.getBoundingClientRect());
+      const along = (x - cx) * dx + (y - cy) * dy;   // distance in the pressed direction
+      if (along <= 1) continue;
+      const across = Math.abs((x - cx) * dy) + Math.abs((y - cy) * dx);
+      const score = along + across * 2;              // prefer staying in line
+      if (score < bestScore) { bestScore = score; best = e; }
+    }
+    if (best) { best.focus(); best.scrollIntoView({ block: "nearest" }); }
+  }
+
+  addEventListener("keydown", (e) => {
+    if (dirs[e.keyCode] && e.target.type !== "range") { e.preventDefault(); move(dirs[e.keyCode]); return; }
+    if (e.keyCode === 10009 || e.key === "Backspace") { // Back on the remote
+      e.preventDefault();
+      if (sheetFor) closeSheet();
+      else if (activeTab() !== "services") showTab("services");
+      else history.back(); // to the app's start page, which exits the app
+    }
+  });
+  // Something always has focus, so the first press does something visible.
+  const ensureFocus = () => { if (!focusables().includes(document.activeElement)) { const f = focusables(); if (f[0]) f[0].focus(); } };
+  setInterval(ensureFocus, 500);
+}
+
 // ---- status polling ----
 function render(st) {
   document.title = st.hostname;
@@ -249,6 +368,7 @@ function render(st) {
 
   renderServices(st.services);
   camSync(st.camera, st.cameraViewers);
+  tvSync(st.tv);
 }
 
 let failures = 0;

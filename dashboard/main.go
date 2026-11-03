@@ -42,6 +42,8 @@ type Config struct {
 	// Live camera view: the relay's MJPEG socket, and who may watch it.
 	CameraStream string   `json:"cameraStream"`
 	CameraNets   []string `json:"cameraNets"`
+	// Samsung TV remote (duet.tv); nil when not configured.
+	TV *TVConfig `json:"tv"`
 }
 
 func loadConfig() Config {
@@ -85,6 +87,7 @@ func main() {
 	sampler := newSampler()
 	go sampler.run()
 	cam := newCamera(cfg)
+	tv := newTV(cfg.TV)
 
 	mux := http.NewServeMux()
 
@@ -94,6 +97,7 @@ func main() {
 		st := collectStatus(ctx, cfg, sampler)
 		st.Camera = cam.allowed(r)
 		st.CameraViewers = cam.Viewers()
+		st.TV = tv.Status()
 		writeJSON(w, st)
 	})
 	if cam != nil {
@@ -122,6 +126,10 @@ func main() {
 		}
 		writeJSON(w, readBrightness())
 	})
+
+	if tv != nil {
+		tv.register(mux)
+	}
 
 	sub, err := fs.Sub(webFS, "web")
 	if err != nil {

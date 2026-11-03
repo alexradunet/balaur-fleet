@@ -1,3 +1,6 @@
+| TV tab (opt-in `duet.tv.enable`) | A Samsung (Tizen) TV on the LAN: power (Wake-on-LAN from fully off), app shortcuts that switch the TV on first, and a remote (arrows, OK, Back, Home, volume, play/pause, source). The first button press asks "Allow Duet?" on the TV once. |
+| On the TV | `duet-tv-sideload dashboard|jellyfin|tizenbrew` (TV in Developer Mode, Host PC IP = this machine) installs the **Duet** app (this dashboard with remote-control navigation; Back on the home page exits), Jellyfin, or TizenBrew (TizenTube etc.; it then needs Host PC IP = 127.0.0.1). |
+| Ad blocking (opt-in `duet.adblock.enable`) | AdGuard Home as the LAN DNS server, with European upstreams (Quad9, DNS4EU) and Samsung TV ad/ACR-tracking rules. Set it as the router's DNS 1 (keep a public DNS 2 so the network survives the box being off). |
 # Yoga Duet 7 home server
 
 An opinionated, fully declarative NixOS home server for the **Lenovo Yoga Duet 7 (13ITL6)**.
@@ -12,13 +15,16 @@ modules/                  the opinions
   power.nix               never sleep, ignore lid, battery = UPS, 80% charge cap
   network.nix             Tailscale (+ SSH), duet.local (mDNS)
   files.nix               Syncthing (opt-in: duet.files.enable)
-  media.nix               Jellyfin + qBittorrent with torrent search, /srv/media (opt-in: duet.media.enable)
+  media.nix               Jellyfin + qBittorrent with FileList search (`sudo duet-filelist-login` once), /srv/media (opt-in: duet.media.enable)
+  adblock.nix             AdGuard Home: network-wide ad/tracker blocking on :53, UI on :3000 (opt-in: duet.adblock.enable)
+  tv.nix                  Samsung TV remote on the TV tab, `duet-tv-sideload` for TV apps (opt-in: duet.tv.enable)
   dev.nix                 Claude Code + pi + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep
   dashboard.nix           Go service on :80, tiles registered by the modules above
   kiosk.nix               Cage + Chromium on the built-in screen
   camera.nix              Front camera: patched kernel modules + RGB-IR relay (opt-in: duet.camera.enable)
 dashboard/                Go (stdlib only) backend + embedded HTML/CSS/JS frontend
 camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 frames -> webcam
+tv-app/                   "Duet" Tizen TV app: the dashboard on the TV, remote-control navigation
 ```
 
 ## What you get

@@ -6,6 +6,8 @@
     ./network.nix
     ./files.nix
     ./media.nix
+    ./adblock.nix
+    ./tv.nix
     ./dev.nix
     ./camera.nix
     ./dashboard.nix

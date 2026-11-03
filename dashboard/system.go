@@ -119,6 +119,7 @@ type Status struct {
 	Services      []ServiceStatus `json:"services"`
 	Camera        bool            `json:"camera"`        // this client may watch the live view
 	CameraViewers int             `json:"cameraViewers"` // streams open right now (any client)
+	TV            *TVStatus       `json:"tv"`            // null without duet.tv
 }
 
 func collectStatus(ctx context.Context, cfg Config, s *sampler) Status {

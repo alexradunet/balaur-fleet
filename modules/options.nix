@@ -49,6 +49,59 @@ in
 
     media.enable = mkEnableOption "media server: Jellyfin + qBittorrent (search & download), under storage.root/media";
 
+    adblock.enable = mkEnableOption ''
+      network-wide ad and tracker blocking (AdGuard Home on :53, web UI on :3000),
+      including Samsung smart-TV ads and viewing-data tracking. Point a device's
+      (or the router's) DNS at this machine to use it'';
+
+    tv = {
+      enable = mkEnableOption "Samsung (Tizen) TV remote control on the dashboard's TV tab, plus `duet-tv-sideload` for apps";
+
+      host = mkOption {
+        type = types.str;
+        example = "192.168.50.106";
+        description = "The TV's IP address. Reserve it in the router so it stays put.";
+      };
+
+      mac = mkOption {
+        type = types.nullOr types.str;
+        default = null;
+        example = "a0:d7:f3:9f:2d:18";
+        description = ''
+          The TV's MAC address, for Wake-on-LAN (powering on from fully off). Needs
+          "Power On with Mobile" on the TV (Settings → General → Network → Expert Settings).
+        '';
+      };
+
+      name = mkOption {
+        type = types.str;
+        default = "TV";
+        description = "Label on the TV tab.";
+      };
+
+      apps = mkOption {
+        description = "App shortcuts on the TV tab. IDs: http://<tv>:8001/api/v2/applications/<id> answers for installed ones.";
+        default = [ ];
+        type = types.listOf (types.submodule {
+          options = {
+            name = mkOption { type = types.str; };
+            id = mkOption { type = types.str; };
+            icon = mkOption { type = types.str; default = "▶"; };
+          };
+        });
+      };
+
+      dashboardUrl = mkOption {
+        type = types.str;
+        default = "http://duet.local/";
+        example = "http://192.168.50.233/";
+        description = ''
+          Where the "Duet" TV app (tv-app/, installed with `duet-tv-sideload dashboard`)
+          finds this dashboard. Use the server's reserved LAN IP: TVs often can't resolve .local names.
+        '';
+      };
+    };
+
     network.enable = mkEnableOption "network + privacy (Tailscale, mDNS)" // { default = true; };
     network.tailscale.authKeyFile = mkOption {
       type = types.nullOr types.path;

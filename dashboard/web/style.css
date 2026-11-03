@@ -27,6 +27,7 @@ body {
   font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   display: flex;
   flex-direction: column;
+  padding: 16px 16px 0;
   padding: max(16px, env(safe-area-inset-top)) 16px 0;
   gap: var(--gap);
   -webkit-tap-highlight-color: transparent;
@@ -50,6 +51,7 @@ main { flex: 1; min-height: 0; position: relative; }
 .page { display: none; height: 100%; }
 .page.active { display: grid; }
 .panel.page.active, .camview.page.active { display: flex; }
+.page[hidden] { display: none !important; }
 .camview[hidden] { display: none; }
 
 .tiles { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); grid-auto-rows: min-content; gap: 20px; align-content: start; overflow: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
@@ -97,7 +99,7 @@ input[type=range]::-webkit-slider-thumb { width: 44px; height: 44px; }
 .cam img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transition: opacity .25s ease; }
 .cam[data-state="live"] img { opacity: 1; }
 body.kiosk .cam img { transform: scaleX(-1); } /* a mirror for whoever stands in front */
-.cam-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 12px; font-size: 1.2rem; }
+.cam-msg { position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 12px; font-size: 1.2rem; }
 .cam[data-state="live"] .cam-msg { display: none; }
 .cam-tag { position: absolute; left: 8px; bottom: 8px; display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 999px; font-size: 1rem; color: var(--text); background: rgba(11, 14, 20, .65); }
 .cam-tag i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
@@ -122,12 +124,12 @@ body.kiosk .cam img { transform: scaleX(-1); } /* a mirror for whoever stands in
 /* Service detail sheet. Off the kiosk it also offers "Open" to launch the service. */
 .sheet-back[hidden] { display: none !important; }
 .sheet-back {
-  position: fixed; inset: 0; z-index: 10; display: flex; align-items: flex-end; justify-content: center;
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 10; display: flex; align-items: flex-end; justify-content: center;
   background: rgba(5, 7, 12, .7); backdrop-filter: blur(4px);
 }
 .sheet {
   width: min(640px, 100%); background: var(--surface); border: 1px solid var(--line);
-  border-radius: 28px 28px 0 0; padding: 28px 28px max(28px, env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0; padding: 28px; padding: 28px 28px max(28px, env(safe-area-inset-bottom));
   display: flex; flex-direction: column; gap: 20px; animation: rise .2s ease;
 }
 @keyframes rise { from { transform: translateY(40px); opacity: 0; } }
@@ -144,7 +146,7 @@ body.kiosk .cam img { transform: scaleX(-1); } /* a mirror for whoever stands in
 .sheet-actions { display: flex; gap: 12px; }
 
 /* ---- tab bar ---- */
-.tabbar { display: flex; gap: 12px; margin: 0 -16px; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line); }
+.tabbar { display: flex; gap: 12px; margin: 0 -16px; padding: 12px 16px; padding: 12px 16px max(12px, env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line); }
 .tab {
   flex: 1; min-height: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   border: 0; border-radius: 18px; background: transparent; color: var(--muted); font: inherit; font-size: 1.1rem; font-weight: 600; cursor: pointer;
@@ -171,3 +173,41 @@ body.kiosk .cam img { transform: scaleX(-1); } /* a mirror for whoever stands in
 /* Built-in touch screen only: no pointer, no text selection or overscroll. */
 body.kiosk { user-select: none; -webkit-user-select: none; overscroll-behavior: none; touch-action: manipulation; }
 body.kiosk, body.kiosk * { cursor: none; }
+
+/* ---- TV tab: power, app shortcuts and a remote ---- */
+.tvpage.page.active { display: flex; flex-direction: column; gap: 22px; overflow: auto; }
+.tvpage[hidden] { display: none !important; }
+.tv-head { display: flex; align-items: center; gap: 16px; }
+.tv-head h2 { margin: 0; font-size: 1.6rem; }
+.tv-head > div { display: flex; align-items: baseline; gap: 14px; }
+.tv-state { color: var(--muted); font-size: 1.1rem; }
+.tv-state[data-state="on"] { color: var(--ok); }
+.tv-state[data-state="standby"] { color: var(--warn); }
+.btn.power { margin-left: auto; font-size: 1.2rem; }
+.tv-apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+.btn.app { min-height: 84px; display: flex; align-items: center; gap: 12px; font-size: 1.15rem; text-align: left; }
+.btn.app .icon { font-size: 1.8rem; }
+.remote { display: flex; flex-wrap: wrap; gap: 28px; align-items: center; }
+.dpad { display: grid; grid-template-areas: ". u ." "l o r" ". d ."; grid-template-columns: repeat(3, 84px); grid-template-rows: repeat(3, 84px); gap: 10px; }
+.dpad .btn { padding: 0; }
+.dpad .ok { border-radius: 50%; color: var(--accent); }
+.keys { flex: 1; min-width: 280px; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.keys .btn { font-size: 1.1rem; min-height: 64px; }
+.tv-msg { position: fixed; left: 50%; bottom: 112px; z-index: 20; transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--line); padding: 10px 20px; border-radius: 999px; max-width: 90vw; text-align: center; }
+.tv-msg.bad { background: var(--bad); color: #1a0505; border-color: transparent; }
+.tv-msg[hidden] { display: none; }
+
+/* ---- TV mode (the "Duet" app on the TV): a visible focus ring for the remote ---- */
+body.tv, body.tv * { cursor: none; }
+body.tv :focus { outline: 4px solid var(--accent); outline-offset: 4px; }
+body.tv .tile:focus, body.tv .btn:focus, body.tv .tab:focus { transform: scale(1.04); background: var(--surface-2); }
+
+/* Chromium < 84 (Tizen 6 TVs) has no flexbox `gap`: approximate it with margins. */
+.no-flexgap body > * + * { margin-top: var(--gap); }
+.no-flexgap .top > * + *, .no-flexgap .pills > * + *, .no-flexgap .brand > * + *,
+.no-flexgap .clock > * + *, .no-flexgap .tabbar > * + *, .no-flexgap .stepper > * + *,
+.no-flexgap .sheet-actions > * + *, .no-flexgap .sheet-head > * + *, .no-flexgap .tv-head > * + *,
+.no-flexgap .tv-head > div > * + *, .no-flexgap .btn.app > * + * { margin-left: 12px; }
+.no-flexgap .remote > * + * { margin-left: 28px; }
+.no-flexgap .panel > * + *, .no-flexgap .sheet > * + *, .no-flexgap .tvpage > * + * { margin-top: 22px; }
+.no-flexgap .tile > * + * { margin-top: 6px; }

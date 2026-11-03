@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- "Duet": a Samsung (Tizen) TV app that opens the home-server dashboard in
+     TV mode (remote-control navigation). Installed with `duet-tv-sideload dashboard`,
+     which also fills in the dashboard address (duet.tv.dashboardUrl). -->
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets"
+        id="http://duet.local/tv-app" version="1.0.0" viewmodes="maximized">
+  <tizen:application id="DuetDashbd.Duet" package="DuetDashbd" required_version="2.3"/>
+  <tizen:profile name="tv-samsung"/>
+  <name>Duet</name>
+  <icon src="icon.png"/>
+  <content src="index.html"/>
+  <access origin="*" subdomains="true"/>
+  <!-- Tizen's default policy blocks inline scripts; say what this app needs. -->
+  <tizen:content-security-policy>default-src * 'unsafe-inline' data:; script-src 'self'</tizen:content-security-policy>
+  <tizen:allow-navigation>*</tizen:allow-navigation>
+  <tizen:privilege name="http://tizen.org/privilege/internet"/>
+  <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+  <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable"
+                 encryption="disable" install-location="auto" hwkey-event="enable"/>
+</widget>

@@ -36,6 +36,27 @@
 
     # Jellyfin (:8096) + qBittorrent with torrent search (:8080), media in /srv/media.
     media.enable = true;
+
+    # AdGuard Home (DNS :53, UI :3000). Point the TV's DNS (or the router's) at this machine.
+    adblock.enable = true;
+
+    # The living-room Samsung (UE65AU7172, Tizen 6): TV tab on the dashboard + `duet-tv-sideload`.
+    # Reserve both IPs in the router (TV 192.168.50.106, this machine 192.168.50.233).
+    tv = {
+      enable = true;
+      host = "192.168.50.106";
+      mac = "a0:d7:f3:9f:2d:18";
+      name = "Living room TV";
+      dashboardUrl = "http://192.168.50.233/";
+      apps = [
+        { name = "YouTube"; id = "111299001912"; icon = "▶"; }
+        { name = "TizenBrew"; id = "xvvl3S1bvH.TizenBrewStandalone"; icon = "🧪"; }
+        { name = "Netflix"; id = "3201907018807"; icon = "🍿"; }
+        { name = "Prime Video"; id = "3201910019365"; icon = "📦"; }
+        { name = "Disney+"; id = "3201901017640"; icon = "✨"; }
+        { name = "Spotify"; id = "3201606009684"; icon = "🎵"; }
+      ];
+    };
     # The colour-filter layout was measured on this laptop (docs/SETUP.md, Stage 10).
     # camera.tuning.cfa = "GIGI/BGRG/GIGI/RGBG"; # only if red and blue come out swapped (default: GIGI/RGBG/GIGI/BGRG)
     # SSH uses your account password for now. Later: add sshKeys, set ssh.passwordAuth = false.
