@@ -30,7 +30,31 @@ type AE struct {
 	exp, gain      int32
 	frameLines     int32
 	frames         int
+	digital        float64 // software gain once the sensor is at its limits
 	Disabled       string
+}
+
+// Digital is the extra gain applied in software (1 = none). It only rises
+// when exposure and analogue gain are both used up, as in a dim room.
+func (a *AE) Digital() float32 {
+	if a.digital < 1 {
+		return 1
+	}
+	return float32(a.digital)
+}
+
+func (a *AE) updateDigital(meanY, clipFrac float64) {
+	want := 1.0
+	if a.Disabled != "" || (a.exp >= a.expMax*9/10 && float64(a.gain) >= math.Min(float64(a.gMax), a.cfg.MaxGain*float64(a.gMin))*0.98) {
+		want = math.Max(1, math.Min(a.cfg.MaxDigitalGain, a.cfg.AETarget/math.Max(meanY, 1e-4)))
+	}
+	if clipFrac > 0.02 && want > a.digital {
+		want = math.Max(1, a.digital)
+	}
+	if a.digital < 1 {
+		a.digital = 1
+	}
+	a.digital += 0.1 * (want - a.digital)
 }
 
 func NewAE(c Controls, cfg *Config) *AE {
@@ -64,13 +88,14 @@ func (a *AE) String() string {
 	if a.Disabled != "" {
 		return "ae off (" + a.Disabled + ")"
 	}
-	return fmt.Sprintf("exposure %d/%d lines, gain %.2fx", a.exp, a.expMax, float64(a.gain)/float64(a.gMin))
+	return fmt.Sprintf("exposure %d/%d lines, gain %.2fx, digital %.2fx", a.exp, a.expMax, float64(a.gain)/float64(a.gMin), a.Digital())
 }
 
 // Update runs every few frames (the sensor applies new values with a delay).
 // meanY is the raw sensor level (Stats.MeanY), not the processed colour.
 func (a *AE) Update(meanY, clipFrac float64, frameDur time.Duration) {
 	a.frames++
+	a.updateDigital(meanY, clipFrac)
 	if a.Disabled != "" || a.frames%4 != 0 {
 		return
 	}

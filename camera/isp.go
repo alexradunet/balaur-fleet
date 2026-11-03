@@ -24,6 +24,7 @@ type Processor struct {
 	gains        [3]float32
 	lut          [lutSize]uint8
 	rawView      bool
+	dgain        float32 // software gain from auto exposure (dim scenes)
 }
 
 const lutSize = 4096
@@ -70,7 +71,7 @@ func (s Stats) ClipFrac() float64 {
 }
 
 func NewProcessor(cfg Config) (*Processor, error) {
-	p := &Processor{gains: [3]float32{1, 1, 1}}
+	p := &Processor{gains: [3]float32{1, 1, 1}, dgain: 1}
 	for i := range p.lut {
 		v := float64(i) / (lutSize - 1)
 		if v <= 0.0031308 {
@@ -113,6 +114,9 @@ func (p *Processor) Reconfigure(cfg Config) error {
 
 func (p *Processor) Gains() [3]float32 { return p.gains }
 
+// SetDigitalGain brightens the output only; statistics stay on sensor values.
+func (p *Processor) SetDigitalGain(g float32) { p.dgain = g }
+
 func (p *Processor) at(f *RawFrame, x, y int) float32 {
 	return (float32(f.Pix[y*f.W+x]) - p.black) * p.scale
 }
@@ -134,7 +138,7 @@ func (p *Processor) shade(f *RawFrame, cx, cy int, st *Stats) (uint8, uint8, uin
 		if st != nil {
 			st.sample(y, y, y, y, y >= clipLevel)
 		}
-		v := p.lut[p.lutIndex(y)]
+		v := p.lut[p.lutIndex(y*p.dgain)]
 		return v, v, v
 	}
 	r, g, b, _, clipped := p.cell(f, cx, cy)
@@ -214,9 +218,9 @@ func (p *Processor) finish(r, g, b float32, clipped bool) (uint8, uint8, uint8) 
 	if clipped {
 		return 255, 255, 255 // blown highlights stay white instead of turning magenta
 	}
-	r *= p.gains[0]
-	g *= p.gains[1]
-	b *= p.gains[2]
+	r *= p.gains[0] * p.dgain
+	g *= p.gains[1] * p.dgain
+	b *= p.gains[2] * p.dgain
 	m := &p.ccm
 	R := m[0]*r + m[1]*g + m[2]*b
 	G := m[3]*r + m[4]*g + m[5]*b

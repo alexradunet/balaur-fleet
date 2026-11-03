@@ -164,6 +164,7 @@ func cmdRun(args []string) error {
 		}
 		proc.UpdateAWB(st)
 		ae.Update(st.MeanY(), st.ClipFrac(), frameDur)
+		proc.SetDigitalGain(ae.Digital())
 		busy += time.Since(start)
 		frames++
 		total++

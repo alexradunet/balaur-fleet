@@ -34,28 +34,34 @@ type Config struct {
 	// (shows whether capture and exposure work); "noir" = colour, no IR subtraction.
 	View string `json:"view"`
 
-	AETarget    float64 `json:"aeTarget"`    // mean linear sensor level to aim for
-	MaxGain     float64 `json:"maxGain"`     // analogue gain ceiling, in multiples of 1x
-	AntiFlicker int     `json:"antiFlicker"` // mains frequency in Hz (50/60), 0 = off
+	AETarget float64 `json:"aeTarget"` // mean linear sensor level to aim for
+	MaxGain  float64 `json:"maxGain"`  // analogue gain ceiling, in multiples of 1x
+	// Software gain ceiling, used only once exposure and analogue gain are maxed out.
+	MaxDigitalGain float64 `json:"maxDigitalGain"`
+	AntiFlicker    int     `json:"antiFlicker"` // mains frequency in Hz (50/60), 0 = off
 }
 
 func defaultConfig() Config {
 	return Config{
-		Sensor:      "ov5675",
-		Width:       2592,
-		Height:      1944,
-		OutWidth:    1280,
-		OutHeight:   720,
-		CFA:         "BGRG/GIGI/RGBG/GIGI",
-		BlackLevel:  64,
-		WhiteLevel:  1023,
-		IRCoeffs:    [3]float64{1, 1, 1},
-		CCM:         [9]float64{1, 0, 0, 0, 1, 0, 0, 0, 1},
-		Saturation:  1,
-		View:        "color",
-		AETarget:    0.18,
-		MaxGain:     8,
-		AntiFlicker: 50,
+		Sensor:    "ov5675",
+		Width:     2592,
+		Height:    1944,
+		OutWidth:  1280,
+		OutHeight: 720,
+		// Measured on the Duet (tile statistics in the relay log, 2026-11-03):
+		// IR at odd columns of even rows. Which of the two colour pixels is red
+		// is still to be confirmed by eye; the other choice is GIGI/BGRG/GIGI/RGBG.
+		CFA:            "GIGI/RGBG/GIGI/BGRG",
+		BlackLevel:     64,
+		WhiteLevel:     1023,
+		IRCoeffs:       [3]float64{1, 1, 1},
+		CCM:            [9]float64{1, 0, 0, 0, 1, 0, 0, 0, 1},
+		Saturation:     1,
+		View:           "color",
+		AETarget:       0.18,
+		MaxGain:        8,
+		MaxDigitalGain: 2,
+		AntiFlicker:    50,
 	}
 }
 
@@ -107,6 +113,8 @@ func (c *Config) validate() error {
 		return fmt.Errorf("aeTarget %v must be between 0 and 1", c.AETarget)
 	case c.MaxGain < 1:
 		return fmt.Errorf("maxGain %v must be at least 1", c.MaxGain)
+	case c.MaxDigitalGain < 1:
+		return fmt.Errorf("maxDigitalGain %v must be at least 1", c.MaxDigitalGain)
 	}
 	return nil
 }

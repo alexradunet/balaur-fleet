@@ -253,9 +253,18 @@ systemctl status duet-camera-relay               # active (running), logs fps / 
 duet-camera-check                                # PASS: webcam is delivering a non-black image
 ```
 
-**The one thing that must be calibrated on the real laptop is which corner of the 4x4 tile the pattern starts in**
-(it depends on the sensor's crop and how it is mounted). Point the camera at something with clear red **and**
-blue (a book cover, a towel), then:
+**The 4x4 layout is already measured on this laptop** (default `GIGI/RGBG/GIGI/BGRG`: the relay log's tile statistics
+put the infrared pixels at odd columns of even rows). The one thing left to confirm by eye is red vs blue: hold
+up something clearly red. If it shows blue, switch to the other layout:
+
+```bash
+echo '{"cfa":"GIGI/BGRG/GIGI/RGBG"}' | sudo tee /var/lib/duet-camera/tuning.json && sudo systemctl reload duet-camera-relay
+```
+
+and pin it with `camera.tuning.cfa` in `hosts/duet/default.nix`.
+
+To redo the measurement from scratch (another sensor, odd results), point the camera at something with clear
+red **and** blue (a book cover, a towel), then:
 
 ```bash
 sudo duet-camera-snapshot
@@ -298,7 +307,7 @@ Other knobs, same way (defaults in `camera/config.go`):
 | `awbGains` | `[r, g, b]` to lock white balance; `null` = automatic. |
 | `saturation` | 1.0 = as is. |
 | `flipH`, `flipV` | Rotate/mirror in software (the kiosk tile already mirrors like a selfie camera). |
-| `aeTarget`, `maxGain`, `antiFlicker` | Brightness target (0.18), gain ceiling (8x), mains frequency for flicker-free exposure (50 Hz; 60 in the Americas). |
+| `aeTarget`, `maxGain`, `maxDigitalGain`, `antiFlicker` | Brightness target (0.18), analogue gain ceiling (8x), software gain once exposure and gain are used up (2x, dim rooms), mains frequency for flicker-free exposure (50 Hz; 60 in the Americas). |
 | `view` | `"color"` (default); `"raw"`: grey picture straight from the sensor, no layout/IR/colour processing; `"noir"`: colour without IR subtraction. |
 
 Then `sudo systemctl restart cage-tty1` (or reboot) and the tile appears. "No camera found" on the tile

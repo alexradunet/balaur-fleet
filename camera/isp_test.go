@@ -401,3 +401,51 @@ func TestDiagnosticsExplainBlack(t *testing.T) {
 		t.Fatalf("a wrong layout should be flagged with the right candidates:\n%s", buf.String())
 	}
 }
+
+// The 4x4 tile means the Duet's relay logged on 2026-11-03 (frame 90).
+func TestDuetMeasuredTile(t *testing.T) {
+	means := [4][4]float64{
+		{18.9, 3.8, 18.7, 3.8},
+		{13.5, 19.2, 12.1, 19.0},
+		{18.9, 3.8, 18.7, 3.8},
+		{12.2, 19.1, 13.4, 19.1},
+	}
+	f := newRawFrame(64, 48)
+	for y := 0; y < f.H; y++ {
+		for x := 0; x < f.W; x++ {
+			f.Pix[y*f.W+x] = uint16(math.Round(64 + means[y%4][x%4]))
+		}
+	}
+	cfg := defaultConfig()
+	a := analyzeRaw(f, cfg.BlackLevel)
+	c, _ := ParseCFA(cfg.CFA)
+	if !a.matches(c) {
+		t.Fatalf("default cfa %s does not match the measured tile:\n%s", c, a.text)
+	}
+	cfg.AWBGains = &[3]float64{1, 1, 1}
+	p, _ := NewProcessor(cfg)
+	r, g, b, ir, _ := p.cell(f, 10, 10)
+	if r <= 0 || g <= 0 || b <= 0 || ir > g {
+		t.Fatalf("default layout should give a positive colour with weak IR, got r=%.4f g=%.4f b=%.4f ir=%.4f", r, g, b, ir)
+	}
+}
+
+func TestDigitalGainOnlyWhenSensorMaxed(t *testing.T) {
+	cfg := defaultConfig()
+	s := &fakeSensor{exp: 2012, gain: 1024} // exposure and 8x gain used up
+	ae := NewAE(s, &cfg)
+	for i := 0; i < 100; i++ {
+		ae.updateDigital(0.057, 0) // the Duet's dim room
+	}
+	if d := ae.Digital(); d < 1.9 || d > 2.0 {
+		t.Fatalf("dim + maxed sensor should use the full 2x digital gain, got %.2f", d)
+	}
+	s2 := &fakeSensor{exp: 500, gain: 128}
+	ae2 := NewAE(s2, &cfg)
+	for i := 0; i < 100; i++ {
+		ae2.updateDigital(0.05, 0)
+	}
+	if ae2.Digital() != 1 {
+		t.Fatalf("with exposure headroom, no digital gain: got %.2f", ae2.Digital())
+	}
+}

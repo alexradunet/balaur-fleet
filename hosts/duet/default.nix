@@ -29,8 +29,8 @@
 
     # Front camera + live preview in the kiosk corner (patched kernel modules + the RGB-IR pipeline in camera/).
     camera.enable = true;
-    # After the one-time calibration in docs/SETUP.md (Stage 10), pin the layout you picked:
-    # camera.tuning.cfa = "BGRG/GIGI/RGBG/GIGI";
+    # The colour-filter layout was measured on this laptop (docs/SETUP.md, Stage 10).
+    # camera.tuning.cfa = "GIGI/BGRG/GIGI/RGBG"; # only if red and blue come out swapped (default: GIGI/RGBG/GIGI/BGRG)
     # SSH uses your account password for now. Later: add sshKeys, set ssh.passwordAuth = false.
     # sshKeys = [ "ssh-ed25519 AAAA... you@laptop" ];
     # network.tailscale.authKeyFile = "/var/lib/secrets/tailscale-authkey";
