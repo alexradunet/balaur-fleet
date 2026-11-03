@@ -52,7 +52,10 @@ lib.mkIf cfg.camera.enable {
   # No devices at load time: the relay creates its own.
   boot.extraModprobeConfig = "options v4l2loopback devices=0";
 
-  environment.etc."duet-camera.json".text = builtins.toJSON cfg.camera.tuning;
+  environment.etc."duet-camera.json".text = builtins.toJSON ({
+    # Without the kiosk there is nothing to switch off.
+    screenTimeout = if cfg.kiosk.enable then cfg.camera.screenTimeout else 0;
+  } // cfg.camera.tuning);
 
   # A producer that stays running (v4l2-relayd's on-demand mode stalls after
   # the first black frame with v4l2loopback).
@@ -64,6 +67,8 @@ lib.mkIf cfg.camera.enable {
 
     environment = {
       V4L2_DEVICE_FILE = "/run/duet-camera-relay/device";
+      # Brightness to restore while the relay has the screen switched off.
+      DUET_SCREEN_RESTORE = "/run/duet-camera-relay/screen-brightness";
     } // lib.optionalAttrs (!rgbir) {
       GST_PLUGIN_PATH = lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstPlugins;
     };
@@ -93,6 +98,13 @@ lib.mkIf cfg.camera.enable {
       '';
 
     postStop = ''
+      # The relay died while the screen was off (motion wake): light it again.
+      if test -s "$DUET_SCREEN_RESTORE"; then
+        for b in /sys/class/backlight/*; do
+          if test "$(cat "$b/brightness")" = 0; then cat "$DUET_SCREEN_RESTORE" > "$b/brightness"; fi
+          break
+        done
+      fi
       if test -s "$V4L2_DEVICE_FILE"; then
         ${v4l2loopback.bin}/bin/v4l2loopback-ctl \
           delete "$(cat "$V4L2_DEVICE_FILE")" || true

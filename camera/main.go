@@ -106,6 +106,27 @@ func cmdRun(args []string) error {
 	frame := make([]byte, cfg.OutWidth*cfg.OutHeight*2)
 	log.Printf("cfa %s, ir %v, %s, writing %dx%d YUYV to %s", proc.cfa, cfg.IRCoeffs, ae, cfg.OutWidth, cfg.OutHeight, *output)
 
+	motion := NewMotion(cfg.MotionThreshold, cfg.MotionArea)
+	var screen *Screen
+	startScreen := func() {
+		if screen != nil || cfg.ScreenTimeout <= 0 {
+			return
+		}
+		s, err := NewScreen(time.Duration(cfg.ScreenTimeout)*time.Second, os.Getenv("DUET_SCREEN_RESTORE"))
+		if err != nil {
+			log.Printf("screen: %v (it stays on)", err)
+			return
+		}
+		screen = s
+		log.Printf("%s, motion threshold %v, area %.1f%%", s, cfg.MotionThreshold, cfg.MotionArea*100)
+	}
+	startScreen()
+	defer func() {
+		if screen != nil {
+			screen.Close() // never leave the screen dark behind us
+		}
+	}()
+
 	sigs := make(chan os.Signal, 4)
 	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGUSR1, syscall.SIGTERM, syscall.SIGINT)
 
@@ -125,7 +146,13 @@ func cmdRun(args []string) error {
 					log.Printf("reload: %v (keeping the old tuning)", err)
 				} else {
 					cfg = c
-					log.Printf("reloaded tuning: view %s, cfa %s, ir %v, ccm %v", cfg.View, proc.cfa, cfg.IRCoeffs, cfg.CCM)
+					motion.Threshold, motion.Area = cfg.MotionThreshold, cfg.MotionArea
+					if screen != nil {
+						screen.SetTimeout(time.Duration(cfg.ScreenTimeout) * time.Second)
+					} else {
+						startScreen()
+					}
+					log.Printf("reloaded tuning: view %s, cfa %s, ir %v, ccm %v, screenTimeout %ds", cfg.View, proc.cfa, cfg.IRCoeffs, cfg.CCM, cfg.ScreenTimeout)
 				}
 			case syscall.SIGUSR1:
 				snapshot = true
@@ -162,6 +189,13 @@ func cmdRun(args []string) error {
 		if err := out.Write(frame); err != nil {
 			return fmt.Errorf("write %s: %w", *output, err)
 		}
+		if screen != nil {
+			if screen.Settling() {
+				motion.Reset()
+			} else if motion.Update(frame, cfg.OutWidth, cfg.OutHeight) {
+				screen.Activity("movement")
+			}
+		}
 		proc.UpdateAWB(st)
 		ae.Update(st.MeanY(), st.ClipFrac(), frameDur)
 		proc.SetDigitalGain(ae.Digital())
@@ -184,6 +218,9 @@ func cmdRun(args []string) error {
 			log.Printf("%.1f fps (sensor %.1f), %.1f ms/frame, raw level %.3f, green %.3f, clipped %.1f%%, awb %.2f/%.2f/%.2f, %s",
 				float64(frames)/since.Seconds(), 1/math.Max(frameDur.Seconds(), 1e-6),
 				busy.Seconds()*1000/float64(frames), st.MeanY(), st.MeanG(), st.ClipFrac()*100, g[0], g[1], g[2], ae)
+			if screen != nil {
+				log.Printf("%s, motion peak %.1f%% of the picture (wakes at %.1f%%)", screen, motion.Peak()*100, cfg.MotionArea*100)
+			}
 			frames, busy, lastLog = 0, 0, time.Now()
 		}
 	}

@@ -39,6 +39,12 @@ type Config struct {
 	// Software gain ceiling, used only once exposure and analogue gain are maxed out.
 	MaxDigitalGain float64 `json:"maxDigitalGain"`
 	AntiFlicker    int     `json:"antiFlicker"` // mains frequency in Hz (50/60), 0 = off
+
+	// Seconds without movement in front of the camera (or touch) before the
+	// screen's backlight goes off; 0 = always on.
+	ScreenTimeout   int     `json:"screenTimeout"`
+	MotionThreshold float64 `json:"motionThreshold"` // luma change (of 255) that counts for one cell
+	MotionArea      float64 `json:"motionArea"`      // fraction of the picture that must change
 }
 
 func defaultConfig() Config {
@@ -70,6 +76,9 @@ func defaultConfig() Config {
 		MaxGain:        8,
 		MaxDigitalGain: 2,
 		AntiFlicker:    50,
+		// 32x18 grid: 1% is about 6 cells, a hand or a head entering the picture.
+		MotionThreshold: 12,
+		MotionArea:      0.01,
 	}
 }
 
@@ -123,6 +132,12 @@ func (c *Config) validate() error {
 		return fmt.Errorf("maxGain %v must be at least 1", c.MaxGain)
 	case c.MaxDigitalGain < 1:
 		return fmt.Errorf("maxDigitalGain %v must be at least 1", c.MaxDigitalGain)
+	case c.ScreenTimeout < 0:
+		return fmt.Errorf("screenTimeout %v must be 0 (always on) or more", c.ScreenTimeout)
+	case c.MotionThreshold <= 0:
+		return fmt.Errorf("motionThreshold %v must be above 0", c.MotionThreshold)
+	case c.MotionArea <= 0 || c.MotionArea > 1:
+		return fmt.Errorf("motionArea %v must be above 0 and at most 1", c.MotionArea)
 	}
 	return nil
 }

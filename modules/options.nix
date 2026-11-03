@@ -83,6 +83,20 @@ in
         '';
       };
 
+      screenTimeout = mkOption {
+        type = types.ints.unsigned;
+        default = 120;
+        description = ''
+          Seconds without movement in front of the camera (or a touch or key)
+          before the built-in screen's backlight goes off; it comes back on at
+          the next movement or touch. The tap that wakes the screen is not
+          passed on to the dashboard. 0 = screen always on.
+          Needs the `rgbir` backend. Sensitivity: `tuning.motionThreshold`
+          (luma change per cell, default 12) and `tuning.motionArea` (fraction
+          of the picture, default 0.01); the relay logs the peak it saw every 30 s.
+        '';
+      };
+
       tuning = mkOption {
         type = types.attrsOf types.anything;
         default = { };
@@ -96,7 +110,7 @@ in
           Keys: sensor, capture, width, height, outWidth, outHeight, cfa,
           blackLevel, whiteLevel, irCoeffs, ccm, awbGains, saturation, flipH,
           flipV, view (color/raw/noir), aeTarget, maxGain, maxDigitalGain,
-          antiFlicker. Defaults are in
+          antiFlicker, motionThreshold, motionArea. Defaults are in
           camera/config.go. Try values live first in
           /var/lib/duet-camera/tuning.json + `systemctl reload duet-camera-relay`.
         '';
