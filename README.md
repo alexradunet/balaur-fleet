@@ -12,6 +12,7 @@ modules/                  the opinions
   power.nix               never sleep, ignore lid, battery = UPS, 80% charge cap
   network.nix             Tailscale (+ SSH), duet.local (mDNS)
   files.nix               Syncthing (opt-in: duet.files.enable)
+  media.nix               Jellyfin + qBittorrent with torrent search, /srv/media (opt-in: duet.media.enable)
   dev.nix                 Claude Code + pi + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep
   dashboard.nix           Go service on :80, tiles registered by the modules above
   kiosk.nix               Cage + Chromium on the built-in screen

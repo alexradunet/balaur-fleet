@@ -47,6 +47,8 @@ in
 
     files.enable = mkEnableOption "file sync (Syncthing)";
 
+    media.enable = mkEnableOption "media server: Jellyfin + qBittorrent (search & download), under storage.root/media";
+
     network.enable = mkEnableOption "network + privacy (Tailscale, mDNS)" // { default = true; };
     network.tailscale.authKeyFile = mkOption {
       type = types.nullOr types.path;

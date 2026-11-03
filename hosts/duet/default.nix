@@ -33,6 +33,9 @@
 
     # Front camera + live preview in the kiosk corner (patched kernel modules + the RGB-IR pipeline in camera/).
     camera.enable = true;
+
+    # Jellyfin (:8096) + qBittorrent with torrent search (:8080), media in /srv/media.
+    media.enable = true;
     # The colour-filter layout was measured on this laptop (docs/SETUP.md, Stage 10).
     # camera.tuning.cfa = "GIGI/BGRG/GIGI/RGBG"; # only if red and blue come out swapped (default: GIGI/RGBG/GIGI/BGRG)
     # SSH uses your account password for now. Later: add sshKeys, set ssh.passwordAuth = false.
