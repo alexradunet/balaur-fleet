@@ -44,6 +44,8 @@ type Config struct {
 	CameraNets   []string `json:"cameraNets"`
 	// Samsung TV remote (duet.tv); nil when not configured.
 	TV *TVConfig `json:"tv"`
+	// Voice assistant (duet.assistant); nil when not configured.
+	Assistant *AssistantConfig `json:"assistant"`
 }
 
 func loadConfig() Config {
@@ -88,6 +90,7 @@ func main() {
 	go sampler.run()
 	cam := newCamera(cfg)
 	tv := newTV(cfg.TV)
+	hasAssistant := false
 
 	mux := http.NewServeMux()
 
@@ -98,6 +101,7 @@ func main() {
 		st.Camera = cam.allowed(r)
 		st.CameraViewers = cam.Viewers()
 		st.TV = tv.Status()
+		st.Assistant = hasAssistant
 		writeJSON(w, st)
 	})
 	if cam != nil {
@@ -130,6 +134,7 @@ func main() {
 	if tv != nil {
 		tv.register(mux)
 	}
+	hasAssistant = registerAssistant(mux, cfg.Assistant)
 
 	sub, err := fs.Sub(webFS, "web")
 	if err != nil {

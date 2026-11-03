@@ -317,6 +317,249 @@ if (tvMode) {
   setInterval(ensureFocus, 500);
 }
 
+// ---- voice assistant (duet.assistant) ----
+// Live state comes from a long-poll (/api/assistant/status?wait=1), so the
+// listening/speaking overlay on the built-in screen follows the voice at once.
+let asLoop = false;
+let asSt = null;
+let asVolBusy = false;
+const asCards = new Map(); // list name -> {card, ul, clear}
+const listTitle = { shopping: "🛒 Shopping", tasks: "🧹 Tasks" };
+const asStateText = {
+  idle: "", listening: "Listening…", thinking: "Thinking…", speaking: "Speaking", ringing: "⏰ Ringing",
+};
+
+function asWake(s) {
+  return (s.wakeWord || "").split(",")[0].trim().replace(/_v[\d.]+$/, "").split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
+function asErr(text) {
+  const e = $("as-err");
+  e.textContent = text || "";
+  e.hidden = !text;
+}
+
+async function asApi(method, path, body) {
+  try {
+    const r = await fetch("/api/assistant/" + path, {
+      method, body: body === undefined ? undefined : JSON.stringify(body),
+      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || r.statusText);
+    if (j.state) asRender(j);
+    return j;
+  } catch (e) {
+    asErr(e.message);
+    throw e;
+  }
+}
+
+async function asPoll(wait) {
+  try {
+    const r = await fetch("/api/assistant/status" + (wait ? "?wait=1" : ""), { cache: "no-store" });
+    if (!r.ok) throw new Error(r.statusText);
+    asRender(await r.json());
+    setTimeout(() => asPoll(true), 50);
+  } catch {
+    asOffline();
+    setTimeout(() => asPoll(false), 3000);
+  }
+}
+
+function asOffline() {
+  $("as-state").textContent = "Assistant offline";
+  $("as-orb").dataset.state = "off";
+  $("as-overlay").hidden = true;
+}
+
+function asSync(on) {
+  $("tab-assistant").hidden = !on;
+  $("aspage").hidden = !on;
+  if (on && !asLoop) { asLoop = true; asPoll(false); }
+}
+
+function fmtLeft(sec) {
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  const p = (n) => String(n).padStart(2, "0");
+  return h ? `${h}:${p(m)}:${p(s)}` : `${m}:${p(s)}`;
+}
+const fmtWhen = (iso) => new Date(iso).toLocaleString([], { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+function xButton(label, onClick) {
+  const b = el("button", "x", "×");
+  b.type = "button";
+  b.setAttribute("aria-label", label);
+  b.addEventListener("click", onClick);
+  return b;
+}
+
+function asListCard(name) {
+  let c = asCards.get(name);
+  if (c) return c;
+  const card = el("div", "card");
+  const h = el("h3", "", listTitle[name] || name.charAt(0).toUpperCase() + name.slice(1));
+  const ul = el("ul", "as-items");
+  const form = el("form", "as-add");
+  const input = el("input");
+  input.type = "text";
+  input.placeholder = "Add…";
+  input.setAttribute("aria-label", "Add to " + name);
+  const add = el("button", "btn", "+");
+  add.type = "submit";
+  form.append(input, add);
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    asApi("POST", `lists/${encodeURIComponent(name)}/items`, { text }).catch(() => {});
+  });
+  const clear = el("button", "btn as-clear", "Clear done");
+  clear.type = "button";
+  clear.addEventListener("click", () => asApi("POST", `lists/${encodeURIComponent(name)}/clear-done`).catch(() => {}));
+  card.append(h, ul, form, clear);
+  c = { card, ul, clear };
+  asCards.set(name, c);
+  return c;
+}
+
+function asRender(s) {
+  asSt = s;
+  const state = s.muted && s.state === "idle" ? "muted" : s.state;
+  $("as-name").textContent = s.name;
+  $("as-state").textContent = state === "muted" ? "Microphone off · type below"
+    : state === "idle" ? `Say “${asWake(s)}”` : asStateText[state] || state;
+  $("as-orb").dataset.state = state;
+  $("as-mute").textContent = s.muted ? "🔇 Mic off" : "🎙 Mic on";
+  $("as-mute").setAttribute("aria-pressed", String(s.muted));
+  $("as-mute").classList.toggle("off", s.muted);
+  $("as-stop").hidden = state === "idle" || state === "muted";
+  asErr(s.error);
+
+  // Conversation, newest at the bottom.
+  const log = $("as-log");
+  log.replaceChildren(...s.log.slice(-6).map((x) => {
+    const li = el("li");
+    if (x.heard) li.append(el("p", "you", (x.typed ? "⌨ " : "🗣 ") + x.heard));
+    li.append(el("p", "bot", x.reply));
+    return li;
+  }));
+  if (!s.log.length) log.append(el("li", "empty", "Nothing yet."));
+  log.scrollTop = log.scrollHeight;
+
+  // House lists.
+  const lists = $("as-lists");
+  const order = s.listOrder;
+  if (lists.dataset.key !== order.join("|")) {
+    lists.dataset.key = order.join("|");
+    lists.replaceChildren(...order.map((n) => asListCard(n).card));
+  }
+  for (const name of order) {
+    const c = asListCard(name);
+    const items = s.lists[name] || [];
+    c.ul.replaceChildren(...items.map((it) => {
+      const li = el("li", it.done ? "done" : "");
+      const lab = el("label");
+      const cb = el("input");
+      cb.type = "checkbox";
+      cb.checked = it.done;
+      cb.addEventListener("change", () => asApi("POST", `lists/${encodeURIComponent(name)}/items/${it.id}/done`, { done: cb.checked }).catch(() => {}));
+      lab.append(cb, el("span", "", it.text));
+      const meta = [it.assignee, it.due].filter(Boolean).join(" · ");
+      if (meta) lab.append(el("small", "", meta));
+      li.append(lab, xButton("Remove " + it.text, () => asApi("DELETE", `lists/${encodeURIComponent(name)}/items/${it.id}`).catch(() => {})));
+      return li;
+    }));
+    if (!items.length) c.ul.append(el("li", "empty", "Empty"));
+    c.clear.hidden = !items.some((it) => it.done);
+  }
+
+  // Timers and reminders.
+  const alarms = $("as-alarms");
+  alarms.replaceChildren(
+    ...s.timers.map((t) => {
+      const li = el("li");
+      const left = el("b", "count");
+      left.dataset.ends = t.ends;
+      left.textContent = fmtLeft((new Date(t.ends) - Date.now()) / 1000);
+      li.append(el("span", "", "⏱ " + (t.label || "Timer")), left, xButton("Cancel timer", () => asApi("DELETE", "timers/" + t.id).catch(() => {})));
+      return li;
+    }),
+    ...s.reminders.map((r) => {
+      const li = el("li");
+      li.append(el("span", "", "🔔 " + r.text), el("small", "", fmtWhen(r.at) + (r.repeat ? " · " + r.repeat : "")),
+        xButton("Delete reminder", () => asApi("DELETE", "reminders/" + r.id).catch(() => {})));
+      return li;
+    }),
+  );
+  if (!s.timers.length && !s.reminders.length) alarms.append(el("li", "empty", "None"));
+
+  // Memory.
+  const mem = $("as-mem");
+  mem.replaceChildren(...s.memories.map((m) => {
+    const li = el("li");
+    li.append(el("span", "", m.fact), xButton("Forget", () => asApi("DELETE", "memories/" + m.id).catch(() => {})));
+    return li;
+  }));
+  if (!s.memories.length) mem.append(el("li", "empty", "Nothing yet. Tell it about yourself, or add facts here."));
+
+  if (!asVolBusy) {
+    $("as-vol").value = s.volume;
+    $("as-vol-v").textContent = s.volume + "%";
+  }
+
+  // The built-in screen shows what the assistant is doing, full screen.
+  const ov = $("as-overlay");
+  ov.hidden = !kiosk || state === "idle" || state === "muted";
+  if (!ov.hidden) {
+    $("as-orb-big").dataset.state = state;
+    $("as-ov-state").textContent = asStateText[state] || state;
+    const last = s.log[s.log.length - 1];
+    $("as-ov-text").textContent = (state === "speaking" || state === "ringing") && last ? last.reply : "";
+  }
+}
+
+setInterval(() => {
+  document.querySelectorAll(".count[data-ends]").forEach((e) => { e.textContent = fmtLeft((new Date(e.dataset.ends) - Date.now()) / 1000); });
+}, 1000);
+
+$("as-ask").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const input = $("as-input");
+  const text = input.value.trim();
+  if (!text) return;
+  $("as-send").disabled = true;
+  $("as-send").textContent = "…";
+  try {
+    await asApi("POST", "chat", { text, speak: $("as-speak").checked });
+    input.value = "";
+  } catch {
+    // shown in the error line
+  } finally {
+    $("as-send").disabled = false;
+    $("as-send").textContent = "Send";
+  }
+});
+$("as-mute").addEventListener("click", () => asApi("POST", "mute", { muted: !(asSt && asSt.muted) }).catch(() => {}));
+$("as-stop").addEventListener("click", () => asApi("POST", "stop").catch(() => {}));
+$("as-ov-stop").addEventListener("click", () => asApi("POST", "stop").catch(() => {}));
+document.querySelector("form[data-mem]").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const input = e.target.querySelector("input");
+  const fact = input.value.trim();
+  if (!fact) return;
+  input.value = "";
+  asApi("POST", "memories", { fact }).catch(() => {});
+});
+const asVol = $("as-vol");
+asVol.addEventListener("input", () => { asVolBusy = true; $("as-vol-v").textContent = asVol.value + "%"; });
+asVol.addEventListener("change", () => {
+  asApi("POST", "volume", { percent: Number(asVol.value) }).catch(() => {}).then(() => { asVolBusy = false; });
+});
+
 // ---- status polling ----
 function render(st) {
   document.title = st.hostname;
@@ -369,6 +612,7 @@ function render(st) {
   renderServices(st.services);
   camSync(st.camera, st.cameraViewers);
   tvSync(st.tv);
+  asSync(st.assistant);
 }
 
 let failures = 0;

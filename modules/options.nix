@@ -102,6 +102,150 @@ in
       };
     };
 
+    assistant = {
+      enable = mkEnableOption ''
+        the voice assistant: a local wake word, then Mistral for speech-to-text,
+        the model with tools, the voice (Romanian and English) and web search; an
+        Assistant tab on the dashboard. Set the API key with `sudo duet-assistant-login`'';
+
+      name = mkOption {
+        type = types.str;
+        default = "Jarvis";
+        description = "What the assistant calls itself.";
+      };
+
+      defaultLanguage = mkOption {
+        type = types.enum [ "ro" "en" ];
+        default = "ro";
+        description = "Language used when it cannot tell which one was spoken.";
+      };
+
+      wakeWord = mkOption {
+        type = types.str;
+        default = "hey_jarvis";
+        description = ''
+          openWakeWord model to listen for. Built in: hey_jarvis, alexa, hey_mycroft,
+          hey_rhasspy, okay_nabu. A custom one: put `<name>.tflite` in
+          /var/lib/duet-wakewords and set its name here (docs/SETUP.md, "Custom wake word").
+        '';
+      };
+
+      wakeThreshold = mkOption {
+        type = types.numbers.between 0.0 1.0;
+        default = 0.5;
+        description = "Wake word sensitivity: higher means fewer false wakes, but it may miss you.";
+      };
+
+      llm = {
+        baseUrl = mkOption {
+          type = types.str;
+          example = "https://api.mistral.ai/v1";
+          description = "Mistral API base (OpenAI-compatible: the part before /chat/completions) (the part before /chat/completions). The model must support tool calling.";
+        };
+        model = mkOption {
+          type = types.str;
+          example = "mistral-small-latest";
+          description = "Model name as the API expects it.";
+        };
+        apiKeyFile = mkOption {
+          type = types.nullOr types.path;
+          default = "/var/lib/secrets/duet-assistant-llm-key";
+          description = ''
+            File with the API key, written by `sudo duet-assistant-login`. The service
+            waits until it exists. null for endpoints that need no key (a local server).
+          '';
+        };
+        temperature = mkOption {
+          type = types.nullOr types.float;
+          default = null;
+          description = "Sampling temperature; null leaves the provider's default.";
+        };
+      };
+
+      # Speech, voices and web search use the same Mistral endpoint and key as `llm`.
+      stt.model = mkOption {
+        type = types.str;
+        default = "voxtral-mini-transcribe-3-0";
+        description = "Mistral transcription model (Voxtral). voxtral-small-transcribe-3-0 is more accurate and a bit dearer.";
+      };
+
+      tts = {
+        model = mkOption {
+          type = types.str;
+          default = "voxtral-mini-tts-3-0";
+          description = "Mistral text-to-speech model (Voxtral TTS).";
+        };
+        voices = {
+          ro = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            description = "Voice id for Romanian replies (`sudo duet-assistant-login` lists them); null = the API's default voice.";
+          };
+          en = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            description = "Voice id for English replies; null = the API's default voice.";
+          };
+        };
+      };
+
+      audio = {
+        input = mkOption {
+          type = types.str;
+          default = "plughw:0,7";
+          description = "ALSA capture device. The Duet's microphone array, at 16 kHz (`arecord -l`: DMIC16kHz).";
+        };
+        output = mkOption {
+          type = types.str;
+          default = "plughw:0,0";
+          description = "ALSA playback device (the built-in speakers).";
+        };
+        micGain = mkOption {
+          type = types.ints.between 0 70;
+          default = 65;
+          description = "Microphone level (ALSA 'Dmic0', 50 = 0 dB, 70 = +20 dB). The built-in array is quiet: 65 hears a normal voice across the room; lower it if it wakes on noise.";
+        };
+        volume = mkOption {
+          type = types.ints.between 0 100;
+          default = 70;
+          description = "Speaker volume at start (it can be changed by voice and on the dashboard).";
+        };
+      };
+
+      location = {
+        name = mkOption { type = types.str; default = "Bucharest"; description = "Home location, for weather and context."; };
+        latitude = mkOption { type = types.float; default = 44.4268; };
+        longitude = mkOption { type = types.float; default = 26.1025; };
+      };
+
+      webSearch = {
+        enable = mkEnableOption "web search for the assistant, through Mistral's web_search tool" // { default = true; };
+        model = mkOption {
+          type = types.str;
+          default = "mistral-medium-latest";
+          description = "Mistral model that runs the web searches (Conversations API).";
+        };
+      };
+
+      newsFeeds = mkOption {
+        description = "RSS/Atom feeds for the news tool.";
+        default = [
+          { name = "Digi24"; url = "https://www.digi24.ro/rss"; lang = "ro"; }
+          { name = "HotNews"; url = "https://hotnews.ro/feed"; lang = "ro"; }
+          { name = "G4Media"; url = "https://www.g4media.ro/feed"; lang = "ro"; }
+          { name = "BBC World"; url = "https://feeds.bbci.co.uk/news/world/rss.xml"; lang = "en"; }
+          { name = "The Guardian"; url = "https://www.theguardian.com/world/rss"; lang = "en"; }
+        ];
+        type = types.listOf (types.submodule {
+          options = {
+            name = mkOption { type = types.str; };
+            url = mkOption { type = types.str; };
+            lang = mkOption { type = types.enum [ "ro" "en" ]; };
+          };
+        });
+      };
+    };
+
     network.enable = mkEnableOption "network + privacy (Tailscale, mDNS)" // { default = true; };
     network.tailscale.authKeyFile = mkOption {
       type = types.nullOr types.path;

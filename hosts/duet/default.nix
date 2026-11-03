@@ -56,6 +56,23 @@
         { name = "Spotify"; id = "3201606009684"; icon = "🎵"; }
       ];
     };
+    # Voice assistant: "Hey Jarvis", Romanian + English, speech handled on this machine.
+    # Key: `sudo duet-assistant-login` (kept in /var/lib/secrets, never in the repo).
+    assistant = {
+      enable = true;
+      # Mistral (EU, Paris): OpenAI-compatible, tool calling. Key from console.mistral.ai.
+      llm = {
+        baseUrl = "https://api.mistral.ai/v1";
+        model = "mistral-medium-latest"; # small was faster but answered English in Romanian
+      };
+      # Mistral preset voices (`sudo duet-assistant-login` lists them all).
+      tts.voices = {
+        ro = "01a155a0-3dbb-7274-ab31-7fa1ebf35a3e"; # Irina
+        en = "82c99ee6-f932-423f-a4a3-d403c8914b8d"; # Jane - Neutral (British)
+      };
+      # location = { name = "Bucharest"; latitude = 44.4268; longitude = 26.1025; };
+    };
+
     # The colour-filter layout was measured on this laptop (docs/SETUP.md, Stage 10).
     # camera.tuning.cfa = "GIGI/BGRG/GIGI/RGBG"; # only if red and blue come out swapped (default: GIGI/RGBG/GIGI/BGRG)
     # SSH uses your account password for now. Later: add sshKeys, set ssh.passwordAuth = false.

@@ -23,6 +23,7 @@
       pkgs = nixpkgs.legacyPackages.${system};
       dashboard = pkgs.callPackage ./pkgs/dashboard.nix { };
       duet-camera = pkgs.callPackage ./pkgs/duet-camera.nix { };
+      duet-assistant = pkgs.callPackage ./pkgs/duet-assistant.nix { };
     in
     {
       nixosConfigurations.duet = nixpkgs.lib.nixosSystem {
@@ -32,18 +33,19 @@
       };
 
       packages.${system} = {
-        inherit dashboard duet-camera;
+        inherit dashboard duet-camera duet-assistant;
         # The patched camera modules for the kernel the system actually boots (`nix build .#camera-modules` checks the patch still applies).
         camera-modules = self.nixosConfigurations.duet.config.boot.kernelPackages.callPackage ./pkgs/camera-modules.nix { };
         default = dashboard;
       };
 
-      checks.${system} = { inherit dashboard duet-camera; };
+      checks.${system} = { inherit dashboard duet-camera duet-assistant; };
 
       devShells.${system}.default = pkgs.mkShell {
         packages = [ pkgs.go pkgs.gopls ];
         shellHook = ''
           echo "dev: cd dashboard && go run .   (set DUET_CONFIG=<json> to load a service registry)"
+          echo "     cd assistant && go test ./..."
         '';
       };
     };

@@ -351,3 +351,58 @@ As a stop-gap, `duet.camera.backend = "libcamera";` in `hosts/duet/default.nix` 
 Lenovo's Windows camera driver for the 13ITL6 contains the sensor's tuning file (`.aiqb`) with colour matrices
 measured in a lab. Once the layout above is right, those numbers can be extracted into `ccm`
 for colour as close to Windows as this pipeline gets. That's a separate step.
+
+## Stage 11: The voice assistant
+
+`duet.assistant.enable = true;` (on in `hosts/duet/default.nix`) adds a voice assistant. Only the wake word runs on the Duet; the rest is Mistral (EU), with one API key:
+
+| Piece | Where | Does |
+|---|---|---|
+| openWakeWord | on the Duet, 127.0.0.1:10400 | listens for "Hey Jarvis"; nothing leaves the house before it fires |
+| Voxtral transcription (`voxtral-mini-transcribe-3-0`) | Mistral | what you said, Romanian or English |
+| Chat model (`mistral-medium-latest`) | Mistral | what to do: answers and calls the tools |
+| Voxtral TTS (`voxtral-mini-tts-3-0`) | Mistral | the voice |
+| `web_search` tool (`mistral-medium-latest`) | Mistral | current facts |
+| duet-assistant (`assistant/`) | on the Duet, 127.0.0.1:8770 | the pipeline, the tools, the API behind the **Assistant** tab |
+
+Only the sentence after the wake word is sent (as audio for transcription), plus the text of the conversation. Weather comes from Open-Meteo and news from RSS feeds, directly. No port is opened: the dashboard proxies `/api/assistant/`.
+
+### Turn it on
+
+Make a key at console.mistral.ai, then:
+
+```bash
+sudo duet-assistant-login     # paste the key (hidden); it is checked, saved to /var/lib/secrets, voices are listed, the service starts
+curl -s localhost/api/assistant/status | head -c 300; echo
+```
+
+Until a key exists, `duet-assistant` is skipped (not failed). To pick voices, put ids from the list in `duet.assistant.tts.voices.ro` / `.en` and rebuild.
+
+### Use it
+
+Say **"Hey Jarvis"**, wait for the rising beep, speak. Examples:
+
+- "Pune lapte și ouă pe lista de cumpărături." / "Ce am pe listă?"
+- "Adaugă la treburi: dus gunoiul, Alex, până vineri."
+- "Pune un timer de 10 minute pentru paste." / "Set a timer for 5 minutes."
+- "Amintește-mi mâine la 8 să sun la medic." / "Remind me every Monday at 7 to take out the recycling."
+- "Ține minte că Ana e alergică la nuci." (it also saves lasting facts on its own)
+- "Cum e vremea mâine?" / "Ce știri sunt azi?" / "Who won the match last night?"
+- "Mai încet." / "Stop." / "Gata."
+
+Saying "Hey Jarvis" again interrupts it (speech, a slow answer, or a ringing timer). When it ends with a question, it keeps listening for the answer without the wake word. The **Assistant** tab on any device shows the conversation, the lists (tick, add, clear done), timers, reminders and memory, and has a **mic off** switch (the microphone is closed, not just ignored) and the speaker volume. You can also type to it there; 🔊 makes it say the answer out loud.
+
+### Tuning
+
+- Doesn't hear you from across the room: `duet.assistant.audio.micGain` (default 65; 50 = 0 dB, max 70 = +20 dB).
+- Wakes by itself: raise `duet.assistant.wakeThreshold` (0.5 → 0.6). Misses you: lower it.
+- `journalctl -u duet-assistant -f` logs what it heard, every tool call, and the time to the reply.
+- Location for the weather: `duet.assistant.location`. News sources: `duet.assistant.newsFeeds`.
+
+### Custom wake word
+
+Train one with the openWakeWord synthetic-data notebook (Google Colab, about an hour, no recordings needed; search for "openWakeWord automatic model training"). Copy the resulting `hei_duet.tflite` to `/var/lib/duet-wakewords/`, set `duet.assistant.wakeWord = "hei_duet";`, rebuild.
+
+### Where things are kept
+
+`/var/lib/private/duet-assistant/` holds `house.json` (lists), `reminders.json` and `memory.json`, as plain JSON. Timers live in memory only (a restart drops them). No audio is stored on the Duet.

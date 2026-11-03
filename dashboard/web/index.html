@@ -66,6 +66,40 @@
       <div class="tv-msg" id="tv-msg" hidden></div>
     </section>
 
+    <section class="aspage page" id="aspage" data-page="assistant" aria-label="Assistant" hidden>
+      <div class="as-head">
+        <div class="as-orb" id="as-orb" aria-hidden="true"></div>
+        <div class="as-title">
+          <h2 id="as-name">Assistant</h2>
+          <span class="as-state" id="as-state"></span>
+        </div>
+        <button type="button" class="btn as-stop" id="as-stop" hidden>■ Stop</button>
+        <button type="button" class="btn as-mute" id="as-mute" aria-pressed="false">🎙 Mic on</button>
+      </div>
+      <div class="as-err" id="as-err" hidden></div>
+
+      <form class="as-ask" id="as-ask" autocomplete="off">
+        <input type="text" id="as-input" placeholder="Type to the assistant…" aria-label="Message to the assistant" enterkeyhint="send">
+        <label class="as-speak"><input type="checkbox" id="as-speak"> 🔊</label>
+        <button type="submit" class="btn primary" id="as-send">Send</button>
+      </form>
+
+      <div class="as-grid">
+        <div class="card as-log-card"><h3>Conversation</h3><ol class="as-log" id="as-log"></ol></div>
+        <div class="as-lists" id="as-lists"></div>
+        <div class="card"><h3>Timers &amp; reminders</h3><ul class="as-items" id="as-alarms"></ul></div>
+        <div class="card">
+          <h3>What I remember</h3>
+          <ul class="as-items" id="as-mem"></ul>
+          <form class="as-add" data-mem><input type="text" placeholder="Add a fact…" aria-label="Add a fact"><button type="submit" class="btn">+</button></form>
+        </div>
+        <div class="card">
+          <h3>Speaker volume <b id="as-vol-v"></b></h3>
+          <input type="range" id="as-vol" min="0" max="100" step="5" aria-label="Speaker volume">
+        </div>
+      </div>
+    </section>
+
     <section class="camview page" id="camview" data-page="camera" aria-label="Camera" hidden>
       <button type="button" class="cam" id="cam" aria-label="Front camera (tap to turn off)">
         <img id="cam-v" alt="">
@@ -79,6 +113,7 @@
     <button type="button" class="tab active" data-tab="services"><span aria-hidden="true">▦</span>Services</button>
     <button type="button" class="tab" data-tab="system"><span aria-hidden="true">◔</span>System</button>
     <button type="button" class="tab" data-tab="tv" id="tab-tv" hidden><span aria-hidden="true">▭</span>TV</button>
+    <button type="button" class="tab" data-tab="assistant" id="tab-assistant" hidden><span aria-hidden="true">◎</span>Assistant</button>
     <button type="button" class="tab" data-tab="camera" id="tab-camera" hidden><span aria-hidden="true">◉</span>Camera</button>
   </nav>
 
@@ -98,6 +133,13 @@
         <button type="button" class="btn wide" id="sheet-close">Close</button>
       </div>
     </div>
+  </div>
+
+  <div class="as-overlay" id="as-overlay" hidden>
+    <div class="as-orb big" id="as-orb-big" aria-hidden="true"></div>
+    <div class="as-ov-state" id="as-ov-state"></div>
+    <div class="as-ov-text" id="as-ov-text"></div>
+    <button type="button" class="btn wide" id="as-ov-stop">■ Stop</button>
   </div>
 
   <div class="offline" id="offline" hidden>Dashboard unreachable — retrying…</div>

@@ -20,6 +20,7 @@ let
       ++ lib.optionals cfg.network.enable [ "100.64.0.0/10" "fd7a:115c:a1e0::/48" ] # tailnet
       ++ lib.optionals cfg.camera.lanView [ "10.0.0.0/8" "172.16.0.0/12" "192.168.0.0/16" "fc00::/7" "fe80::/10" ];
     tv = if cfg.tv.enable then { inherit (cfg.tv) host name apps; mac = if cfg.tv.mac == null then "" else cfg.tv.mac; } else null;
+    assistant = if cfg.assistant.enable then { url = "http://127.0.0.1:8770"; } else null;
   });
 in
 {
