@@ -61,26 +61,82 @@ function renderServices(services) {
       }
       const t = el(kiosk || !s.port ? "div" : "a", "tile");
       if (!kiosk && s.port) t.href = serviceURL(s);
+      if (kiosk) {
+        t.setAttribute("role", "button");
+        t.tabIndex = 0;
+        t.addEventListener("click", () => openSheet(s.name));
+      }
       t.append(el("span", "dot"), el("span", "icon", s.icon || "•"), el("span", "name", s.name), el("span", "desc", s.description || ""));
       tiles.set(s.name, t);
       root.append(t);
     }
   }
+  serviceData = new Map(services.map((s) => [s.name, s]));
   for (const s of services) tiles.get(s.name).dataset.state = s.state;
+  if (sheetFor) fillSheet(); // keep an open sheet live
+}
+
+// ---- kiosk: tabs, detail sheet, idle reset ----
+let serviceData = new Map();
+let sheetFor = null;
+const sheet = $("sheet");
+
+function fillSheet() {
+  const s = serviceData.get(sheetFor);
+  if (!s) { closeSheet(); return; }
+  $("sheet-icon").textContent = s.icon || "•";
+  $("sheet-name").textContent = s.name;
+  $("sheet-desc").textContent = s.description || "";
+  $("sheet-state").textContent = s.state;
+  $("sheet-state").dataset.state = s.state;
+  $("sheet-url").textContent = s.port ? serviceURL(s).replace(/^https?:\/\//, "") : "—";
+  $("sheet-unit").textContent = s.unit || "—";
+}
+function openSheet(name) { sheetFor = name; fillSheet(); sheet.hidden = false; }
+function closeSheet() { sheetFor = null; sheet.hidden = true; }
+$("sheet-close").addEventListener("click", closeSheet);
+sheet.addEventListener("click", (e) => { if (e.target === sheet) closeSheet(); });
+
+function showTab(name) {
+  closeSheet();
+  document.querySelectorAll("[data-page]").forEach((p) => p.classList.toggle("active", p.dataset.page === name));
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+}
+document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => showTab(t.dataset.tab)));
+
+// After a minute without touches, fall back to the home (services) page.
+if (kiosk) {
+  let idle;
+  const arm = () => {
+    clearTimeout(idle);
+    idle = setTimeout(() => {
+      if (document.querySelector(".tab.active")?.dataset.tab !== "services" || sheetFor) showTab("services");
+    }, 60000);
+  };
+  addEventListener("pointerdown", arm, true);
+  arm();
 }
 
 // ---- brightness ----
 let brightBusy = false;
 const slider = $("bright-r");
 slider.addEventListener("input", () => { $("bright-v").textContent = slider.value + "%"; });
-slider.addEventListener("change", async () => {
+async function sendBrightness() {
   brightBusy = true;
   try {
     await fetch("/api/brightness", { method: "POST", body: JSON.stringify({ percent: +slider.value }) });
   } finally {
     brightBusy = false;
   }
-});
+}
+slider.addEventListener("change", sendBrightness);
+const nudge = (d) => () => {
+  slider.value = Math.max(+slider.min, Math.min(+slider.max, +slider.value + d));
+  $("bright-v").textContent = slider.value + "%";
+  sendBrightness();
+};
+$("bright-dn").addEventListener("click", nudge(-10));
+$("bright-up").addEventListener("click", nudge(10));
 
 // ---- front camera preview (kiosk only) ----
 // The device is the "Duet Front Camera" webcam that duet-camera-relay exposes;
@@ -153,7 +209,9 @@ cam.addEventListener("click", () => {
 // Called from render(): show the tile once, then keep trying while it is wanted.
 function camSync(enabled) {
   camWanted = kiosk && !!enabled;
-  cam.hidden = !camWanted;
+  $("camview").hidden = !camWanted;
+  $("tab-camera").hidden = !camWanted;
+  if (!camWanted && $("camview").classList.contains("active")) showTab("services");
   if (camWanted && camOn && !camStream && !camBusy && Date.now() >= camRetry) {
     camRetry = Date.now() + 10000; // the relay may start after the dashboard
     camStart();

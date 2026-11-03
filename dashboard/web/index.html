@@ -18,9 +18,9 @@
   </header>
 
   <main>
-    <section class="tiles" id="tiles" aria-label="Services"></section>
+    <section class="tiles page active" id="tiles" data-page="services" aria-label="Services"></section>
 
-    <aside class="panel" aria-label="System">
+    <aside class="panel page" data-page="system" aria-label="System">
       <div class="meter"><label>CPU <b id="cpu-v"></b></label><div class="bar"><i id="cpu-b"></i></div></div>
       <div class="meter"><label>Memory <b id="mem-v"></b></label><div class="bar"><i id="mem-b"></i></div></div>
       <div id="disks"></div>
@@ -29,16 +29,43 @@
 
       <div class="meter" id="bright" hidden>
         <label>Screen <b id="bright-v"></b></label>
-        <input type="range" id="bright-r" min="1" max="100" step="1" aria-label="Screen brightness">
+        <div class="stepper">
+          <button type="button" class="btn" id="bright-dn" aria-label="Dimmer">−</button>
+          <input type="range" id="bright-r" min="1" max="100" step="1" aria-label="Screen brightness">
+          <button type="button" class="btn" id="bright-up" aria-label="Brighter">+</button>
+        </div>
       </div>
+    </aside>
 
-      <button type="button" class="cam" id="cam" hidden aria-label="Front camera (tap to turn off)">
+    <section class="camview page" id="camview" data-page="camera" aria-label="Camera" hidden>
+      <button type="button" class="cam" id="cam" aria-label="Front camera (tap to turn off)">
         <video id="cam-v" autoplay muted playsinline></video>
         <span class="cam-msg" id="cam-msg">Camera starting…</span>
-        <span class="cam-tag"><i></i>Front camera</span>
+        <span class="cam-tag"><i></i>Front camera · tap to switch off</span>
       </button>
-    </aside>
+    </section>
   </main>
+
+  <nav class="tabbar" id="tabbar" aria-label="Pages">
+    <button type="button" class="tab active" data-tab="services"><span aria-hidden="true">▦</span>Services</button>
+    <button type="button" class="tab" data-tab="system"><span aria-hidden="true">◔</span>System</button>
+    <button type="button" class="tab" data-tab="camera" id="tab-camera" hidden><span aria-hidden="true">◉</span>Camera</button>
+  </nav>
+
+  <div class="sheet-back" id="sheet" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-name">
+      <div class="sheet-head">
+        <span class="icon" id="sheet-icon"></span>
+        <div><h2 id="sheet-name"></h2><p id="sheet-desc"></p></div>
+      </div>
+      <dl>
+        <dt>Status</dt><dd id="sheet-state"></dd>
+        <dt>Address</dt><dd id="sheet-url"></dd>
+        <dt>Unit</dt><dd id="sheet-unit"></dd>
+      </dl>
+      <button type="button" class="btn wide" id="sheet-close">Close</button>
+    </div>
+  </div>
 
   <div class="offline" id="offline" hidden>Dashboard unreachable — retrying…</div>
   <script src="app.js"></script>
