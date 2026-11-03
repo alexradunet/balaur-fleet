@@ -122,6 +122,29 @@ func TestAWBNeutralisesTint(t *testing.T) {
 	}
 }
 
+func TestDefaultCCMKeepsGreyAndAddsSaturation(t *testing.T) {
+	cfg := defaultConfig()
+	for r := 0; r < 3; r++ {
+		if s := cfg.CCM[3*r] + cfg.CCM[3*r+1] + cfg.CCM[3*r+2]; math.Abs(s-1) > 1e-9 {
+			t.Fatalf("ccm row %d sums to %v, greys would get tinted", r, s)
+		}
+	}
+	cfg.AWBGains = &[3]float64{1, 1, 1}
+	p, _ := NewProcessor(cfg)
+	R, G, B := p.finish(0.2, 0.2, 0.2, false)
+	if absDiff(R, G) > 1 || absDiff(B, G) > 1 {
+		t.Fatalf("grey should stay grey, got %d,%d,%d", R, G, B)
+	}
+	// A pale red as the sensor sees it must come out clearly redder.
+	R, G, B = p.finish(0.30, 0.20, 0.17, false)
+	cfg.CCM = [9]float64{1, 0, 0, 0, 1, 0, 0, 0, 1}
+	q, _ := NewProcessor(cfg)
+	R0, G0, B0 := q.finish(0.30, 0.20, 0.17, false)
+	if int(R)-int(G) <= int(R0)-int(G0) || int(R)-int(B) <= int(R0)-int(B0) {
+		t.Fatalf("ccm should increase saturation: %d,%d,%d vs identity %d,%d,%d", R, G, B, R0, G0, B0)
+	}
+}
+
 func (p *Processor) cellRGB(f *RawFrame, cx, cy int) (float32, float32, float32, bool) {
 	r, g, b, _, c := p.cell(f, cx, cy)
 	return r, g, b, c

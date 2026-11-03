@@ -51,11 +51,19 @@ func defaultConfig() Config {
 		// Measured on the Duet (tile statistics in the relay log, 2026-11-03):
 		// IR at odd columns of even rows. Which of the two colour pixels is red
 		// is still to be confirmed by eye; the other choice is GIGI/BGRG/GIGI/RGBG.
-		CFA:            "GIGI/RGBG/GIGI/BGRG",
-		BlackLevel:     64,
-		WhiteLevel:     1023,
-		IRCoeffs:       [3]float64{1, 1, 1},
-		CCM:            [9]float64{1, 0, 0, 0, 1, 0, 0, 0, 1},
+		CFA:        "GIGI/RGBG/GIGI/BGRG",
+		BlackLevel: 64,
+		WhiteLevel: 1023,
+		IRCoeffs:   [3]float64{1, 1, 1},
+		// The sensor's colour filters overlap a lot (red light also reaches the
+		// green and blue pixels), so raw RGB is pale; identity looked nearly
+		// grey on the Duet. A typical small-sensor matrix undoes the crosstalk.
+		// Rows sum to 1 so white-balanced greys stay grey.
+		CCM: [9]float64{
+			1.75, -0.55, -0.20,
+			-0.35, 1.65, -0.30,
+			0.00, -0.70, 1.70,
+		},
 		Saturation:     1,
 		View:           "color",
 		AETarget:       0.18,

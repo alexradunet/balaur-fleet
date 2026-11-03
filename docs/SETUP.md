@@ -303,9 +303,9 @@ Other knobs, same way (defaults in `camera/config.go`):
 | Key | What it does |
 |---|---|
 | `irCoeffs` | `[r, g, b]`: how much of the IR pixel to subtract from each colour. Raise if colours look washed out/pinkish under sunlight or halogen, lower if shadows turn green/black. |
-| `ccm` | 3x3 colour matrix (row-major), after white balance. Identity by default. |
+| `ccm` | 3x3 colour matrix (row-major), after white balance. Undoes the crosstalk between the colour filters; without it (identity) the picture looks almost grey. Keep each row summing to 1 or whites get tinted. Default in `camera/config.go`. |
 | `awbGains` | `[r, g, b]` to lock white balance; `null` = automatic. |
-| `saturation` | 1.0 = as is. |
+| `saturation` | 1.0 = as is. The quickest knob if colours are still too weak or too strong (try 1.2-1.4); in dim rooms it adds less colour noise than a stronger `ccm`. |
 | `flipH`, `flipV` | Rotate/mirror in software (the kiosk tile already mirrors like a selfie camera). |
 | `aeTarget`, `maxGain`, `maxDigitalGain`, `antiFlicker` | Brightness target (0.18), analogue gain ceiling (8x), software gain once exposure and gain are used up (2x, dim rooms), mains frequency for flicker-free exposure (50 Hz; 60 in the Americas). |
 | `view` | `"color"` (default); `"raw"`: grey picture straight from the sensor, no layout/IR/colour processing; `"noir"`: colour without IR subtraction. |
