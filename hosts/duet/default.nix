@@ -18,6 +18,10 @@
   time.timeZone = "Europe/Bucharest"; # change me
   i18n.defaultLocale = "en_US.UTF-8";
 
+  # TEMPORARY, development only: wheel users (alex) get sudo without a password so
+  # Claude Code can rebuild and tune the camera. Delete this line when development is done.
+  security.sudo.wheelNeedsPassword = false;
+
   # Keep the same value your first install put in /etc/nixos/configuration.nix.
   # system.stateVersion = "26.05";
   # boot.loader.efi.efiSysMountPoint = "/boot/efi";   # only if your EFI partition is mounted there
