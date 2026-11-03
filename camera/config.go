@@ -45,6 +45,10 @@ type Config struct {
 	ScreenTimeout   int     `json:"screenTimeout"`
 	MotionThreshold float64 `json:"motionThreshold"` // luma change (of 255) that counts for one cell
 	MotionArea      float64 `json:"motionArea"`      // fraction of the picture that must change
+
+	// Frames per second processed while nobody watches the live view or uses
+	// the webcam (motion wake and exposure keep working). 0 = none.
+	IdleFPS float64 `json:"idleFps"`
 }
 
 func defaultConfig() Config {
@@ -79,6 +83,7 @@ func defaultConfig() Config {
 		// 32x18 grid: 1% is about 6 cells, a hand or a head entering the picture.
 		MotionThreshold: 12,
 		MotionArea:      0.01,
+		IdleFPS:         3,
 	}
 }
 
@@ -136,6 +141,8 @@ func (c *Config) validate() error {
 		return fmt.Errorf("screenTimeout %v must be 0 (always on) or more", c.ScreenTimeout)
 	case c.MotionThreshold <= 0:
 		return fmt.Errorf("motionThreshold %v must be above 0", c.MotionThreshold)
+	case c.IdleFPS < 0 || c.IdleFPS > 30:
+		return fmt.Errorf("idleFps %v must be between 0 and 30", c.IdleFPS)
 	case c.MotionArea <= 0 || c.MotionArea > 1:
 		return fmt.Errorf("motionArea %v must be above 0 and at most 1", c.MotionArea)
 	}

@@ -176,3 +176,10 @@ func (s *Stream) serveSnapshot(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	_, _ = w.Write(jpg)
 }
+
+// Viewers is the number of open live-view streams.
+func (s *Stream) Viewers() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.viewers
+}

@@ -115,6 +115,9 @@ func cmdRun(args []string) error {
 		log.Printf("%s on %s", stream, path)
 	}
 
+	webcam := newWebcamWatch(*output)
+	var lastProcessed time.Time
+	idle := false
 	motion := NewMotion(cfg.MotionThreshold, cfg.MotionArea)
 	var screen *Screen
 	startScreen := func() {
@@ -176,14 +179,7 @@ func cmdRun(args []string) error {
 		if err != nil {
 			return err
 		}
-		start := time.Now()
-		uerr := raw.Unpack(data, capt.Stride, capt.Packed)
-		if err := capt.Requeue(idx); err != nil {
-			return err
-		}
-		if uerr != nil {
-			return uerr
-		}
+		// Sensor frame time, from every captured frame (exposure needs it), processed or not.
 		if lastTs > 0 && ts > lastTs {
 			d := ts - lastTs
 			if frameDur == 0 {
@@ -194,6 +190,31 @@ func cmdRun(args []string) error {
 		}
 		lastTs = ts
 
+		// Nobody watching: process only cfg.IdleFPS frames per second.
+		nowIdle := (stream == nil || stream.Viewers() == 0) && !webcam.InUse()
+		if nowIdle != idle {
+			idle = nowIdle
+			if idle {
+				log.Printf("no viewers: idle at %v fps", cfg.IdleFPS)
+			} else {
+				log.Printf("viewer connected: full rate")
+			}
+		}
+		if idle && (cfg.IdleFPS <= 0 || time.Since(lastProcessed) < time.Duration(float64(time.Second)/cfg.IdleFPS)) {
+			if err := capt.Requeue(idx); err != nil {
+				return err
+			}
+			continue
+		}
+		lastProcessed = time.Now()
+		start := time.Now()
+		uerr := raw.Unpack(data, capt.Stride, capt.Packed)
+		if err := capt.Requeue(idx); err != nil {
+			return err
+		}
+		if uerr != nil {
+			return uerr
+		}
 		st := proc.Frame(raw, cfg.OutWidth, cfg.OutHeight, frame)
 		if err := out.Write(frame); err != nil {
 			return fmt.Errorf("write %s: %w", *output, err)
