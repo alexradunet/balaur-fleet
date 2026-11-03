@@ -8,10 +8,8 @@
 #
 #   duet-tv-sideload dashboard   the "Duet" app (tv-app/): this dashboard on the TV
 #   duet-tv-sideload jellyfin    the latest Jellyfin build (jeppevinkel/jellyfin-tizen-builds)
-#   duet-tv-sideload tizenbrew   TizenBrew (reisxd/TizenBrew): homebrew launcher, TizenTube
 #
-# TizenBrew wants Host PC IP = 127.0.0.1 afterwards; set it back to this machine
-# for the next sideload.
+# Developer Mode can be switched off afterwards; sideloaded apps keep working.
 { config, lib, pkgs, ... }:
 let
   cfg = config.duet;
@@ -54,19 +52,8 @@ let
           sed -i "s|__DASHBOARD_URL__|${tv.dashboardUrl}|" "$work/app/main.js"
           install_in_image app
           ;;
-        tizenbrew)
-          # The release carries one widget, TizenBrewStandalone-Old.wgt (any Tizen 3+ TV).
-          url=$(curl -fsSL https://api.github.com/repos/reisxd/TizenBrew/releases/latest \
-            | sed -n 's/.*"browser_download_url": *"\([^"]*\.wgt\)".*/\1/p' | head -n1)
-          [ -n "$url" ] || { echo "Could not find the TizenBrew release" >&2; exit 1; }
-          echo "Downloading $url"
-          curl -fsSL -o "$work/TizenBrewStandalone.wgt" "$url"
-          install_in_image TizenBrewStandalone.wgt
-          echo
-          echo "Now set Host PC IP to 127.0.0.1 on the TV (Apps → 1 2 3 4 5) and restart it; TizenBrew needs that."
-          ;;
         *)
-          echo "usage: duet-tv-sideload dashboard|jellyfin|tizenbrew" >&2
+          echo "usage: duet-tv-sideload dashboard|jellyfin" >&2
           exit 2
           ;;
       esac

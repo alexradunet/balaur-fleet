@@ -1,6 +1,3 @@
-| TV tab (opt-in `duet.tv.enable`) | A Samsung (Tizen) TV on the LAN: power (Wake-on-LAN from fully off), app shortcuts that switch the TV on first, and a remote (arrows, OK, Back, Home, volume, play/pause, source). The first button press asks "Allow Duet?" on the TV once. |
-| On the TV | `duet-tv-sideload dashboard|jellyfin|tizenbrew` (TV in Developer Mode, Host PC IP = this machine) installs the **Duet** app (this dashboard with remote-control navigation; Back on the home page exits), Jellyfin, or TizenBrew (TizenTube etc.; it then needs Host PC IP = 127.0.0.1). |
-| Ad blocking (opt-in `duet.adblock.enable`) | AdGuard Home as the LAN DNS server, with European upstreams (Quad9, DNS4EU) and Samsung TV ad/ACR-tracking rules. Set it as the router's DNS 1 (keep a public DNS 2 so the network survives the box being off). |
 # Yoga Duet 7 home server
 
 An opinionated, fully declarative NixOS home server for the **Lenovo Yoga Duet 7 (13ITL6)**.
@@ -34,6 +31,9 @@ tv-app/                   "Duet" Tizen TV app: the dashboard on the TV, remote-c
 | Built-in screen | `http://127.0.0.1/?kiosk=1` full-screen. A tab bar switches between **Services** (tiles with live health; tap one for details and **Open**), **System** (CPU/RAM/disk/temp, load, brightness) and **Camera**. Clock and battery sit in the header. **Open** loads the service (Jellyfin, qBittorrent, ...) on the screen itself; a floating **Home** button on its left edge returns to the dashboard. There is no on-screen keyboard, so do logins from another device or attach a keyboard. |
 | `http://duet.local`, `http://duet` over Tailscale | The same UI, controlling the same box: brightness, the services, the camera. **Open** launches a service in a new tab. |
 | Camera tab (opt-in `duet.camera.enable`) | Live front-camera view, streamed by the relay as MJPEG through the dashboard (`/api/camera`), so every screen shows the same picture. Visible on the built-in screen and to tailnet devices; plain-LAN browsers only with `duet.camera.lanView = true`. It only streams while the tab is open, and every screen shows a red **camera live** badge while anyone is watching. Tap the picture to stop/start it. The screen goes dark after 2 minutes with no movement in front of the camera and wakes on movement or touch (`duet.camera.screenTimeout`, `0` = always on). |
+| TV tab (opt-in `duet.tv.enable`) | A Samsung (Tizen) TV on the LAN: power (Wake-on-LAN from fully off), app shortcuts that switch the TV on first, and a remote (arrows, OK, Back, Home, volume, play/pause, source). The first button press asks "Allow Duet?" on the TV once. |
+| On the TV | `duet-tv-sideload dashboard` or `duet-tv-sideload jellyfin` (TV in Developer Mode, Host PC IP = this machine) installs the **Duet** app (this dashboard with remote-control navigation; Back on the home page exits) or the latest Jellyfin. Developer Mode can be switched off afterwards; the apps keep working. |
+| Ad blocking (opt-in `duet.adblock.enable`) | AdGuard Home as the LAN DNS server, with European upstreams (Quad9, DNS4EU) and Samsung TV ad/ACR-tracking rules. Set it as the router's DNS 1 (keep a public DNS 2 so the network survives the box being off). |
 
 Adding a service = add a module that appends to `duet.dashboard.services`; it gets a tile
 with live systemd state automatically.

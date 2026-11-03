@@ -50,7 +50,6 @@
       dashboardUrl = "http://192.168.50.233/";
       apps = [
         { name = "YouTube"; id = "111299001912"; icon = "▶"; }
-        { name = "TizenBrew"; id = "xvvl3S1bvH.TizenBrewStandalone"; icon = "🧪"; }
         { name = "Netflix"; id = "3201907018807"; icon = "🍿"; }
         { name = "Prime Video"; id = "3201910019365"; icon = "📦"; }
         { name = "Disney+"; id = "3201901017640"; icon = "✨"; }
