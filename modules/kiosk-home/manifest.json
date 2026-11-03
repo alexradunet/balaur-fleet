@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Duet kiosk: Home button",
+  "version": "1.0",
+  "description": "A floating Home button on service pages opened from the kiosk dashboard.",
+  "content_scripts": [
+    {
+      "matches": ["http://127.0.0.1/*", "http://localhost/*"],
+      "js": ["home.js"],
+      "run_at": "document_end"
+    }
+  ]
+}

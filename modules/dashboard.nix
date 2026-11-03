@@ -14,7 +14,11 @@ let
     hostname = config.networking.hostName;
     listen = cfg.dashboard.listen;
     services = map (s: s // { port = if s.port == null then 0 else s.port; }) sorted;
-    camera = cfg.camera.enable;
+    # The relay's live view (camera.nix sets it for the rgbir backend) and who may watch it.
+    cameraStream = config.systemd.services.duet-camera-relay.environment.DUET_CAMERA_STREAM or "";
+    cameraNets = [ "127.0.0.0/8" "::1/128" ]
+      ++ lib.optionals cfg.network.enable [ "100.64.0.0/10" "fd7a:115c:a1e0::/48" ] # tailnet
+      ++ lib.optionals cfg.camera.lanView [ "10.0.0.0/8" "172.16.0.0/12" "192.168.0.0/16" "fc00::/7" "fe80::/10" ];
   });
 in
 {
@@ -30,7 +34,7 @@ in
       RestartSec = 2;
 
       DynamicUser = true;
-      SupplementaryGroups = [ "video" ]; # backlight slider
+      SupplementaryGroups = [ "video" ]; # backlight slider, camera live-view socket
       AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" ];
       CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" ];
 

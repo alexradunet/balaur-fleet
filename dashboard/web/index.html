@@ -12,6 +12,7 @@
     <div class="brand"><span class="logo" aria-hidden="true"></span><span id="host">duet</span></div>
     <div class="clock"><time id="clock">--:--</time><span id="date"></span></div>
     <div class="pills">
+      <span class="pill live" id="cam-pill" hidden></span>
       <span class="pill" id="bat-pill" hidden></span>
       <span class="pill" id="up-pill"></span>
     </div>
@@ -39,7 +40,7 @@
 
     <section class="camview page" id="camview" data-page="camera" aria-label="Camera" hidden>
       <button type="button" class="cam" id="cam" aria-label="Front camera (tap to turn off)">
-        <video id="cam-v" autoplay muted playsinline></video>
+        <img id="cam-v" alt="">
         <span class="cam-msg" id="cam-msg">Camera starting…</span>
         <span class="cam-tag"><i></i>Front camera · tap to switch off</span>
       </button>
@@ -63,7 +64,10 @@
         <dt>Address</dt><dd id="sheet-url"></dd>
         <dt>Unit</dt><dd id="sheet-unit"></dd>
       </dl>
-      <button type="button" class="btn wide" id="sheet-close">Close</button>
+      <div class="sheet-actions">
+        <a class="btn wide primary" id="sheet-open" rel="noopener" hidden>Open</a>
+        <button type="button" class="btn wide" id="sheet-close">Close</button>
+      </div>
     </div>
   </div>
 

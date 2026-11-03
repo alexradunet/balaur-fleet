@@ -1,7 +1,8 @@
 // duet-dashboard: tiny status + control server for the Yoga Duet 7 home server.
 //
-// It serves an embedded static UI (used both by the kiosk screen and by any
-// browser on the LAN) and a small JSON API. Standard library only.
+// It serves one embedded UI (the same for the kiosk screen and any browser on
+// the LAN or tailnet), a small JSON API and the live camera view. Standard
+// library only.
 package main
 
 import (
@@ -38,7 +39,9 @@ type Config struct {
 	Hostname string    `json:"hostname"`
 	Listen   string    `json:"listen"`
 	Services []Service `json:"services"`
-	Camera   bool      `json:"camera"` // front camera preview enabled (kiosk only)
+	// Live camera view: the relay's MJPEG socket, and who may watch it.
+	CameraStream string   `json:"cameraStream"`
+	CameraNets   []string `json:"cameraNets"`
 }
 
 func loadConfig() Config {
@@ -81,14 +84,21 @@ func main() {
 	cfg := loadConfig()
 	sampler := newSampler()
 	go sampler.run()
+	cam := newCamera(cfg)
 
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /api/status", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
 		defer cancel()
-		writeJSON(w, collectStatus(ctx, cfg, sampler))
+		st := collectStatus(ctx, cfg, sampler)
+		st.Camera = cam.allowed(r)
+		st.CameraViewers = cam.Viewers()
+		writeJSON(w, st)
 	})
+	if cam != nil {
+		mux.Handle("GET /api/camera", cam)
+	}
 
 	mux.HandleFunc("POST /api/brightness", func(w http.ResponseWriter, r *http.Request) {
 		if !sameOrigin(r) {

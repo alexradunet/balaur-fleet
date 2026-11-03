@@ -105,19 +105,20 @@ type Brightness struct {
 }
 
 type Status struct {
-	Hostname   string          `json:"hostname"`
-	Time       time.Time       `json:"time"`
-	UptimeSec  int64           `json:"uptimeSec"`
-	Load       [3]float64      `json:"load"`
-	CPU        float64         `json:"cpu"`
-	MemTotal   uint64          `json:"memTotal"`
-	MemUsed    uint64          `json:"memUsed"`
-	Disks      []Disk          `json:"disks"`
-	Temps      []Temp          `json:"temps"`
-	Battery    Battery         `json:"battery"`
-	Brightness Brightness      `json:"brightness"`
-	Services   []ServiceStatus `json:"services"`
-	Camera     bool            `json:"camera"`
+	Hostname      string          `json:"hostname"`
+	Time          time.Time       `json:"time"`
+	UptimeSec     int64           `json:"uptimeSec"`
+	Load          [3]float64      `json:"load"`
+	CPU           float64         `json:"cpu"`
+	MemTotal      uint64          `json:"memTotal"`
+	MemUsed       uint64          `json:"memUsed"`
+	Disks         []Disk          `json:"disks"`
+	Temps         []Temp          `json:"temps"`
+	Battery       Battery         `json:"battery"`
+	Brightness    Brightness      `json:"brightness"`
+	Services      []ServiceStatus `json:"services"`
+	Camera        bool            `json:"camera"`        // this client may watch the live view
+	CameraViewers int             `json:"cameraViewers"` // streams open right now (any client)
 }
 
 func collectStatus(ctx context.Context, cfg Config, s *sampler) Status {
@@ -130,7 +131,6 @@ func collectStatus(ctx context.Context, cfg Config, s *sampler) Status {
 		Battery:    readBattery(),
 		Brightness: readBrightness(),
 		Services:   serviceStates(ctx, cfg.Services),
-		Camera:     cfg.Camera,
 	}
 	st.UptimeSec = readUptime()
 	st.Load = readLoad()

@@ -69,7 +69,18 @@ in
     kiosk.enable = mkEnableOption "touch kiosk on the built-in screen" // { default = true; };
 
     camera = {
-      enable = mkEnableOption "front camera (patched kernel modules + webcam relay) with a live preview in the kiosk corner";
+      enable = mkEnableOption "front camera (patched kernel modules + webcam relay) with a live view on the dashboard's Camera tab";
+
+      lanView = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Also let browsers on the local network watch the live view. By
+          default only the built-in screen and tailnet devices may (the
+          dashboard has no login). Every screen shows a "camera live" badge
+          while anyone is watching. Needs the `rgbir` backend.
+        '';
+      };
 
       backend = mkOption {
         type = types.enum [ "rgbir" "libcamera" ];

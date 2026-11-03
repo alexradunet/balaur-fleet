@@ -201,9 +201,11 @@ toolchains should come from each project's own `nix develop` shell instead of sy
    source, so the front OVTI5678 sensor is recognised. The patch is `pkgs/camera-yoga-duet-ov5678.patch`; it
    is applied with zero fuzz, so a kernel bump that moves the code fails the build instead of misapplying.
 2. Runs `duet-camera-relay`, which turns raw sensor frames into a v4l2loopback webcam named "Duet Front Camera"
-   (`/dev/video64`). Chromium cannot use the raw IPU nodes, only this webcam.
-3. Shows that webcam as a small live tile at the bottom of the kiosk's side panel. Tap it to turn the camera off (it is released) and on again.
-   Chromium's policy lets only the local dashboard use the camera, and the microphone is blocked.
+   (`/dev/video64`), for any other app that wants a webcam.
+3. Streams the same frames as MJPEG on `/run/duet-camera-relay/stream.sock` (only while someone watches), which the
+   dashboard shows on its **Camera** tab: on the kiosk, to tailnet devices, and to the LAN with
+   `duet.camera.lanView = true`. Tap the picture to stop/start viewing. The kiosk browser itself has no camera or
+   microphone access.
 
 ### Why the picture was yellow-green, and what fixes it
 
@@ -306,14 +308,14 @@ Other knobs, same way (defaults in `camera/config.go`):
 | `ccm` | 3x3 colour matrix (row-major), after white balance. Undoes the crosstalk between the colour filters; without it (identity) the picture looks almost grey. Keep each row summing to 1 or whites get tinted. Default in `camera/config.go`. |
 | `awbGains` | `[r, g, b]` to lock white balance; `null` = automatic. |
 | `saturation` | 1.0 = as is. The quickest knob if colours are still too weak or too strong (try 1.2-1.4); in dim rooms it adds less colour noise than a stronger `ccm`. |
-| `flipH`, `flipV` | Rotate/mirror in software (the kiosk tile already mirrors like a selfie camera). |
+| `flipH`, `flipV` | Rotate/mirror in software (the kiosk preview already mirrors like a selfie camera). |
 | `aeTarget`, `maxGain`, `maxDigitalGain`, `antiFlicker` | Brightness target (0.18), analogue gain ceiling (8x), software gain once exposure and gain are used up (2x, dim rooms), mains frequency for flicker-free exposure (50 Hz; 60 in the Americas). |
 | `view` | `"color"` (default); `"raw"`: grey picture straight from the sensor, no layout/IR/colour processing; `"noir"`: colour without IR subtraction. |
 
-Then `sudo systemctl restart cage-tty1` (or reboot) and the tile appears. "No camera found" on the tile
+Then `sudo systemctl restart cage-tty1` (or reboot) and the Camera tab appears. "No camera found" on the preview
 means the relay or the device is missing; the dashboard's **Camera** tile dot shows the relay's state.
 
-### If the tile is black
+### If the preview is black
 
 Look at what the relay says about its first frames:
 

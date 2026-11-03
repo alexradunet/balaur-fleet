@@ -2,7 +2,8 @@
 // webcam: raw frames from the IPU6 capture node, an RGB-IR rebuild with IR
 // subtraction, auto white balance, colour correction, gamma and auto exposure
 // (the steps the Windows driver runs in the IPU's ISP), then YUYV frames into
-// the v4l2loopback device that Chromium opens.
+// the v4l2loopback webcam, plus an MJPEG live view on a Unix socket
+// ($DUET_CAMERA_STREAM) that the dashboard serves to its viewers.
 package main
 
 import (
@@ -106,6 +107,14 @@ func cmdRun(args []string) error {
 	frame := make([]byte, cfg.OutWidth*cfg.OutHeight*2)
 	log.Printf("cfa %s, ir %v, %s, writing %dx%d YUYV to %s", proc.cfa, cfg.IRCoeffs, ae, cfg.OutWidth, cfg.OutHeight, *output)
 
+	var stream *Stream
+	if path := os.Getenv("DUET_CAMERA_STREAM"); path != "" {
+		if stream, err = ServeStream(path, cfg.OutWidth, cfg.OutHeight); err != nil {
+			return fmt.Errorf("live view: %w", err)
+		}
+		log.Printf("%s on %s", stream, path)
+	}
+
 	motion := NewMotion(cfg.MotionThreshold, cfg.MotionArea)
 	var screen *Screen
 	startScreen := func() {
@@ -188,6 +197,9 @@ func cmdRun(args []string) error {
 		st := proc.Frame(raw, cfg.OutWidth, cfg.OutHeight, frame)
 		if err := out.Write(frame); err != nil {
 			return fmt.Errorf("write %s: %w", *output, err)
+		}
+		if stream != nil {
+			stream.Offer(frame)
 		}
 		if screen != nil {
 			if screen.Settling() {

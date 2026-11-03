@@ -25,9 +25,9 @@ camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 fram
 
 | Where | What |
 |---|---|
-| Built-in screen | `http://127.0.0.1/?kiosk=1` full-screen: clock, service health, CPU/RAM/disk/temp, battery, brightness slider. Status only, no navigation. |
-| Kiosk corner (opt-in `duet.camera.enable`) | Live front-camera preview at the bottom of the side panel; tap it to switch the camera off/on. Kiosk only: the camera is never streamed to the LAN. The screen goes dark after 2 minutes with no movement in front of the camera and wakes on movement or touch (`duet.camera.screenTimeout`, `0` = always on). |
-| `http://duet.local` (any LAN/tailnet device) | Same dashboard as a launcher: each tile opens the service. |
+| Built-in screen | `http://127.0.0.1/?kiosk=1` full-screen. A tab bar switches between **Services** (tiles with live health; tap one for details and **Open**), **System** (CPU/RAM/disk/temp, load, brightness) and **Camera**. Clock and battery sit in the header. **Open** loads the service (Jellyfin, qBittorrent, ...) on the screen itself; a floating **Home** button on its left edge returns to the dashboard. There is no on-screen keyboard, so do logins from another device or attach a keyboard. |
+| `http://duet.local`, `http://duet` over Tailscale | The same UI, controlling the same box: brightness, the services, the camera. **Open** launches a service in a new tab. |
+| Camera tab (opt-in `duet.camera.enable`) | Live front-camera view, streamed by the relay as MJPEG through the dashboard (`/api/camera`), so every screen shows the same picture. Visible on the built-in screen and to tailnet devices; plain-LAN browsers only with `duet.camera.lanView = true`. It only streams while the tab is open, and every screen shows a red **camera live** badge while anyone is watching. Tap the picture to stop/start it. The screen goes dark after 2 minutes with no movement in front of the camera and wakes on movement or touch (`duet.camera.screenTimeout`, `0` = always on). |
 
 Adding a service = add a module that appends to `duet.dashboard.services`; it gets a tile
 with live systemd state automatically.

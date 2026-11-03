@@ -1,5 +1,6 @@
 # Touch kiosk on the built-in screen: Cage (single-app Wayland compositor)
-# running Chromium full-screen on the local dashboard.
+# running Chromium full-screen on the local dashboard. A service's "Open"
+# button loads it in the same window; a floating Home button returns.
 { config, lib, pkgs, ... }:
 let
   cfg = config.duet;
@@ -24,17 +25,21 @@ let
       --touch-events=enabled \
       --password-store=basic \
       --check-for-update-interval=31536000 \
+      --load-extension=${./kiosk-home} \
       --app=${url}
   '';
 in
 lib.mkIf cfg.kiosk.enable {
-  # Managed Chromium policy: the kiosk may only ever show the dashboard.
+  # Managed Chromium policy: the kiosk may only show the dashboard and the local
+  # services it opens (any port on 127.0.0.1); kiosk-home/ adds their Home button.
   programs.chromium = {
     enable = true;
     extraOpts = {
       URLBlocklist = [ "*" ];
       URLAllowlist = [ "http://127.0.0.1" "http://localhost" ];
       DeveloperToolsAvailability = 2; # never
+      # ...which would otherwise also switch off the unpacked Home-button extension.
+      ExtensionDeveloperModeSettings = 0;
       IncognitoModeAvailability = 1; # disabled
       BrowserAddProfileEnabled = false;
       BrowserGuestModeEnabled = false;
@@ -44,11 +49,9 @@ lib.mkIf cfg.kiosk.enable {
       DefaultBrowserSettingEnabled = false;
       MetricsReportingEnabled = false;
       SpellcheckEnabled = false;
-    } // lib.optionalAttrs cfg.camera.enable {
-      # The dashboard shows the front camera; nothing else may use it, and the
-      # microphone stays off.
-      VideoCaptureAllowed = true;
-      VideoCaptureAllowedUrls = [ "http://127.0.0.1" ];
+      # The camera view is a stream from the dashboard, so the browser itself
+      # never needs the camera or the microphone.
+      VideoCaptureAllowed = false;
       AudioCaptureAllowed = false;
     };
   };

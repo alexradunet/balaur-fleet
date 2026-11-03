@@ -59,13 +59,11 @@ function renderServices(services) {
         group = s.group;
         if (group) root.append(el("div", "group", group));
       }
-      const t = el(kiosk || !s.port ? "div" : "a", "tile");
-      if (!kiosk && s.port) t.href = serviceURL(s);
-      if (kiosk) {
-        t.setAttribute("role", "button");
-        t.tabIndex = 0;
-        t.addEventListener("click", () => openSheet(s.name));
-      }
+      const t = el("div", "tile");
+      t.setAttribute("role", "button");
+      t.tabIndex = 0;
+      t.addEventListener("click", () => openSheet(s.name));
+      t.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSheet(s.name); } });
       t.append(el("span", "dot"), el("span", "icon", s.icon || "•"), el("span", "name", s.name), el("span", "desc", s.description || ""));
       tiles.set(s.name, t);
       root.append(t);
@@ -76,7 +74,7 @@ function renderServices(services) {
   if (sheetFor) fillSheet(); // keep an open sheet live
 }
 
-// ---- kiosk: tabs, detail sheet, idle reset ----
+// ---- tabs, detail sheet, idle reset (kiosk) ----
 let serviceData = new Map();
 let sheetFor = null;
 const sheet = $("sheet");
@@ -91,16 +89,25 @@ function fillSheet() {
   $("sheet-state").dataset.state = s.state;
   $("sheet-url").textContent = s.port ? serviceURL(s).replace(/^https?:\/\//, "") : "—";
   $("sheet-unit").textContent = s.unit || "—";
+  // The kiosk opens the service in place (it has one window; its Home button,
+  // modules/kiosk-home, comes back here); other browsers use a new tab.
+  const open = $("sheet-open");
+  open.hidden = !s.port;
+  open.href = s.port ? serviceURL(s) : "";
+  open.target = kiosk ? "_self" : "_blank";
 }
 function openSheet(name) { sheetFor = name; fillSheet(); sheet.hidden = false; }
 function closeSheet() { sheetFor = null; sheet.hidden = true; }
 $("sheet-close").addEventListener("click", closeSheet);
 sheet.addEventListener("click", (e) => { if (e.target === sheet) closeSheet(); });
+$("sheet-open").addEventListener("click", closeSheet);
+addEventListener("keydown", (e) => { if (e.key === "Escape" && sheetFor) closeSheet(); });
 
 function showTab(name) {
   closeSheet();
   document.querySelectorAll("[data-page]").forEach((p) => p.classList.toggle("active", p.dataset.page === name));
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+  camUpdate();
 }
 document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => showTab(t.dataset.tab)));
 
@@ -138,16 +145,15 @@ const nudge = (d) => () => {
 $("bright-dn").addEventListener("click", nudge(-10));
 $("bright-up").addEventListener("click", nudge(10));
 
-// ---- front camera preview (kiosk only) ----
-// The device is the "Duet Front Camera" webcam that duet-camera-relay exposes;
-// Chromium may not offer the raw IPU nodes, so prefer it by label. Tap the
-// preview to switch it off (the camera is released) and on again.
+// ---- live camera view ----
+// The relay's MJPEG stream, proxied by the dashboard: the same picture on the
+// kiosk and on any allowed remote browser. It only streams while the Camera
+// tab is open, switched on and visible, so nobody keeps the encoder busy by
+// accident. Tap the picture to stop/start it.
 const cam = $("cam");
-const camVideo = $("cam-v");
-let camWanted = false;   // the server says a camera is configured (and we are the kiosk)
-let camOn = true;        // user's tap toggle
-let camStream = null;
-let camBusy = false;
+const camImg = $("cam-v");
+let camAllowed = false; // the server lets this client watch
+let camOn = true;       // user's tap toggle
 let camRetry = 0;
 
 function camState(state, msg) {
@@ -155,67 +161,41 @@ function camState(state, msg) {
   $("cam-msg").textContent = msg || "";
 }
 
-function camStop(state, msg) {
-  const s = camStream;
-  camStream = null;
-  camVideo.srcObject = null;
-  if (s) s.getTracks().forEach((t) => t.stop());
-  camState(state, msg);
-}
-
-async function camFind() {
-  const devs = await navigator.mediaDevices.enumerateDevices();
-  return devs.find((d) => d.kind === "videoinput" && d.label.toLowerCase().includes("duet front camera"));
-}
-
-async function camStart() {
-  if (camBusy || camStream || !camOn || !camWanted) return;
-  if (!navigator.mediaDevices?.getUserMedia) { camState("error", "Camera not supported"); return; }
-  camBusy = true;
-  if (cam.dataset.state !== "error") camState("starting", "Camera starting…"); // no flicker while retrying
-  let s = null;
-  try {
-    const video = { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } };
-    let dev = await camFind();
-    s = await navigator.mediaDevices.getUserMedia({ audio: false, video: dev ? { ...video, deviceId: { exact: dev.deviceId } } : video });
-    if (!dev) { // labels are only visible after the first grant; switch if Chromium picked another node
-      dev = await camFind();
-      if (dev && dev.deviceId !== s.getVideoTracks()[0]?.getSettings().deviceId) {
-        s.getTracks().forEach((t) => t.stop());
-        s = await navigator.mediaDevices.getUserMedia({ audio: false, video: { ...video, deviceId: { exact: dev.deviceId } } });
-      }
-    }
-    camStream = s;
-    camVideo.srcObject = s;
-    await camVideo.play();
-    s.getVideoTracks()[0]?.addEventListener("ended", () => {
-      if (camStream === s) camStop("error", "Camera stream stopped");
-    }, { once: true });
+function camUpdate() {
+  const want = camAllowed && camOn && !document.hidden && $("camview").classList.contains("active");
+  const open = camImg.hasAttribute("src");
+  if (want && !open && Date.now() >= camRetry) {
+    camState("starting", "Camera starting…");
+    camImg.src = "/api/camera?t=" + Date.now();
+  } else if (!want && open) {
+    camImg.removeAttribute("src"); // closes the stream
+    if (!camOn) camState("off", "Camera off — tap to turn on");
+  } else if (open && camImg.naturalWidth) {
     camState("live");
-  } catch (e) {
-    if (s && s !== camStream) s.getTracks().forEach((t) => t.stop());
-    camStop("error", e?.name === "NotFoundError" || e?.name === "OverconstrainedError" ? "No camera found" : "Camera unavailable");
-  } finally {
-    camBusy = false;
   }
 }
 
-cam.addEventListener("click", () => {
-  camOn = !camOn;
-  if (camOn) camStart();
-  else camStop("off", "Camera off — tap to turn on");
+camImg.addEventListener("load", () => camState("live"));
+camImg.addEventListener("error", () => {
+  if (!camImg.hasAttribute("src")) return;
+  camImg.removeAttribute("src");
+  camRetry = Date.now() + 5000; // the relay may be (re)starting
+  camState("error", "Camera unavailable — retrying");
 });
+cam.addEventListener("click", () => { camOn = !camOn; camUpdate(); });
+document.addEventListener("visibilitychange", camUpdate);
 
-// Called from render(): show the tile once, then keep trying while it is wanted.
-function camSync(enabled) {
-  camWanted = kiosk && !!enabled;
-  $("camview").hidden = !camWanted;
-  $("tab-camera").hidden = !camWanted;
-  if (!camWanted && $("camview").classList.contains("active")) showTab("services");
-  if (camWanted && camOn && !camStream && !camBusy && Date.now() >= camRetry) {
-    camRetry = Date.now() + 10000; // the relay may start after the dashboard
-    camStart();
-  }
+// Called from render(): show the tab only to clients that may watch.
+function camSync(allowed, viewers) {
+  camAllowed = !!allowed;
+  $("camview").hidden = !camAllowed;
+  $("tab-camera").hidden = !camAllowed;
+  if (!camAllowed && $("camview").classList.contains("active")) showTab("services");
+  // Everyone, the person in front of the screen included, sees when it is watched.
+  const p = $("cam-pill");
+  p.hidden = !viewers;
+  p.textContent = viewers > 1 ? `◉ camera live · ${viewers}` : "◉ camera live";
+  camUpdate();
 }
 
 // ---- status polling ----
@@ -268,7 +248,7 @@ function render(st) {
   }
 
   renderServices(st.services);
-  camSync(st.camera);
+  camSync(st.camera, st.cameraViewers);
 }
 
 let failures = 0;

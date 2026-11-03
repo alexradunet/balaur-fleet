@@ -6,8 +6,11 @@
 # ISP does, in our own Go program (camera/):
 #   patched kernel modules -> raw frames from the IPU6 capture node ->
 #   duet-camera (RGB-IR rebuild, IR subtraction, AWB, CCM, gamma, AE) ->
-#   v4l2loopback webcam "Duet Front Camera" (/dev/video64) -> Chromium (kiosk only).
-# duet.camera.backend = "libcamera" swaps duet-camera for libcamera + GStreamer.
+#   v4l2loopback webcam "Duet Front Camera" (/dev/video64), and an MJPEG live
+#   view on a Unix socket that the dashboard shows on its Camera tab (kiosk,
+#   tailnet, and the LAN with duet.camera.lanView).
+# duet.camera.backend = "libcamera" swaps duet-camera for libcamera + GStreamer
+# (webcam only, no live view).
 # The kernel changes are kept in pkgs/ so they can be dropped once upstream has them.
 { config, lib, pkgs, ... }:
 let
@@ -69,6 +72,9 @@ lib.mkIf cfg.camera.enable {
       V4L2_DEVICE_FILE = "/run/duet-camera-relay/device";
       # Brightness to restore while the relay has the screen switched off.
       DUET_SCREEN_RESTORE = "/run/duet-camera-relay/screen-brightness";
+    } // lib.optionalAttrs rgbir {
+      # MJPEG live view; dashboard.nix reads this path to proxy it.
+      DUET_CAMERA_STREAM = "/run/duet-camera-relay/stream.sock";
     } // lib.optionalAttrs (!rgbir) {
       GST_PLUGIN_PATH = lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstPlugins;
     };
