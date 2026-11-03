@@ -4,15 +4,43 @@
 #   ${storage.root}/media/movies      qBittorrent category "movies"  -> Jellyfin "Movies" library
 #   ${storage.root}/media/shows       qBittorrent category "shows"   -> Jellyfin "Shows" library
 #
-# Search: qBittorrent's own Search tab (Python is provided); add search plugins
-# from the UI (Search -> Search plugins -> Install a new one). Everything else
-# (libraries, users, plugins) is set in the two web UIs and kept across rebuilds.
+# Search: qBittorrent's own Search tab (Python is provided). The FileList
+# plugin (media-search/) is installed on every start; log in once with
+# `sudo duet-filelist-login`. More plugins can be added from the UI (Search ->
+# Search plugins). Everything else (libraries, users, plugins) is set in the two
+# web UIs and kept across rebuilds.
 { config, lib, pkgs, ... }:
 let
   cfg = config.duet;
   media = "${toString cfg.storage.root}/media";
   qbProfile = "/var/lib/qBittorrent";
   torrentPort = 51413;
+  nova3 = "${qbProfile}/qBittorrent/data/nova3";
+  # FileList username + passkey: state only, never in the repo or the store.
+  filelistCredentials = "${qbProfile}/filelist.json";
+
+  filelistLogin = pkgs.writeShellApplication {
+    name = "duet-filelist-login";
+    runtimeInputs = [ pkgs.coreutils pkgs.python3 pkgs.util-linux ];
+    text = ''
+      if [ "$(id -u)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
+      read -rp "FileList username: " user
+      read -rsp "FileList passkey (profile page; hidden): " passkey; echo
+      # Create the file private first, then fill it; the passkey goes via stdin,
+      # so it never shows up in the process list or in a temporary file.
+      install -o ${config.services.qbittorrent.user} -g ${config.services.qbittorrent.group} -m 600 /dev/null ${filelistCredentials}
+      printf '%s\n%s\n' "$user" "$passkey" | python3 -c '
+      import json, sys
+      u, p = sys.stdin.read().splitlines()[:2]
+      json.dump({"username": u.strip(), "passkey": p.strip()}, sys.stdout)' > ${filelistCredentials}
+      echo "Saved. Test search for \"''${1:-ubuntu}\" (as qBittorrent runs it), first 5 results:"
+      cd ${nova3}
+      # Collect everything first: cutting the pipe short would break the plugin's output.
+      results="$(runuser -u ${config.services.qbittorrent.user} -- env FILELIST_CREDENTIALS=${filelistCredentials} \
+        python3 nova2.py filelist all "''${1:-ubuntu}")"
+      printf '%s\n' "$results" | head -n 5 | awk -F'|' '{ printf "  %s  (%s seeders)\n", $2, $4 }'
+    '';
+  };
 
   # Written only on first start, so changes made in the web UI stick.
   # The web UI needs no login from the LAN or the tailnet (like the dashboard).
@@ -50,12 +78,15 @@ lib.mkIf cfg.media.enable {
   };
   systemd.services.qbittorrent = {
     path = [ pkgs.python3 ]; # the Search tab runs Python plugins
+    environment.FILELIST_CREDENTIALS = filelistCredentials;
     serviceConfig = {
       UMask = "0002"; # files group-writable for `media` (you can tidy them over SSH)
       ExecStartPre = pkgs.writeShellScript "qbittorrent-seed" ''
         conf=${qbProfile}/qBittorrent/config
         [ -e $conf/qBittorrent.conf ] || ${pkgs.coreutils}/bin/install -Dm600 ${qbSeed} $conf/qBittorrent.conf
         [ -e $conf/categories.json ] || ${pkgs.coreutils}/bin/install -Dm644 ${qbCategories} $conf/categories.json
+        # Always the current version of our search plugin.
+        ${pkgs.coreutils}/bin/install -Dm644 ${./media-search/filelist.py} ${nova3}/engines/filelist.py
       '';
       ReadWritePaths = [ media ];
     };
@@ -73,6 +104,8 @@ lib.mkIf cfg.media.enable {
     };
   };
   users.users.jellyfin.extraGroups = [ "media" "render" "video" ];
+
+  environment.systemPackages = [ filelistLogin ];
 
   hardware.graphics = {
     enable = true;
