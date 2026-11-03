@@ -70,8 +70,14 @@ lib.mkIf cfg.camera.enable {
 
     preStart = ''
       install -d "$(dirname "$V4L2_DEVICE_FILE")"
-      ${v4l2loopback.bin}/bin/v4l2loopback-ctl \
-        add -x 1 -n "Duet Front Camera" /dev/video64 > "$V4L2_DEVICE_FILE"
+      # A viewer (the kiosk) that kept the device open across a restart stops
+      # postStop from deleting it; reuse it then instead of failing on "File exists".
+      if test -e /dev/video64 && ! ${v4l2loopback.bin}/bin/v4l2loopback-ctl delete /dev/video64; then
+        echo /dev/video64 > "$V4L2_DEVICE_FILE"
+      else
+        ${v4l2loopback.bin}/bin/v4l2loopback-ctl \
+          add -x 1 -n "Duet Front Camera" /dev/video64 > "$V4L2_DEVICE_FILE"
+      fi
     '';
 
     script =
