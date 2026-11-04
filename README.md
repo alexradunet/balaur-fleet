@@ -31,8 +31,9 @@ modules/
   hosts/laptop.nix        laptop = its aspects + its own settings (locales, printing, ...)
   hardware/yoga-duet-7.nix  the Duet's firmware and CPU bits (Intel)
   hardware/yoga-pro-7.nix   the laptop's firmware and CPU bits (AMD)
-  fleet.nix               the registry: every machine, its IPs and keys; SSH trust between them
+  fleet.nix               the registry: every machine, its IPs and keys; SSH trust, remote builds
   home.nix                home-manager: the admin's shell, git, gh, the same on every machine
+  secrets.nix             sops-nix: secrets encrypted in the repo, decrypted with each machine's host key
   base.nix                boot, admin account, SSH, Nix, housekeeping; the `balaur.services` registry
   network.nix             NetworkManager, Tailscale (+ SSH), <host>.local (mDNS)
   always-on.nix           a laptop as a server: never sleep, ignore lid, battery = UPS, 80% charge cap
@@ -41,9 +42,11 @@ modules/
   desktop.nix             GNOME as a personal desktop: a normal login, and the Balaur app + Shell extension
   assistant.nix           the voice assistant, a service of a GNOME session
   camera.nix              the Duet's front camera: patched kernel modules + RGB-IR relay, movement wakes the screen
-  media.nix               Jellyfin + qBittorrent with FileList search (`sudo duet-filelist-login` once), /srv/media
+  media.nix               Jellyfin: watches what `torrents` downloaded, /srv/media
+  torrents.nix            qBittorrent + FileList search (aspect `torrents`, duet only), and
+                          `balaur-torrent` + the magnet handler (aspect `torrents-client`, anywhere)
   adblock.nix             AdGuard Home: network-wide ad/tracker blocking on :53, UI on :3000
-  files.nix               Syncthing, on both machines; devices and folders are paired in its UI
+  files.nix               Syncthing: a 200 GiB volume of its own at /srv/files, paired from the registry
   dev.nix                 Claude Code + pi + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages, built by the aspects and exposed as flake packages

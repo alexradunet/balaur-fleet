@@ -1,5 +1,7 @@
 # Balaur
 
+**Loose ends from the last session: docs/HANDOFF-LOOSE-ENDS.md** (delete it and this line when the list is empty).
+
 One flake configures every machine at home (the fleet). README.md explains the
 layout. In short: every `.nix` file under `modules/` is a flake-parts module,
 loaded automatically by import-tree (files or directories starting with `_` are
