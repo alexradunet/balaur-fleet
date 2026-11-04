@@ -69,25 +69,38 @@
         runtimeInputs = [ pkgs.coreutils pkgs.curl pkgs.jq pkgs.systemd pkgs.util-linux ];
         text = ''
           if [ "$(id -u)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
-          key_file=${lib.escapeShellArg (toString as.llm.apiKeyFile)}
           base=${lib.escapeShellArg as.llm.baseUrl}
           read -rsp "API key for $base (hidden): " key; echo
-          [ -n "$key" ] || { echo "empty key, nothing saved" >&2; exit 1; }
-          install -d -m 711 "$(dirname "$key_file")"
-          # Readable by the assistant's group, which the household account is in.
-          install -m 640 -g duet-assistant /dev/null "$key_file"
-          printf '%s' "$key" > "$key_file"
+          [ -n "$key" ] || { echo "empty key, nothing given" >&2; exit 1; }
+          ${
+            if as.llm.manageApiKeyFile then ''
+              key_file=${lib.escapeShellArg (toString as.llm.apiKeyFile)}
+              install -d -m 711 "$(dirname "$key_file")"
+              # Readable by the assistant's group, which the household account is in.
+              install -m 640 -g duet-assistant /dev/null "$key_file"
+              printf '%s' "$key" > "$key_file"
+              saved="Saved."
+            '' else ''
+              # Something else owns this file — sops-nix, on this host. Still check
+              # the key and list the voices, which is half of what this is for.
+              saved="NOT saved: this machine takes the key from sops. Put it in the repo with
+    sops secrets/balaur.yaml      (the assistant-llm-key entry)
+  then rebuild. Checking the key you typed anyway:"
+            ''
+          }
           api() { printf 'header = "Authorization: Bearer %s"\n' "$key" | curl -sS -m 15 -K - "$base$1"; }
           if api /models | jq -e '.data | length > 0' >/dev/null 2>&1; then
-            echo "Saved. The API accepted the key."
+            echo "$saved The API accepted the key."
             echo "Voices (set balaur.assistant.tts.voices.ro / .en, or in the Balaur app; empty = the API's default):"
             api '/audio/voices?limit=100' | jq -r '.items[] | "  \(.id)  \(.languages | join(","))  \(.name)"' 2>/dev/null | sort -k2 \
               || echo "  (could not list them)"
           else
-            echo "Saved, but $base/models did not accept it: check the key and balaur.assistant.llm.baseUrl."
+            echo "$saved But $base/models did not accept it: check the key and balaur.assistant.llm.baseUrl."
           fi
-          ${inSession "systemctl --user restart duet-assistant.service"} \
-            && echo "duet-assistant restarted." || echo "Log in to the desktop to start the assistant."
+          ${lib.optionalString as.llm.manageApiKeyFile ''
+            ${inSession "systemctl --user restart duet-assistant.service"} \
+              && echo "duet-assistant restarted." || echo "Log in to the desktop to start the assistant."
+          ''}
         '';
       };
 
@@ -186,8 +199,24 @@
               type = lib.types.path;
               default = "/var/lib/secrets/duet-assistant-llm-key";
               description = ''
-                File with the Mistral API key, written by `sudo duet-assistant-login`: the
-                fallback when the GNOME Keyring has none (keys saved in the Balaur app go there).
+                File with the Mistral API key: the fallback when the GNOME Keyring
+                has none (keys saved in the Balaur app go there). By default it is
+                this machine's own state, written by `sudo duet-assistant-login`;
+                point it at a sops secret to have it come from the repo instead.
+              '';
+            };
+            manageApiKeyFile = lib.mkOption {
+              type = lib.types.bool;
+              default = true;
+              description = ''
+                Whether this aspect owns `apiKeyFile`: creates its directory, and
+                lets `duet-assistant-login` write it.
+
+                Set false when something else provides the file — the `secrets`
+                aspect does, at a path under /run/secrets, and both would
+                otherwise try to own that directory. `duet-assistant-login` then
+                still checks a key and lists the voices, but says where the real
+                one belongs instead of writing it.
               '';
             };
           };
@@ -294,7 +323,10 @@
         systemd.tmpfiles.rules = [
           # Drop custom wake word models (*.tflite) here; readable by the openWakeWord service.
           "d ${wakewordDir} 0755 root root -"
-          # The API key file: root's, readable by the assistant's group.
+        ] ++ lib.optionals as.llm.manageApiKeyFile [
+          # The API key file: root's, readable by the assistant's group. Skipped
+          # when something else provides it — claiming /run/secrets here would
+          # fight sops-nix for the directory.
           "d ${dirOf (toString as.llm.apiKeyFile)} 0711 root root -"
           "z ${toString as.llm.apiKeyFile} 0640 root duet-assistant -"
         ];

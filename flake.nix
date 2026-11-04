@@ -18,6 +18,11 @@
     # Daily-updated AI coding agents (Claude Code, pi, ...) with a binary cache.
     # Deliberately NOT following our nixpkgs: that keeps their cache hits.
     llm-agents.url = "git+https://github.com/numtide/llm-agents.nix";
+
+    # Secrets: encrypted in the repo, decrypted into /run/secrets at activation
+    # with each machine's own SSH host key (modules/secrets.nix).
+    sops-nix.url = "github:Mic92/sops-nix";
+    sops-nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   # Binary cache for llm-agents. Also set in modules/dev.nix for after the first

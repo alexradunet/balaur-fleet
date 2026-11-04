@@ -20,12 +20,15 @@ in
     modules = [ aspects.duet ];
   };
 
-  flake.modules.nixos.duet = {
+  flake.modules.nixos.duet =
+    { config, ... }:
+    {
     imports = with aspects; [
       yoga-duet-7
       base
       fleet
       home
+      secrets
       always-on
       network
       files
@@ -66,8 +69,12 @@ in
       # 192.168.50.233 (both reserved in the router); AdGuard (the adblock aspect) blocks its ads.
 
       # Voice assistant: "Hey Jarvis", Romanian + English; Mistral for speech, a pi SDK agent for the rest.
-      # Key: Balaur app > Assistant settings (GNOME Keyring), or `sudo duet-assistant-login` (/var/lib/secrets).
+      # Key: the Balaur app's Assistant settings (GNOME Keyring), else the sops
+      # secret below. `sudo duet-assistant-login` checks a key and lists voices.
       assistant = {
+        # The Mistral key comes from the repo now, decrypted at activation.
+        llm.apiKeyFile = config.sops.secrets."assistant-llm-key".path;
+        llm.manageApiKeyFile = false;
         # This machine's microphone array at 16 kHz (`arecord -l`: DMIC16kHz). Without
         # it PipeWire picks the 48 kHz DMIC, whose processing leaves a voice far too
         # quiet for the wake word. A laptop with an ordinary mic leaves this null.
@@ -93,6 +100,13 @@ in
       # sshKeys = [ "ssh-ed25519 AAAA... you@laptop" ];
       # network.tailscale.authKeyFile = "/var/lib/secrets/tailscale-authkey";
       # storage.root = "/srv";
+    };
+
+    # Readable by the assistant's group, which the household account is in.
+    sops.secrets."assistant-llm-key" = {
+      owner = "root";
+      group = "duet-assistant";
+      mode = "0640";
     };
   };
 }

@@ -1,0 +1,32 @@
+# Who can decrypt what. `sops secrets/<file>` reads this to pick recipients, and
+# `sops updatekeys secrets/<file>` re-encrypts an existing file after this changes.
+#
+# The machine recipients are their SSH *host* keys run through `ssh-to-age`, so no
+# machine holds key material it did not already have, and the registry's
+# sshHostKey is the source of truth:
+#
+#   nix run nixpkgs#ssh-to-age <<< "ssh-ed25519 AAAA..."
+#
+# The admin recipient is alex's ~/.ssh/id_ed25519 through the same conversion
+# (`ssh-to-age -private-key -i ~/.ssh/id_ed25519 -o ~/.config/sops/age/keys.txt`),
+# so there is no extra secret to look after: whoever holds that SSH key — which
+# already opens both machines — can also read and edit these.
+#
+# Everything here is a public key. The encrypted files are safe to commit; the
+# repo is public, so nothing irreplaceable belongs in them. A leaked host key
+# would expose every secret ever encrypted to it, git history included, so
+# rotate the secret as well as the key if that ever happens.
+keys:
+  - &admin  age1p6q3hvupt4sek6d3j45hqurut5uf8arcweutvxgf7ksyukqwedss7x37q6
+  - &laptop age19hy3cr77uk3zaflnkyc9vd807wka3m5hp6aetrwvsprwg5vhlpcqe802p5
+  - &duet   age1kvrzqwd2gd99c5dvuyyyzp47s8wmz507grgke6y0qu9j9fg55gnseejzuw
+
+creation_rules:
+  # Shared by the whole fleet. A machine that must not read a secret needs its
+  # own file and its own rule here, not a comment.
+  - path_regex: ^secrets/balaur\.yaml$
+    key_groups:
+      - age:
+          - *admin
+          - *laptop
+          - *duet

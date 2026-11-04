@@ -34,6 +34,7 @@ in
         base
         fleet
         home
+        secrets
         network
         gnome
         desktop
@@ -79,11 +80,13 @@ in
         assistant = {
           # No microphone array here: record from PipeWire's default source.
           audio.input = null;
-          # Mistral (EU, Paris), the same as the Duet. The key is per machine:
-          # Balaur app > Assistant settings (GNOME Keyring), or `sudo duet-assistant-login`.
+          # Mistral (EU, Paris), the same as the Duet. The key is the fleet's one
+          # sops secret, so this machine has it without anyone typing it in.
           llm = {
             baseUrl = "https://api.mistral.ai/v1";
             model = "mistral-medium-latest";
+            apiKeyFile = config.sops.secrets."assistant-llm-key".path;
+            manageApiKeyFile = false;
           };
           tts.voices = {
             ro = "01a155a0-3dbb-7274-ab31-7fa1ebf35a3e"; # Irina
@@ -92,6 +95,13 @@ in
           # Retune for this machine's microphone with `sudo duet-wake-test`.
           wakeThreshold = 0.35;
         };
+      };
+
+      # Readable by the assistant's group, which the admin account is in.
+      sops.secrets."assistant-llm-key" = {
+        owner = "root";
+        group = "duet-assistant";
+        mode = "0640";
       };
     };
 }
