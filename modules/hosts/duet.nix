@@ -7,6 +7,14 @@ let
   aspects = config.flake.modules.nixos;
 in
 {
+  fleet.duet = {
+    description = "Yoga Duet 7 in the living room: home server + household tablet";
+    tailnetIp = "100.118.102.119";
+    lanIp = "192.168.50.233"; # reserved in the router
+    sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKgXcAskVb3sHgL8Z0VlVpSYHB2yDirUQ3GV5xfDvKQo";
+    # userKeys: none yet (you reach it with Tailscale SSH)
+  };
+
   flake.nixosConfigurations.duet = inputs.nixpkgs.lib.nixosSystem {
     modules = [ aspects.duet ];
   };
@@ -15,6 +23,8 @@ in
     imports = with aspects; [
       yoga-duet-7
       base
+      fleet
+      home
       always-on
       network
       # files (Syncthing): not on this machine yet

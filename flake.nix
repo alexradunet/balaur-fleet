@@ -11,6 +11,10 @@
     flake-parts.inputs.nixpkgs-lib.follows = "nixpkgs";
     import-tree.url = "github:vic/import-tree";
 
+    # The admin's user environment, shared by every machine (modules/home.nix).
+    home-manager.url = "github:nix-community/home-manager/release-26.05";
+    home-manager.inputs.nixpkgs.follows = "nixpkgs";
+
     # Daily-updated AI coding agents (Claude Code, pi, ...) with a binary cache.
     # Deliberately NOT following our nixpkgs: that keeps their cache hits.
     llm-agents.url = "git+https://github.com/numtide/llm-agents.nix";

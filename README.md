@@ -17,7 +17,7 @@ directories starting with `_` are skipped. A file is named after a feature (an *
 not a machine: it defines `flake.modules.nixos.<aspect>`, together with that feature's
 `balaur.*` options. A host is a file under `modules/hosts/` that lists the aspects it runs
 and sets its own choices. Adding a feature = adding a file. Giving a machine that feature =
-adding its name to that host's list.
+adding its name to that host's list. Adding a machine: [CLAUDE.md](CLAUDE.md), "Adding a machine".
 
 ```
 flake.nix                 inputs; outputs = every file under modules/
@@ -25,6 +25,8 @@ modules/
   flake/                  flake wiring: packages, checks, dev shell
   hosts/duet.nix          duet = these aspects + its own settings (account, voices, ...)
   hardware/yoga-duet-7.nix  the Duet's firmware and CPU bits
+  fleet.nix               the registry: every machine, its IPs and keys; SSH trust between them
+  home.nix                home-manager: the admin's shell, git, gh, the same on every machine
   base.nix                boot, admin account, SSH, Nix, housekeeping; the `balaur.services` registry
   network.nix             NetworkManager, Tailscale (+ SSH), <host>.local (mDNS)
   always-on.nix           a laptop as a server: never sleep, ignore lid, battery = UPS, 80% charge cap
