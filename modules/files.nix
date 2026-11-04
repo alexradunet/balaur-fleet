@@ -96,10 +96,33 @@ in
           options = [ "loop" "nofail" ];
         };
 
-        # The mounted volume's own root must belong to Syncthing. tmpfiles runs
-        # after local-fs.target, so this lands on the mounted filesystem.
+        # mkfs leaves the volume's root owned by root, and a tmpfiles rule is no
+        # use here: on a `switch` it runs before the new mount, so it would set
+        # the permissions on the hidden mount point underneath and Syncthing would
+        # fail with "folder marker missing". Order it against the mount instead.
+        systemd.services.balaur-files-perms = {
+          description = "Hand the Syncthing volume to ${config.services.syncthing.user}";
+          after = [ mountUnit ];
+          requires = [ mountUnit ]; # don't touch the bare mount point if it failed
+          before = [ "syncthing.service" ];
+          requiredBy = [ "syncthing.service" ];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+          };
+          path = [ pkgs.coreutils pkgs.util-linux ];
+          script = ''
+            # Belt and braces: never chown the root filesystem's directory.
+            if ! mountpoint -q ${mountPoint}; then
+              echo "${mountPoint} is not a mount point; refusing to touch it" >&2
+              exit 1
+            fi
+            chown ${config.services.syncthing.user}:${config.services.syncthing.group} ${mountPoint}
+            chmod 2775 ${mountPoint}
+          '';
+        };
+
         systemd.tmpfiles.rules = [
-          "d ${mountPoint} 2775 syncthing media - -"
           # Nothing else creates configDir. The upstream module has no StateDirectory
           # and creates it only in an ExecStartPre gated on `cert`/`key` being set; the
           # stock setup gets away with it because the default configDir sits inside
