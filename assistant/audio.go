@@ -1,7 +1,12 @@
 package main
 
-// Microphone capture and speaker playback through ALSA's arecord/aplay. There
-// is no sound server on the box: this service is the only thing using audio.
+// Microphone capture and speaker playback. Two backends, picked by the device
+// name in the config:
+//   - "pulse" (or "pulse:<source/sink name>"): the desktop's sound server
+//     (PipeWire's PulseAudio interface, at $PULSE_SERVER) through parec/pacat,
+//     volume with pactl. Used with the desktop on, since apps share the card.
+//   - anything else: an ALSA device through arecord/aplay, volume with amixer,
+//     for a box with no sound server where this service is the only audio user.
 
 import (
 	"context"
@@ -13,7 +18,9 @@ import (
 	"math"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -85,9 +92,19 @@ func (m *Mic) Run(ctx context.Context) {
 	}
 }
 
+// micStall is how long the microphone may deliver nothing before capture is
+// restarted. A sound server restart can leave a recorder connected but with
+// no stream, silent rather than failing.
+const micStall = 5 * time.Second
+
 func (m *Mic) capture(ctx context.Context) error {
-	cmd := exec.CommandContext(ctx, "arecord", "-q", "-D", m.device,
-		"-t", "raw", "-f", "S16_LE", "-r", strconv.Itoa(micRate), "-c", "1")
+	rctx, stop := context.WithCancel(ctx)
+	defer stop()
+	var stalled atomic.Bool
+	watchdog := time.AfterFunc(micStall, func() { stalled.Store(true); stop() })
+	defer watchdog.Stop()
+
+	cmd := recordCmd(rctx, m.device, micRate)
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
@@ -102,8 +119,12 @@ func (m *Mic) capture(ctx context.Context) error {
 			if ctx.Err() != nil {
 				return nil
 			}
-			return fmt.Errorf("arecord: %w", err)
+			if watchdog.Stop(); stalled.Load() {
+				return fmt.Errorf("%s: no audio for %s", cmd.Args[0], micStall)
+			}
+			return fmt.Errorf("%s: %w", cmd.Args[0], err)
 		}
+		watchdog.Reset(micStall)
 		select {
 		case m.Frames <- f:
 		default: // consumer is behind: drop the oldest frame, keep the newest
@@ -134,8 +155,7 @@ func (p *Player) Play(ctx context.Context, src <-chan PCM) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-	cmd := exec.CommandContext(ctx, "aplay", "-q", "-D", p.device,
-		"-t", "raw", "-f", "S16_LE", "-r", strconv.Itoa(first.Rate), "-c", strconv.Itoa(first.Channels))
+	cmd := playCmd(ctx, p.device, first.Rate, first.Channels)
 	in, err := cmd.StdinPipe()
 	if err != nil {
 		return err
@@ -211,9 +231,95 @@ var (
 	earconAlarm  = tones([2]float64{880, 150}, [2]float64{0, 80}, [2]float64{880, 150}, [2]float64{0, 80}, [2]float64{1175, 300}, [2]float64{0, 400})
 )
 
-// setVolume sets the speaker volume (0-100) with amixer.
-func setVolume(ctx context.Context, card string, percent int) error {
+// pulseDevice reports whether device names the sound server backend, and
+// which source/sink ("" = the server's default).
+func pulseDevice(device string) (name string, ok bool) {
+	if device == "pulse" {
+		return "", true
+	}
+	return strings.CutPrefix(device, "pulse:")
+}
+
+// Both backends move raw signed 16-bit little-endian PCM over stdio.
+func recordCmd(ctx context.Context, device string, rate int) *exec.Cmd {
+	if name, ok := pulseDevice(device); ok {
+		args := []string{"--raw", "--format=s16le", "--rate=" + strconv.Itoa(rate), "--channels=1",
+			"--latency-msec=40", "--client-name=Duet assistant", "--stream-name=Wake word"}
+		if name != "" {
+			args = append(args, "--device="+name)
+		}
+		return exec.CommandContext(ctx, "parec", args...)
+	}
+	return exec.CommandContext(ctx, "arecord", "-q", "-D", device,
+		"-t", "raw", "-f", "S16_LE", "-r", strconv.Itoa(rate), "-c", "1")
+}
+
+func playCmd(ctx context.Context, device string, rate, channels int) *exec.Cmd {
+	if name, ok := pulseDevice(device); ok {
+		args := []string{"--playback", "--raw", "--format=s16le", "--rate=" + strconv.Itoa(rate),
+			"--channels=" + strconv.Itoa(channels), "--client-name=Duet assistant", "--stream-name=Voice"}
+		if name != "" {
+			args = append(args, "--device="+name)
+		}
+		return exec.CommandContext(ctx, "pacat", args...)
+	}
+	return exec.CommandContext(ctx, "aplay", "-q", "-D", device,
+		"-t", "raw", "-f", "S16_LE", "-r", strconv.Itoa(rate), "-c", strconv.Itoa(channels))
+}
+
+// getVolume reads the sound server's output volume (0-100, 0 when muted).
+func getVolume(ctx context.Context, output string) (int, error) {
+	name, ok := pulseDevice(output)
+	if !ok {
+		return 0, errors.New("volume is only read from a sound server")
+	}
+	if name == "" {
+		name = "@DEFAULT_SINK@"
+	}
+	out, err := exec.CommandContext(ctx, "pactl", "get-sink-mute", name).Output()
+	if err != nil {
+		return 0, fmt.Errorf("pactl: %w", err)
+	}
+	if strings.Contains(string(out), "yes") {
+		return 0, nil
+	}
+	out, err = exec.CommandContext(ctx, "pactl", "get-sink-volume", name).Output()
+	if err != nil {
+		return 0, fmt.Errorf("pactl: %w", err)
+	}
+	// "Volume: front-left: 45875 /  70% / -9.29 dB, ..."
+	for _, f := range strings.Fields(string(out)) {
+		if p, ok := strings.CutSuffix(f, "%"); ok {
+			if v, err := strconv.Atoi(p); err == nil {
+				return min(v, 100), nil
+			}
+		}
+	}
+	return 0, fmt.Errorf("pactl: no volume in %q", out)
+}
+
+// setVolume sets the speaker volume (0-100): the sound server's output for a
+// pulse device, else the ALSA card's Master control.
+func setVolume(ctx context.Context, output, card string, percent int) error {
 	percent = max(0, min(100, percent))
+	if name, ok := pulseDevice(output); ok {
+		if name == "" {
+			name = "@DEFAULT_SINK@"
+		}
+		mute := "0"
+		if percent == 0 {
+			mute = "1"
+		}
+		for _, args := range [][]string{
+			{"set-sink-volume", name, strconv.Itoa(percent) + "%"},
+			{"set-sink-mute", name, mute},
+		} {
+			if out, err := exec.CommandContext(ctx, "pactl", args...).CombinedOutput(); err != nil {
+				return fmt.Errorf("pactl: %v: %s", err, out)
+			}
+		}
+		return nil
+	}
 	args := []string{"-q", "-c", card, "sset", "Master", strconv.Itoa(percent) + "%"}
 	if percent == 0 {
 		args = append(args, "mute")

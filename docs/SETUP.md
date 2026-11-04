@@ -111,12 +111,12 @@ reboot
 
 ## Stage 6: What you should see
 
-Boot splash, then the dashboard full-screen on the touchscreen. Your old desktop is gone
-by design.
+Boot splash, then GNOME logs in by itself as the household account (`duet.desktop.user`, default `home`):
+the **Duet** app (the dashboard), Firefox and Jellyfin are in the dock. Swipe up for the app switcher.
 
 | Problem | Do this |
 |---|---|
-| Black screen / no dashboard | Plug in a keyboard, press Ctrl+Alt+F2, log in, then `journalctl -u cage-tty1 -u duet-dashboard -b` |
+| Black screen / no desktop | Plug in a keyboard, press Ctrl+Alt+F3, log in, then `journalctl -u display-manager -u duet-dashboard -b` |
 | Dashboard tiles all grey | `systemctl status duet-dashboard`; the tile dots are `systemctl is-active` results |
 | Can't log in at console | Your old password still works for your old username (`duet.user`) |
 
@@ -193,7 +193,7 @@ git add flake.lock && git commit -m "Bump agents"
 `gh`, `ripgrep`, `fd`, `tree` and Node are installed system-wide. Per-project compilers and
 toolchains should come from each project's own `nix develop` shell instead of system packages.
 
-## Stage 10: Front camera in the kiosk corner
+## Stage 10: Front camera
 
 `duet.camera.enable = true` (already set in `hosts/duet/default.nix`) does three things:
 
@@ -203,8 +203,8 @@ toolchains should come from each project's own `nix develop` shell instead of sy
 2. Runs `duet-camera-relay`, which turns raw sensor frames into a v4l2loopback webcam named "Duet Front Camera"
    (`/dev/video64`), for any other app that wants a webcam.
 3. Streams the same frames as MJPEG on `/run/duet-camera-relay/stream.sock` (only while someone watches), which the
-   dashboard shows on its **Camera** tab: on the kiosk, to tailnet devices, and to the LAN with
-   `duet.camera.lanView = true`. Tap the picture to stop/start viewing. The kiosk browser itself has no camera or
+   dashboard shows on its **Camera** tab: on the built-in screen, to tailnet devices, and to the LAN with
+   `duet.camera.lanView = true`. Tap the picture to stop/start viewing. The view is a stream from the dashboard, so the Duet app needs no camera or
    microphone access.
 
 ### Why the picture was yellow-green, and what fixes it
@@ -290,7 +290,7 @@ camera.tuning = {
 };
 ```
 
-To try a value without rebuilding, write it to the live overlay and reload (the kiosk updates in a second):
+To try a value without rebuilding, write it to the live overlay and reload (the Duet app updates in a second):
 
 ```bash
 echo '{"cfa":"GIGI/RGBG/GIGI/BGRG"}' | sudo tee /var/lib/duet-camera/tuning.json
@@ -308,11 +308,11 @@ Other knobs, same way (defaults in `camera/config.go`):
 | `ccm` | 3x3 colour matrix (row-major), after white balance. Undoes the crosstalk between the colour filters; without it (identity) the picture looks almost grey. Keep each row summing to 1 or whites get tinted. Default in `camera/config.go`. |
 | `awbGains` | `[r, g, b]` to lock white balance; `null` = automatic. |
 | `saturation` | 1.0 = as is. The quickest knob if colours are still too weak or too strong (try 1.2-1.4); in dim rooms it adds less colour noise than a stronger `ccm`. |
-| `flipH`, `flipV` | Rotate/mirror in software (the kiosk preview already mirrors like a selfie camera). |
+| `flipH`, `flipV` | Rotate/mirror in software (the built-in screen already mirrors it like a selfie camera). |
 | `aeTarget`, `maxGain`, `maxDigitalGain`, `antiFlicker` | Brightness target (0.18), analogue gain ceiling (8x), software gain once exposure and gain are used up (2x, dim rooms), mains frequency for flicker-free exposure (50 Hz; 60 in the Americas). |
 | `view` | `"color"` (default); `"raw"`: grey picture straight from the sensor, no layout/IR/colour processing; `"noir"`: colour without IR subtraction. |
 
-Then `sudo systemctl restart cage-tty1` (or reboot) and the Camera tab appears. "No camera found" on the preview
+Then reopen the Duet app (or reboot) and the Camera tab appears. "No camera found" on the preview
 means the relay or the device is missing; the dashboard's **Camera** tile dot shows the relay's state.
 
 ### If the preview is black

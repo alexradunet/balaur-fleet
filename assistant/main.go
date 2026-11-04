@@ -77,7 +77,11 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	if err := a.SetVolume(ctx, cfg.Audio.Volume); err != nil {
+	if _, ok := pulseDevice(cfg.Audio.Output); ok {
+		// A desktop session keeps its own volume (GNOME's slider, restored at
+		// login): follow it instead of imposing ours.
+		go a.followVolume(ctx)
+	} else if err := a.SetVolume(ctx, cfg.Audio.Volume); err != nil {
 		log.Printf("volume: %v", err)
 	}
 	go a.run(ctx)

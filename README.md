@@ -1,10 +1,9 @@
-| Assistant tab + voice (opt-in `duet.assistant.enable`) | A voice assistant: say **“Hey Jarvis”**, then speak Romanian or English. Only the wake word runs on this machine; after it, Mistral (EU) transcribes what you said (Voxtral), decides what to do, and speaks the answer (Voxtral TTS). The model can set timers and reminders, keep the house **shopping** and **tasks** lists, remember facts about you, and look up weather, news and the web (Mistral's web search). The tab shows what it heard and said, the lists (tick or add from any device), timers, reminders and memory, plus a mic-off switch and volume. The built-in screen shows a full-screen orb while it listens or speaks. Key: `sudo duet-assistant-login`. |
 # Yoga Duet 7 home server
 
 An opinionated, fully declarative NixOS home server for the **Lenovo Yoga Duet 7 (13ITL6)**.
-The detachable-tablet laptop becomes an appliance: the built-in touchscreen is a kiosk
-dashboard, the same dashboard is a launcher for every device on your LAN, and the battery
-is the UPS.
+The detachable-tablet laptop becomes an appliance: the built-in touchscreen is a household
+tablet (GNOME), the same dashboard is a launcher for every device on your LAN, and the
+battery is the UPS.
 
 ```
 flake.nix                 nixos-26.05, one host: nixosConfigurations.duet
@@ -18,7 +17,7 @@ modules/                  the opinions
   tv.nix                  Samsung TV remote on the TV tab, `duet-tv-sideload` for TV apps (opt-in: duet.tv.enable)
   dev.nix                 Claude Code + pi + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep
   dashboard.nix           Go service on :80, tiles registered by the modules above
-  kiosk.nix               Cage + Chromium on the built-in screen
+  desktop.nix             GNOME tablet on the built-in screen: auto-login, OSK, rotation, Firefox, Jellyfin, the Duet app
   camera.nix              Front camera: patched kernel modules + RGB-IR relay (opt-in: duet.camera.enable)
 dashboard/                Go (stdlib only) backend + embedded HTML/CSS/JS frontend
 camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 frames -> webcam
@@ -29,9 +28,10 @@ tv-app/                   "Duet" Tizen TV app: the dashboard on the TV, remote-c
 
 | Where | What |
 |---|---|
-| Built-in screen | `http://127.0.0.1/?kiosk=1` full-screen. A tab bar switches between **Services** (tiles with live health; tap one for details and **Open**), **System** (CPU/RAM/disk/temp, load, brightness) and **Camera**. Clock and battery sit in the header. **Open** loads the service (Jellyfin, qBittorrent, ...) on the screen itself; a floating **Home** button on its left edge returns to the dashboard. There is no on-screen keyboard, so do logins from another device or attach a keyboard. |
+| Built-in screen | GNOME, logged in by itself as a household account (`duet.desktop.user`) that never locks. Apps run full screen; swipe up for the app switcher. The on-screen keyboard pops up on touch (English and Romanian), and the screen follows rotation. The dock holds **Duet** (this dashboard as an app: **Services** with live health, **System** with CPU/RAM/disk/temp and brightness, **Camera**, **TV**, **Assistant**), **Firefox** (with uBlock Origin), **Jellyfin** and **Gelly** (Jellyfin music). GNOME never blanks, dims or sleeps the screen: the camera does that (see Camera tab). Admin tools sit in an **Admin** folder. Sound goes through PipeWire, shared with the voice assistant. |
 | `http://duet.local`, `http://duet` over Tailscale | The same UI, controlling the same box: brightness, the services, the camera. **Open** launches a service in a new tab. |
 | Camera tab (opt-in `duet.camera.enable`) | Live front-camera view, streamed by the relay as MJPEG through the dashboard (`/api/camera`), so every screen shows the same picture. Visible on the built-in screen and to tailnet devices; plain-LAN browsers only with `duet.camera.lanView = true`. It only streams while the tab is open, and every screen shows a red **camera live** badge while anyone is watching. Tap the picture to stop/start it. The relay only runs its full image pipeline while someone watches or uses the webcam; otherwise it looks at 3 frames a second, enough for motion wake (`duet.camera.tuning.idleFps`). The screen goes dark after 2 minutes with no movement in front of the camera and wakes on movement or touch (`duet.camera.screenTimeout`, `0` = always on). |
+| Assistant tab + voice (opt-in `duet.assistant.enable`) | A voice assistant: say **“Hey Jarvis”**, then speak Romanian or English. Only the wake word runs on this machine; after it, Mistral (EU) transcribes what you said (Voxtral), decides what to do, and speaks the answer (Voxtral TTS). The model can set timers and reminders, keep the house **shopping** and **tasks** lists, remember facts about you, and look up weather, news and the web (Mistral's web search). The tab shows what it heard and said, the lists (tick or add from any device), timers, reminders and memory, plus a mic-off switch and volume. The Duet app shows a full-screen orb while it listens or speaks. Key: `sudo duet-assistant-login`. |
 | TV tab (opt-in `duet.tv.enable`) | A Samsung (Tizen) TV on the LAN: power (Wake-on-LAN from fully off), app shortcuts that switch the TV on first, and a remote (arrows, OK, Back, Home, volume, play/pause, source). The first button press asks "Allow Duet?" on the TV once. |
 | On the TV | `duet-tv-sideload dashboard` or `duet-tv-sideload jellyfin` (TV in Developer Mode, Host PC IP = this machine) installs the **Duet** app (this dashboard with remote-control navigation; Back on the home page exits) or the latest Jellyfin. Developer Mode can be switched off afterwards; the apps keep working. |
 | Ad blocking (opt-in `duet.adblock.enable`) | AdGuard Home as the LAN DNS server, with European upstreams (Quad9, DNS4EU) and Samsung TV ad/ACR-tracking rules. Set it as the router's DNS 1 (keep a public DNS 2 so the network survives the box being off). |
@@ -48,7 +48,7 @@ The config imports `hosts/duet/hardware-configuration.nix` (your installer-gener
 ## First-boot checklist
 
 - **Tailscale + SSH**: run `sudo tailscale up` once (or set `duet.network.tailscale.authKeyFile`). Tailscale SSH is always on, so `ssh duet` works from any tailnet device using your tailnet identity (allow it in your tailnet ACL); regular sshd is reachable over the tailnet too. SSH is also open on the LAN. For now both use your account password; later add `duet.sshKeys` and set `duet.ssh.passwordAuth = false`. Set `duet.ssh.lan = false` to make Tailscale the only way in.
-- **Local recovery** (Tailscale or network down): attach a keyboard to the Duet and press Ctrl+Alt+F2 for a login console (`duet` user, `sudo` available), or pick an older generation in the boot menu (last 10 kept). From there you can fix the config and rebuild.
+- **Local recovery** (Tailscale or network down): attach a keyboard to the Duet and press Ctrl+Alt+F3 for a login console (`duet` user, `sudo` available), or pick an older generation in the boot menu (last 10 kept). From there you can fix the config and rebuild.
 - Service ports are open on the LAN and fully open on `tailscale0`. This is a home-LAN design; do not port-forward it.
 
 ## Opinions you may want to change
@@ -56,7 +56,7 @@ The config imports `hosts/duet/hardware-configuration.nix` (your installer-gener
 - **Battery as UPS**: at 7% the machine powers off cleanly; charge is capped at 80% where firmware allows (`duet.power.chargeLimit`, `null` to disable).
 - **Never sleeps**; lid ignored; power button needs a long press.
 - **Dashboard has no login.** It only exposes status, plus a brightness control (cross-site POSTs are rejected).
-- **Quiet boot** with Plymouth; the screen only ever shows the dashboard.
+- **Quiet boot** with Plymouth, straight into the household desktop: no password, no lock screen (`duet.desktop.enable = false` for a headless box).
 
 ## Developing the dashboard
 
@@ -71,4 +71,4 @@ Backend: Go standard library only. Frontend: plain JS, no build step, embedded i
 
 Evaluated and the dashboard built with Nix 2.34 against nixos-26.05; the full system has **not**
 been booted on the Duet yet. Things most likely to need a tweak on first boot: touchscreen/pen
-behaviour under Cage, whether the firmware exposes a charge-limit control.
+behaviour under GNOME, whether the firmware exposes a charge-limit control.

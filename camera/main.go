@@ -133,6 +133,11 @@ func cmdRun(args []string) error {
 		log.Printf("%s, motion threshold %v, area %.1f%%", s, cfg.MotionThreshold, cfg.MotionArea*100)
 	}
 	startScreen()
+	// With a desktop, the desktop blanks the screen: we only report movement by
+	// rewriting this file (at most every motionReport), for a session service
+	// to turn into user activity (modules/camera.nix).
+	motionFile := os.Getenv("DUET_MOTION_FILE")
+	var lastReport time.Time
 	defer func() {
 		if screen != nil {
 			screen.Close() // never leave the screen dark behind us
@@ -228,6 +233,11 @@ func cmdRun(args []string) error {
 			} else if motion.Update(frame, cfg.OutWidth, cfg.OutHeight) {
 				screen.Activity("movement")
 			}
+		} else if motionFile != "" && motion.Update(frame, cfg.OutWidth, cfg.OutHeight) && time.Since(lastReport) >= motionReport {
+			lastReport = time.Now()
+			if err := os.WriteFile(motionFile, []byte(lastReport.Format(time.RFC3339)+"\n"), 0o644); err != nil {
+				log.Printf("motion: %v", err)
+			}
 		}
 		proc.UpdateAWB(st)
 		ae.Update(st.MeanY(), st.ClipFrac(), frameDur)
@@ -251,6 +261,9 @@ func cmdRun(args []string) error {
 			log.Printf("%.1f fps (sensor %.1f), %.1f ms/frame, raw level %.3f, green %.3f, clipped %.1f%%, awb %.2f/%.2f/%.2f, %s",
 				float64(frames)/since.Seconds(), 1/math.Max(frameDur.Seconds(), 1e-6),
 				busy.Seconds()*1000/float64(frames), st.MeanY(), st.MeanG(), st.ClipFrac()*100, g[0], g[1], g[2], ae)
+			if screen == nil && motionFile != "" {
+				log.Printf("motion peak %.1f%% of the picture (reported at %.1f%%)", motion.Peak()*100, cfg.MotionArea*100)
+			}
 			if screen != nil {
 				log.Printf("%s, motion peak %.1f%% of the picture (wakes at %.1f%%)", screen, motion.Peak()*100, cfg.MotionArea*100)
 			}

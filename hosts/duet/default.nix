@@ -31,7 +31,7 @@
     # create a new user and drop yours, so set it before the first rebuild.
     user = "alex";
 
-    # Front camera + live preview in the kiosk corner (patched kernel modules + the RGB-IR pipeline in camera/).
+    # Front camera + live view on the dashboard's Camera tab (patched kernel modules + the RGB-IR pipeline in camera/).
     camera.enable = true;
 
     # Jellyfin (:8096) + qBittorrent with torrent search (:8080), media in /srv/media.
@@ -70,6 +70,9 @@
         ro = "01a155a0-3dbb-7274-ab31-7fa1ebf35a3e"; # Irina
         en = "82c99ee6-f932-423f-a4a3-d403c8914b8d"; # Jane - Neutral (British)
       };
+      # "Hey Jarvis" in our voices scores 0.2-0.9 (`sudo duet-wake-test`); room noise
+      # never passed 0.05. 0.35 catches most attempts; raise it if the TV wakes it.
+      wakeThreshold = 0.35;
       # location = { name = "Bucharest"; latitude = 44.4268; longitude = 26.1025; };
     };
 

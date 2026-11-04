@@ -1,5 +1,5 @@
 {
-  description = "Opinionated home server on a Lenovo Yoga Duet 7 (13ITL6), with a touch kiosk + web dashboard";
+  description = "Opinionated home server on a Lenovo Yoga Duet 7 (13ITL6), with a GNOME tablet desktop + web dashboard";
 
   inputs = {
     # Stable channel tarball (carries a flake.nix). Pinned by flake.lock.

@@ -176,7 +176,7 @@ func (a *Assistant) Volume() int {
 
 func (a *Assistant) SetVolume(ctx context.Context, v int) error {
 	v = max(0, min(100, v))
-	if err := setVolume(ctx, a.cfg.Audio.Card, v); err != nil {
+	if err := setVolume(ctx, a.cfg.Audio.Output, a.cfg.Audio.Card, v); err != nil {
 		return err
 	}
 	a.mu.Lock()
@@ -184,6 +184,29 @@ func (a *Assistant) SetVolume(ctx context.Context, v int) error {
 	a.mu.Unlock()
 	a.notify()
 	return nil
+}
+
+// followVolume keeps the reported volume in step with the sound server's,
+// which anything in the session may change.
+func (a *Assistant) followVolume(ctx context.Context) {
+	t := time.NewTicker(3 * time.Second)
+	defer t.Stop()
+	for {
+		if v, err := getVolume(ctx, a.cfg.Audio.Output); err == nil {
+			a.mu.Lock()
+			changed := v != a.volume
+			a.volume = v
+			a.mu.Unlock()
+			if changed {
+				a.notify()
+			}
+		}
+		select {
+		case <-t.C:
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 // begin starts an interruptible piece of work (listening, speaking, ringing).

@@ -151,6 +151,10 @@ func serviceStates(ctx context.Context, svcs []Service) []ServiceStatus {
 		wg.Add(1)
 		go func(i int, unit string) {
 			defer wg.Done()
+			if name, ok := strings.CutPrefix(unit, "user:"); ok {
+				out[i].State = userUnitState(name)
+				return
+			}
 			// `systemctl is-active` exits non-zero for inactive units but
 			// still prints the state, so ignore the error.
 			b, _ := exec.CommandContext(ctx, "systemctl", "is-active", unit).Output()
@@ -161,6 +165,19 @@ func serviceStates(ctx context.Context, svcs []Service) []ServiceStatus {
 	}
 	wg.Wait()
 	return out
+}
+
+// userUnitState reports a unit running in some user's session manager (the
+// desktop's voice assistant, say). Those aren't visible to `systemctl` from
+// here, but their cgroups are: "populated 1" means it has live processes.
+func userUnitState(unit string) string {
+	paths, _ := filepath.Glob("/sys/fs/cgroup/user.slice/user-*.slice/user@*.service/*.slice/" + unit + "/cgroup.events")
+	for _, p := range paths {
+		if b, err := os.ReadFile(p); err == nil && strings.Contains(string(b), "populated 1") {
+			return "active"
+		}
+	}
+	return "inactive"
 }
 
 func readUptime() int64 {

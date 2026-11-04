@@ -33,7 +33,7 @@ in
       description = ''
         Accept SSH from the local network as well as over Tailscale (subject to `duet.ssh.passwordAuth`).
         Set to false to make Tailscale the only way in; recovery is then a
-        keyboard on the laptop (Ctrl+Alt+F2 for a login console).
+        keyboard on the laptop (Ctrl+Alt+F3 for a login console).
       '';
     };
 
@@ -193,12 +193,12 @@ in
         input = mkOption {
           type = types.str;
           default = "plughw:0,7";
-          description = "ALSA capture device. The Duet's microphone array, at 16 kHz (`arecord -l`: DMIC16kHz).";
+          description = "ALSA capture device: the Duet's microphone array, at 16 kHz (`arecord -l`: DMIC16kHz). With the desktop on, it becomes the PipeWire source `duet-mic` (the default microphone) and the assistant records from that.";
         };
         output = mkOption {
           type = types.str;
           default = "plughw:0,0";
-          description = "ALSA playback device (the built-in speakers).";
+          description = "ALSA playback device (the built-in speakers), used without the desktop.";
         };
         micGain = mkOption {
           type = types.ints.between 0 70;
@@ -263,7 +263,17 @@ in
       '';
     };
 
-    kiosk.enable = mkEnableOption "touch kiosk on the built-in screen" // { default = true; };
+    desktop = {
+      enable = mkEnableOption ''
+        GNOME on the built-in screen as a household tablet: auto-login, no lock,
+        on-screen keyboard, rotation, Firefox, Jellyfin, and the dashboard as the "Duet" app'' // { default = true; };
+
+      user = mkOption {
+        type = types.str;
+        default = "home";
+        description = "The household account GNOME logs in as (created; it has no password).";
+      };
+    };
 
     camera = {
       enable = mkEnableOption "front camera (patched kernel modules + webcam relay) with a live view on the dashboard's Camera tab";
@@ -346,7 +356,7 @@ in
             unit = mkOption {
               type = types.str;
               default = "";
-              description = "systemd unit whose state is shown on the tile.";
+              description = "systemd unit whose state is shown on the tile; `user:<unit>` for a unit of a user session (the desktop's voice assistant).";
             };
             group = mkOption { type = types.str; default = "Other"; };
           };

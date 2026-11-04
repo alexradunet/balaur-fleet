@@ -49,6 +49,7 @@ type inputDev struct {
 
 const (
 	screenSettle = 4 * time.Second // ignore the camera this long after switching: the screen's own light changes the scene
+	motionReport = 2 * time.Second // with a desktop: how often movement is reported at most
 	touchRelease = 500 * time.Millisecond
 	evioCGrab    = 0x40044590 // EVIOCGRAB
 	inputEvSize  = 24         // struct input_event on 64-bit

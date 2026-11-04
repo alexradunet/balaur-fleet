@@ -113,12 +113,12 @@ function fillSheet() {
   $("sheet-state").dataset.state = s.state;
   $("sheet-url").textContent = s.port ? serviceURL(s).replace(/^https?:\/\//, "") : "—";
   $("sheet-unit").textContent = s.unit || "—";
-  // The kiosk opens the service in place (it has one window; its Home button,
-  // modules/kiosk-home, comes back here); other browsers use a new tab.
+  // The TV app opens the service in place (Back returns); everywhere else,
+  // the built-in screen's Duet app included, it gets a window of its own.
   const open = $("sheet-open");
   open.hidden = !s.port;
   open.href = s.port ? serviceURL(s) : "";
-  open.target = kiosk || tvMode ? "_self" : "_blank";
+  open.target = tvMode ? "_self" : "_blank";
 }
 function openSheet(name) { sheetFor = name; fillSheet(); sheet.hidden = false; }
 function closeSheet() { sheetFor = null; sheet.hidden = true; }

@@ -12,6 +12,6 @@
     ./dev.nix
     ./camera.nix
     ./dashboard.nix
-    ./kiosk.nix
+    ./desktop.nix
   ];
 }

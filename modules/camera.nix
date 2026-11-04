@@ -1,4 +1,4 @@
-# Front camera (OVTI5678 sensor behind the Intel IPU6), shown on the kiosk.
+# Front camera (OVTI5678 sensor behind the Intel IPU6), shown on the dashboard.
 #
 # The sensor is RGB-IR (Lenovo: "IR + RGB hybrid"): a 4x4 colour filter with
 # infrared pixels where an ordinary Bayer sensor has blue. Read as Bayer it
@@ -7,7 +7,7 @@
 #   patched kernel modules -> raw frames from the IPU6 capture node ->
 #   duet-camera (RGB-IR rebuild, IR subtraction, AWB, CCM, gamma, AE) ->
 #   v4l2loopback webcam "Duet Front Camera" (/dev/video64), and an MJPEG live
-#   view on a Unix socket that the dashboard shows on its Camera tab (kiosk,
+#   view on a Unix socket that the dashboard shows on its Camera tab (built-in screen,
 #   tailnet, and the LAN with duet.camera.lanView).
 # duet.camera.backend = "libcamera" swaps duet-camera for libcamera + GStreamer
 # (webcam only, no live view).
@@ -19,6 +19,46 @@ let
   duetCamera = pkgs.callPackage ../pkgs/duet-camera.nix { };
   v4l2loopback = config.boot.kernelPackages.v4l2loopback;
   rgbir = cfg.camera.backend == "rgbir";
+
+  # Movement in front of the camera keeps the GNOME session active and wakes
+  # its screen. The relay rewrites motionFile on movement; duet-presence (a
+  # service of the household session) holds an idle inhibitor while there is
+  # some and lifts GNOME's blank screen.
+  motionWake = rgbir && cfg.desktop.enable && cfg.camera.screenTimeout > 0;
+  motionFile = "/run/duet-camera-relay/motion";
+  presence = pkgs.writeShellApplication {
+    name = "duet-presence";
+    runtimeInputs = [ pkgs.inotify-tools pkgs.glib pkgs.gnome-session pkgs.coreutils ];
+    text = ''
+      timeout=${toString cfg.camera.screenTimeout}
+      quiet="$XDG_RUNTIME_DIR/duet-presence-quiet"
+      echo 0 > "$quiet"
+      # The screen going dark or lighting up changes the light in the room,
+      # which the camera sees as movement: ignore it for a few seconds after.
+      gdbus monitor --session --dest org.gnome.ScreenSaver --object-path /org/gnome/ScreenSaver \
+        | while read -r line; do
+            case "$line" in *ActiveChanged*) date +%s > "$quiet" ;; esac
+          done &
+      holder=""
+      trap '[ -n "$holder" ] && kill "$holder" 2>/dev/null; kill 0' EXIT
+      while :; do
+        if [ ! -d "${dirOf motionFile}" ]; then sleep 5; continue; fi
+        inotifywait -mq -e close_write --format %f "${dirOf motionFile}" | while read -r name; do
+          [ "$name" = "${baseNameOf motionFile}" ] || continue
+          [ $(( $(date +%s) - $(cat "$quiet") )) -ge 6 ] || continue
+          # Wake the screen if GNOME blanked it (no-op otherwise)...
+          gdbus call --session --dest org.gnome.ScreenSaver --object-path /org/gnome/ScreenSaver \
+            --method org.gnome.ScreenSaver.SetActive false >/dev/null || true
+          # ...and keep it from going idle for another screenTimeout.
+          [ -n "$holder" ] && kill "$holder" 2>/dev/null
+          gnome-session-inhibit --inhibit idle --app-id duet-presence \
+            --reason "Someone is in front of the screen" sleep "$timeout" &
+          holder=$!
+        done
+        sleep 2 # the relay restarted: its directory went away
+      done
+    '';
+  };
 
   gstPlugins =
     (with pkgs.gst_all_1; [
@@ -56,8 +96,9 @@ lib.mkIf cfg.camera.enable {
   boot.extraModprobeConfig = "options v4l2loopback devices=0";
 
   environment.etc."duet-camera.json".text = builtins.toJSON ({
-    # Without the kiosk there is nothing to switch off.
-    screenTimeout = if cfg.kiosk.enable then cfg.camera.screenTimeout else 0;
+    # The relay never switches the screen itself: GNOME blanks it (desktop.nix),
+    # and movement is reported to the session as activity (below).
+    screenTimeout = 0;
   } // cfg.camera.tuning);
 
   # A producer that stays running (v4l2-relayd's on-demand mode stalls after
@@ -72,6 +113,8 @@ lib.mkIf cfg.camera.enable {
       V4L2_DEVICE_FILE = "/run/duet-camera-relay/device";
       # Brightness to restore while the relay has the screen switched off.
       DUET_SCREEN_RESTORE = "/run/duet-camera-relay/screen-brightness";
+    } // lib.optionalAttrs motionWake {
+      DUET_MOTION_FILE = motionFile;
     } // lib.optionalAttrs rgbir {
       # MJPEG live view; dashboard.nix reads this path to proxy it.
       DUET_CAMERA_STREAM = "/run/duet-camera-relay/stream.sock";
@@ -81,7 +124,7 @@ lib.mkIf cfg.camera.enable {
 
     preStart = ''
       install -d "$(dirname "$V4L2_DEVICE_FILE")"
-      # A viewer (the kiosk) that kept the device open across a restart stops
+      # A viewer that kept the device open across a restart stops
       # postStop from deleting it; reuse it then instead of failing on "File exists".
       if test -e /dev/video64 && ! ${v4l2loopback.bin}/bin/v4l2loopback-ctl delete /dev/video64; then
         echo /dev/video64 > "$V4L2_DEVICE_FILE"
@@ -133,7 +176,20 @@ lib.mkIf cfg.camera.enable {
     };
   };
 
-  # Your login can use the camera too (the kiosk user already is in `video`).
+  systemd.user.services.duet-presence = lib.mkIf motionWake {
+    description = "Camera movement as activity: keeps the screen awake, wakes it";
+    wantedBy = [ "graphical-session.target" ];
+    partOf = [ "graphical-session.target" ];
+    after = [ "graphical-session.target" ];
+    unitConfig.ConditionUser = cfg.desktop.user;
+    serviceConfig = {
+      ExecStart = lib.getExe presence;
+      Restart = "always";
+      RestartSec = 3;
+    };
+  };
+
+  # Your login can use the camera too (the household account already is in `video`).
   users.users.${cfg.user}.extraGroups = [ "video" ];
 
   environment.systemPackages = [
