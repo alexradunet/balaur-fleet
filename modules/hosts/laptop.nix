@@ -11,10 +11,8 @@ in
 {
   fleet.laptop = {
     description = "Yoga Pro 7 14APH8: the personal laptop, and where the fleet is built";
-    # Filled in after the first boot: Tailscale is not installed until this config
-    # is live, and sshd only generates a host key once it runs.
-    #   tailnetIp  = `tailscale ip -4`
-    #   sshHostKey = `cat /etc/ssh/ssh_host_ed25519_key.pub` (without the comment)
+    tailnetIp = "100.69.82.21";
+    sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPuF+Lz5BXcudqKdUv2Fuohry+8hib+ArCKy1Cg8qqZm";
     lanIp = null; # DHCP: it was 192.168.50.43, not reserved in the router
     userKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBaXwupVG+t3PlhIRwjvcvyWE9NyzesTUU55qaC0buGd" ];
   };

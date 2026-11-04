@@ -24,6 +24,15 @@
 
       systemd.tmpfiles.rules = [
         "d ${root}/files 2775 syncthing media - -"
+        # Nothing else creates configDir. The upstream module has no StateDirectory
+        # and creates it only in an ExecStartPre gated on `cert`/`key` being set; the
+        # stock setup gets away with it because the default configDir sits inside
+        # dataDir, which `createHome` makes. Ours is deliberately outside it (keys and
+        # database out of the synced tree), so Syncthing cannot start without this:
+        # it fails with `mkdir /var/lib/syncthing: permission denied`.
+        # 0700 because this holds the device's private key, as upstream's own
+        # `install -dm700` does.
+        "d ${config.services.syncthing.configDir} 0700 syncthing media - -"
       ];
 
       balaur.services = [
