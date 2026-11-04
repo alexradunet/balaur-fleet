@@ -38,6 +38,13 @@
           '';
         };
 
+        # Where the home is: the weather (the assistant's tool, the ambient screen).
+        location = {
+          name = lib.mkOption { type = lib.types.str; default = "Bucharest"; description = "Home location, for weather and context."; };
+          latitude = lib.mkOption { type = lib.types.float; default = 44.4268; };
+          longitude = lib.mkOption { type = lib.types.float; default = 26.1025; };
+        };
+
         storage.root = lib.mkOption {
           type = lib.types.path;
           default = "/srv";

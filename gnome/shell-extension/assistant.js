@@ -114,6 +114,7 @@ export class AssistantClient {
             name: str(running ? p.Name : ''),
             wakeWord: str(running ? p.WakeWord : ''),
             error: str(running ? p.Error : ''),
+            snapshot: str(running ? p.Snapshot : ''), // JSON (CONTRACT.md); the ambient screen reads timers and reminders
         };
     }
 

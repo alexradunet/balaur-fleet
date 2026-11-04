@@ -79,7 +79,6 @@ in
         # "Hey Jarvis" in our voices scores 0.2-0.9 (`sudo duet-wake-test`); room noise
         # never passed 0.05. 0.35 catches most attempts; raise it if the TV wakes it.
         wakeThreshold = 0.35;
-        # location = { name = "Bucharest"; latitude = 44.4268; longitude = 26.1025; };
       };
 
       # The colour-filter layout was measured on this laptop (docs/SETUP.md, Stage 10).

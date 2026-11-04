@@ -11,18 +11,16 @@ GNOME-facing is GJS (`gnome/`, see [gnome/CONTRACT.md](../gnome/CONTRACT.md)).
 - Balaur app (libadwaita) and Shell extension (orb overlay, mic toggle); settings for model, server and keys.
 - Web UIs as GNOME web apps; Snapshot for the camera; camera movement keeps the screen awake.
 - Web dashboard, Samsung TV integration and the Go assistant removed.
+- Ambient screen (2026-11-04, Shell extension): after 1 min untouched, a clock, date, weather, the running
+  timers and the next reminder over a Jellyfin photo slideshow; a touch ends it, camera movement keeps it up.
+  Photos need a Jellyfin API key: `sudo duet-photos-login` (docs/SETUP.md, Stage 12).
 
 ## Next
 
-1. **Ambient idle screen** (in the Shell extension). When nobody uses the Duet: a big clock and
-   date, weather, a photo slideshow from Jellyfin's photo library, the running timers and the next
-   reminder (all from `org.balaur.Assistant`). It gives way to the normal desktop on touch, and on
-   movement in front of the camera (`duet-presence`). Open choices: exactly what it shows, the
-   photo source, and when it appears (after idle, before GNOME blanks the screen).
-2. **Media ducks while the assistant listens or speaks.** Jellyfin and Gelly turn down, then back
+1. **Media ducks while the assistant listens or speaks.** Jellyfin and Gelly turn down, then back
    up: PipeWire/WirePlumber roles (the assistant's stream already has `media.role=Assistant`) or
    MPRIS pause and resume.
-3. **Music by voice.** "Pune niște jazz" plays from the Jellyfin library on the Duet, as an agent
+2. **Music by voice.** "Pune niște jazz" plays from the Jellyfin library on the Duet, as an agent
    tool (Jellyfin's API, playing in Jellyfin Desktop / Gelly or `jellyfin-mpv-shim`).
 
 ## Parked

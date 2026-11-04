@@ -30,7 +30,7 @@ modules/
   base.nix                boot, admin account, SSH, Nix, housekeeping; the `balaur.services` registry
   network.nix             NetworkManager, Tailscale (+ SSH), <host>.local (mDNS)
   always-on.nix           a laptop as a server: never sleep, ignore lid, battery = UPS, 80% charge cap
-  tablet.nix              GNOME as a household tablet: auto-login, OSK, rotation, apps, web apps, the Balaur app + Shell extension
+  tablet.nix              GNOME as a household tablet: auto-login, OSK, rotation, apps, web apps, the Balaur app + Shell extension, ambient screen
   assistant.nix           the voice assistant, a service of the tablet's GNOME session
   camera.nix              the Duet's front camera: patched kernel modules + RGB-IR relay, movement wakes the screen
   media.nix               Jellyfin + qBittorrent with FileList search (`sudo duet-filelist-login` once), /srv/media
@@ -43,7 +43,7 @@ gnome/                    everything GNOME-facing, in GJS; gnome/CONTRACT.md is 
   assistant/              the assistant daemon: PipeWire audio, wake word, Voxtral speech, D-Bus org.balaur.Assistant
   agent/                  its brain, on the pi SDK (TypeScript): the model and its tools
   app/                    "Balaur", a libadwaita app: assistant, lists, timers, memory, home services
-  shell-extension/        the assistant's orb over every app, the mic toggle in Quick Settings
+  shell-extension/        the assistant's orb over every app, the mic toggle in Quick Settings, the ambient screen
 camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 frames -> webcam
 ```
 

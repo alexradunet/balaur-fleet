@@ -63,6 +63,53 @@
         categories = [ "System" "TerminalEmulator" ];
       };
 
+      # The ambient screen (Shell extension, ambient.js): clock, weather, timers,
+      # reminders, and photos from Jellyfin when this machine runs it (media aspect).
+      ambient = cfg.tablet.ambient;
+      jellyfin = config.services.jellyfin.enable;
+      photosKey = "/var/lib/secrets/duet-photos-key";
+      photosDir = "${toString cfg.storage.root}/media/photos";
+      ambientJson = builtins.toJSON {
+        inherit (ambient) idleSeconds;
+        location = { inherit (cfg.location) name latitude longitude; };
+        photos = if jellyfin then {
+          server = "http://127.0.0.1:8096";
+          keyFile = photosKey;
+          inherit (ambient.photos) intervalSeconds;
+        } else null;
+      };
+
+      # A Jellyfin API key for the photos, from a terminal (state only, never in the
+      # repo or the store; read from stdin). Also adds the Photos library if missing.
+      photosLogin = pkgs.writeShellApplication {
+        name = "duet-photos-login";
+        runtimeInputs = [ pkgs.coreutils pkgs.curl pkgs.jq ];
+        text = ''
+          if [ "$(id -u)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
+          echo "Jellyfin (http://duet:8096) > Dashboard > API Keys > + (name it Balaur), then paste it here."
+          read -rsp "API key (hidden): " key; echo
+          api() { # api PATH [curl args]; the key goes through curl's config on stdin, never the process list
+            local p=$1; shift
+            printf 'header = "Authorization: MediaBrowser Token=\\"%s\\""\n' "$key" \
+              | curl -sS -m 20 -f -K - "$@" "http://127.0.0.1:8096$p"
+          }
+          if ! version="$(api /System/Info | jq -er .Version)"; then echo "Jellyfin did not accept that key." >&2; exit 1; fi
+          echo "Jellyfin $version accepted the key."
+
+          install -d -m 0711 ${dirOf photosKey}
+          install -o ${user} -m 0600 /dev/null ${photosKey}
+          printf '%s\n' "$key" > ${photosKey}
+
+          if api /Library/VirtualFolders | jq -e --arg d ${photosDir} 'any(.[]; .Locations | index($d))' >/dev/null; then
+            echo "The Photos library (${photosDir}) is there."
+          else
+            api "/Library/VirtualFolders?name=Photos&collectionType=homevideos&paths=${lib.escapeURL photosDir}&refreshLibrary=true" -X POST -H 'Content-Type: application/json' -d '{"LibraryOptions":{}}' >/dev/null
+            echo "Added the Photos library: ${photosDir}. Put pictures there (any folders); Jellyfin scans it."
+          fi
+          echo "Photos in Jellyfin now: $(api "/Items?Recursive=true&IncludeItemTypes=Photo&Limit=0" | jq -r .TotalRecordCount)"
+        '';
+      };
+
       favorites = [
         "org.balaur.Balaur.desktop"
         "firefox.desktop"
@@ -77,6 +124,24 @@
             type = lib.types.str;
             default = "home";
             description = "The household account GNOME logs in as (created; it has no password).";
+          };
+
+          ambient = {
+            idleSeconds = lib.mkOption {
+              type = lib.types.ints.unsigned;
+              default = 60;
+              description = ''
+                Seconds without a touch, click or key before the ambient screen (clock,
+                weather, timers, reminders, photos) covers the apps; 0 = never. Movement in
+                front of the camera keeps it up rather than ending it. It needs a new
+                session (log out, or reboot) to pick up changes.
+              '';
+            };
+            photos.intervalSeconds = lib.mkOption {
+              type = lib.types.ints.positive;
+              default = 30;
+              description = "Seconds each photo stays (Jellyfin's photo libraries; key: `sudo duet-photos-login`).";
+            };
           };
         };
       };
@@ -109,7 +174,7 @@
           duetExtension
           devTerminal
           epiphany # GNOME Web: runs the web apps below
-        ] ++ webApps ++ [
+        ] ++ lib.optional jellyfin photosLogin ++ webApps ++ [
           ptyxis # terminal (as the household account)
           jellyfin-desktop # Jellyfin client (video, and the target for "play on Duet")
           gelly # Jellyfin music, GNOME-native
@@ -216,6 +281,7 @@
         };
 
         environment.etc."duet/services.json".text = servicesJson;
+        environment.etc."duet/ambient.json".text = ambientJson;
 
         hardware.graphics.enable = true;
       };

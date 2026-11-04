@@ -40,7 +40,7 @@
         };
         search.model = lib.optionalString as.webSearch.enable as.webSearch.model;
         llm = { inherit (as.llm) baseUrl model; };
-        location = { inherit (as.location) name latitude longitude; };
+        location = { inherit (cfg.location) name latitude longitude; };
         newsFeeds = as.newsFeeds;
       });
 
@@ -205,12 +205,6 @@
               default = 65;
               description = "Microphone level (ALSA 'Dmic0', 50 = 0 dB, 70 = +20 dB). The built-in array is quiet: 65 hears a normal voice across the room; lower it if it wakes on noise.";
             };
-          };
-
-          location = {
-            name = lib.mkOption { type = lib.types.str; default = "Bucharest"; description = "Home location, for weather and context."; };
-            latitude = lib.mkOption { type = lib.types.float; default = 44.4268; };
-            longitude = lib.mkOption { type = lib.types.float; default = 26.1025; };
           };
 
           webSearch = {

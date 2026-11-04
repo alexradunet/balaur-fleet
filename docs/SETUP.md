@@ -410,7 +410,7 @@ reminders and memory.
   tries and prints each one's score (`sudo duet-wake-test all` compares the built-in wake words).
 - What it heard, every tool call and the time to the reply:
   `journalctl _SYSTEMD_USER_UNIT=duet-assistant.service -f` (or, as the household user, `journalctl --user -u duet-assistant -f`).
-- Location for the weather: `balaur.assistant.location`. News sources: `balaur.assistant.newsFeeds`.
+- Location for the weather: `balaur.location` (also used by the ambient screen). News sources: `balaur.assistant.newsFeeds`.
 
 ### Custom wake word
 
@@ -423,3 +423,39 @@ search for "openWakeWord automatic model training"). Copy the resulting `hei_due
 `~home/.local/state/duet-assistant/` holds `house.json` (lists), `reminders.json` and `memory.json`, as plain
 JSON. Timers live in memory only (a restart drops them). Keys are in the GNOME Keyring (and, if you used
 `duet-assistant-login`, `/var/lib/secrets/duet-assistant-llm-key`). No audio is stored on the Duet.
+
+## Stage 12: The ambient screen
+
+When nobody has touched the Duet for a minute, the Shell extension covers the apps with a view that can be
+read across the room. It shows:
+- a big clock and the date;
+- the weather for `balaur.location` (Open-Meteo);
+- the assistant's running timers, counting down, and the next reminder;
+- a slow slideshow from Jellyfin's photo libraries.
+
+A touch, click or key brings back what was there. The tap that does it doesn't reach the app.
+
+- **It stays up** while the camera sees movement, which keeps the screen awake. With nobody there, GNOME turns
+  the screen off as before (`balaur.camera.screenTimeout`).
+- **It stays away** while a window is full screen (a film), or while an app holds an idle inhibitor (a call,
+  a player).
+
+### Photos
+
+1. On the Jellyfin web UI (`http://duet:8096`): Dashboard → API Keys → **+**, name it `Balaur`, and copy the key.
+2. `sudo duet-photos-login` and paste the key. It is checked and saved to `/var/lib/secrets/duet-photos-key`,
+   readable by the household account only. If there is no library for `/srv/media/photos` yet, it adds one
+   called **Photos**.
+3. Put pictures in `/srv/media/photos`, in any folders (over SSH, or Nautilus as `alex`). Jellyfin picks them up
+   on its library scan. Run `sudo duet-photos-login` again to see the count.
+
+Every photo library in Jellyfin is used, in a random order. Jellyfin scales each photo to the screen size, so
+the Duet decodes only small images. Without a key, the background stays dark.
+
+### Tuning
+
+- `balaur.tablet.ambient.idleSeconds` (default 60; 0 = off), `balaur.tablet.ambient.photos.intervalSeconds`
+  (default 30). The extension reads `/etc/duet/ambient.json` when the session starts, so after a change log
+  the household account out and in again (or reboot).
+- What it does: `journalctl --user -b | grep "balaur ambient"`, as the household user (weather, photo and
+  inhibitor errors).

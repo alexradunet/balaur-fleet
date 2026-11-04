@@ -120,6 +120,7 @@
         "d ${media}/downloads  2775 qbittorrent media - -"
         "d ${media}/movies     2775 qbittorrent media - -"
         "d ${media}/shows      2775 qbittorrent media - -"
+        "d ${media}/photos     2775 qbittorrent media - -" # Jellyfin "Photos" (`sudo duet-photos-login` adds it)
       ];
 
       networking.firewall.allowedTCPPorts = [ 8080 torrentPort ];

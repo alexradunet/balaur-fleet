@@ -47,14 +47,15 @@ const ROUND = [
 ];
 
 // RFC 3339 with a "+02:00" offset, like Go's time.Time in JSON.
-const now = () => GLib.DateTime.new_now_local().format('%Y-%m-%dT%H:%M:%S%:z');
+const inSeconds = s => GLib.DateTime.new_now_local().add_seconds(s).format('%Y-%m-%dT%H:%M:%S%:z');
+const now = () => inSeconds(0);
 let nextId = 1;
 const newId = () => `m${nextId++}`;
 
 const store = {
     log: [],
-    timers: [{id: 't1', label: 'pasta', ends: now(), remaining_seconds: 300}],
-    reminders: [{id: newId(), text: 'Call grandma', at: now()}],
+    timers: [{id: 't1', label: 'pasta', ends: inSeconds(300), remaining_seconds: 300}],
+    reminders: [{id: newId(), text: 'Call grandma', at: inSeconds(3 * 3600)}],
     lists: {
         shopping: [{id: newId(), text: 'bread', done: false, added: now()}],
         tasks: [{id: newId(), text: 'water the plants', done: true, added: now()}],

@@ -1,16 +1,17 @@
-{ lib, stdenvNoCC }:
+{ lib, stdenvNoCC, gjs, libsoup_3, tzdata }:
 
 # GNOME Shell extension balaur@balaur.local (gnome/shell-extension/): the voice
-# assistant's orb overlay and Quick Settings microphone toggle. Plain GJS
-# and CSS, no settings schema, so installing is just copying the files.
+# assistant's orb overlay, the Quick Settings microphone toggle and the ambient
+# screen. Plain GJS and CSS, no settings schema (the ambient screen reads
+# /etc/duet/ambient.json), so installing is just copying the files.
 let
   dir = ../gnome/shell-extension;
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "gnome-shell-extension-duet";
-  version = "1";
+  version = "2";
 
-  # Only what GNOME Shell loads; tools/ and the README stay in the repo.
+  # What GNOME Shell loads, plus the tests; tools/ and the README stay in the repo.
   src = lib.fileset.toSource {
     root = dir;
     fileset = lib.fileset.unions [
@@ -19,6 +20,15 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       (lib.fileset.difference (lib.fileset.fileFilter (f: f.hasExt "js") dir) (dir + "/tools"))
     ];
   };
+
+  # The Shell-free parts (ambient-data.js): config, weather, photos, times.
+  doCheck = true;
+  nativeCheckInputs = [ gjs ];
+  checkPhase = ''
+    runHook preCheck
+    HOME=$TMPDIR TZDIR=${tzdata}/share/zoneinfo GI_TYPELIB_PATH=${libsoup_3}/lib/girepository-1.0 gjs -m tests/test-ambient.js
+    runHook postCheck
+  '';
 
   installPhase = ''
     runHook preInstall
@@ -34,7 +44,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   };
 
   meta = {
-    description = "Duet voice assistant in GNOME Shell: orb + captions overlay and a microphone toggle";
+    description = "Duet household screen in GNOME Shell: assistant orb overlay, microphone toggle, ambient screen";
     platforms = lib.platforms.linux;
   };
 })
