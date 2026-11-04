@@ -1,6 +1,11 @@
-# Torrents: qBittorrent with FileList search, on any machine that should be able
-# to download. Separate from `media` (Jellyfin), because downloading and serving
-# are different jobs: the Duet does both, the laptop only the first.
+# Torrents: qBittorrent with FileList search. Two aspects, because running the
+# server and being able to send to it are different things:
+#
+#   torrents         runs qBittorrent. One machine is enough, and it is the Duet:
+#                    it is the always-on one, and the downloads belong next to
+#                    Jellyfin's libraries.
+#   torrents-client  just `balaur-torrent` and the magnet handler, for a machine
+#                    that sends downloads to one of the others.
 #
 #   ${storage.root}/media/downloads   anything without a category
 #   ${storage.root}/media/movies      category "movies"  -> Jellyfin "Movies"
@@ -8,14 +13,12 @@
 #
 # Search is qBittorrent's own Search tab; the FileList plugin (media-search/) is
 # installed on every start and reads its credentials from a JSON file named by
-# `balaur.torrents.filelistCredentialsFile`. Point that at a sops secret to have
-# it come from the repo (see modules/hosts/*.nix); the default is local state
-# written by `sudo duet-filelist-login`.
+# `balaur.torrents.filelistCredentialsFile`. Point that at a sops template to
+# have it come from the repo (see modules/hosts/*.nix); the default is local
+# state written by `sudo duet-filelist-login`.
 #
-# `balaur-torrent` sends a magnet, URL or .torrent to *any* machine in the fleet
-# that runs this aspect, so you can sit at the laptop and choose whether a
-# download lands there or on the Duet. The candidates come from the registry's
-# `torrentsPort`.
+# The web UI is reachable on the LAN and over the tailnet, and authenticates
+# both by subnet, so there is no password to carry. Do not port-forward it.
 { config, ... }:
 let
   fleet = config.fleet;
@@ -31,15 +34,6 @@ in
       webuiPort = 8080;
       nova3 = "${qbProfile}/qBittorrent/data/nova3";
       credentials = toString cfg.torrents.filelistCredentialsFile;
-
-      # Every machine that can take a download, this one included.
-      me = config.networking.hostName;
-      targets = lib.filterAttrs (_: h: h.torrentsPort != null) fleet;
-      targetNames = lib.attrNames targets;
-      # "name:host:port" — localhost for ourselves, so it works with no network.
-      targetSpecs = lib.mapAttrsToList
-        (name: h: "${name}:${if name == me then "127.0.0.1" else name}:${toString h.torrentsPort}")
-        targets;
 
       filelistLogin = pkgs.writeShellApplication {
         name = "duet-filelist-login";
@@ -74,91 +68,6 @@ in
             python3 nova2.py filelist all "''${1:-ubuntu}")"
           printf '%s\n' "$results" | head -n 5 | awk -F'|' '{ printf "  %s  (%s seeders)\n", $2, $4 }'
         '';
-      };
-
-      # Send a magnet / URL / .torrent to whichever machine should do the work.
-      # The web UI authenticates LAN and tailnet callers by subnet (see qbSeed),
-      # so there is no password to carry around; a 403 means that lapsed.
-      sendTorrent = pkgs.writeShellApplication {
-        name = "balaur-torrent";
-        runtimeInputs = [ pkgs.coreutils pkgs.curl pkgs.gnugrep pkgs.zenity ];
-        text = ''
-          specs=(${lib.escapeShellArgs targetSpecs})
-          usage() {
-            echo "usage: balaur-torrent [--host ${lib.concatStringsSep "|" targetNames}] [--category NAME] <magnet|url|file>..." >&2
-            echo "       balaur-torrent --list" >&2
-          }
-
-          host=""; category=""; items=()
-          while [ $# -gt 0 ]; do
-            case "$1" in
-              --host) host="''${2:-}"; shift 2 ;;
-              --category) category="''${2:-}"; shift 2 ;;
-              --list) printf '%s\n' "''${specs[@]}" | tr ':' ' ' | awk '{printf "%-10s %s:%s\n", $1, $2, $3}'; exit 0 ;;
-              -h|--help) usage; exit 0 ;;
-              -*) usage; exit 1 ;;
-              *) items+=("$1"); shift ;;
-            esac
-          done
-          [ ''${#items[@]} -gt 0 ] || { usage; exit 1; }
-
-          # No target given: ask. Graphical when there is a session to ask in,
-          # since this is also the magnet-link handler.
-          if [ -z "$host" ]; then
-            if [ ''${#specs[@]} -eq 1 ]; then
-              host="''${specs[0]%%:*}"
-            elif [ -n "''${WAYLAND_DISPLAY:-}''${DISPLAY:-}" ]; then
-              names=()
-              for s in "''${specs[@]}"; do names+=("''${s%%:*}"); done
-              host="$(zenity --list --title="Download on" \
-                --text="Which machine should download this?" \
-                --column="Machine" "''${names[@]}" 2>/dev/null)" || exit 1
-              [ -n "$host" ] || exit 1
-            else
-              echo "Download on which machine?" >&2
-              i=1
-              for s in "''${specs[@]}"; do echo "  $i) ''${s%%:*}" >&2; i=$((i+1)); done
-              read -rp "> " pick
-              host="$(printf '%s\n' "''${specs[@]}" | sed -n "''${pick}p" | cut -d: -f1)"
-              [ -n "$host" ] || { echo "no such choice" >&2; exit 1; }
-            fi
-          fi
-
-          addr=""; port=""
-          for s in "''${specs[@]}"; do
-            if [ "''${s%%:*}" = "$host" ]; then
-              addr="$(printf '%s' "$s" | cut -d: -f2)"; port="$(printf '%s' "$s" | cut -d: -f3)"
-            fi
-          done
-          [ -n "$addr" ] || { echo "unknown machine: $host" >&2; usage; exit 1; }
-
-          api="http://$addr:$port/api/v2/torrents/add"
-          for item in "''${items[@]}"; do
-            if [ -f "$item" ]; then
-              out="$(curl -fsS -X POST "$api" -F "torrents=@$item" \
-                ''${category:+-F "category=$category"} 2>&1)" || {
-                  echo "$host: refused $item ($out)" >&2; exit 1; }
-            else
-              out="$(curl -fsS -X POST "$api" --data-urlencode "urls=$item" \
-                ''${category:+--data-urlencode "category=$category"} 2>&1)" || {
-                  echo "$host: refused $item ($out)" >&2; exit 1; }
-            fi
-            echo "$host: queued ''${item:0:60}''${category:+ (category $category)}"
-          done
-        '';
-      };
-
-      # Registers balaur-torrent as a handler for magnet: links, without putting
-      # another icon in the app grid.
-      magnetHandler = pkgs.makeDesktopItem {
-        name = "balaur-torrent";
-        desktopName = "Download with Balaur";
-        comment = "Send this torrent to a machine in the fleet";
-        exec = "${lib.getExe sendTorrent} %u";
-        icon = "qbittorrent";
-        categories = [ "Network" ];
-        mimeTypes = [ "x-scheme-handler/magnet" "application/x-bittorrent" ];
-        noDisplay = true;
       };
 
       # Written only on first start, so changes made in the web UI stick.
@@ -233,7 +142,7 @@ in
           };
         };
 
-        environment.systemPackages = [ filelistLogin sendTorrent magnetHandler ];
+        environment.systemPackages = [ filelistLogin ];
 
         systemd.tmpfiles.rules = [
           "d ${media}            2775 qbittorrent media - -"
@@ -242,6 +151,7 @@ in
           "d ${media}/shows      2775 qbittorrent media - -"
         ];
 
+        # 8080 on the LAN; tailscale0 is a trusted interface already (network.nix).
         networking.firewall.allowedTCPPorts = [ webuiPort torrentPort ];
         networking.firewall.allowedUDPPorts = [ torrentPort ];
 
@@ -257,5 +167,125 @@ in
           }
         ];
       };
+    };
+
+  # ---------------------------------------------------------------------------
+  flake.modules.nixos.torrents-client =
+    { config, lib, pkgs, ... }:
+    let
+      me = config.networking.hostName;
+      targets = lib.filterAttrs (_: h: h.torrentsPort != null) fleet;
+      targetNames = lib.attrNames targets;
+
+      # Several ways to reach each machine, tried in order, so this works on the
+      # LAN and over the tailnet without being told which one you are on:
+      # MagicDNS (also the tailnet when away), the reserved LAN address, mDNS,
+      # then the raw tailnet address if DNS is broken entirely. Ourselves: no
+      # network at all.
+      addrs = name: h:
+        if name == me then [ "127.0.0.1" ]
+        else lib.filter (a: a != null) [ name h.lanIp "${name}.local" h.tailnetIp ];
+      targetSpecs = lib.mapAttrsToList
+        (name: h: "${name}|${lib.concatStringsSep "," (addrs name h)}|${toString h.torrentsPort}")
+        targets;
+
+      sendTorrent = pkgs.writeShellApplication {
+        name = "balaur-torrent";
+        runtimeInputs = [ pkgs.coreutils pkgs.curl pkgs.zenity ];
+        text = ''
+          specs=(${lib.escapeShellArgs targetSpecs})
+          usage() {
+            echo "usage: balaur-torrent [--host ${lib.concatStringsSep "|" targetNames}] [--category NAME] <magnet|url|file>..." >&2
+            echo "       balaur-torrent --list" >&2
+          }
+
+          host=""; category=""; items=()
+          while [ $# -gt 0 ]; do
+            case "$1" in
+              --host) host="''${2:-}"; shift 2 ;;
+              --category) category="''${2:-}"; shift 2 ;;
+              --list)
+                for s in "''${specs[@]}"; do
+                  printf '%-10s port %s via %s\n' "''${s%%|*}" "''${s##*|}" "$(printf '%s' "$s" | cut -d'|' -f2)"
+                done
+                exit 0 ;;
+              -h|--help) usage; exit 0 ;;
+              -*) usage; exit 1 ;;
+              *) items+=("$1"); shift ;;
+            esac
+          done
+          [ ''${#items[@]} -gt 0 ] || { usage; exit 1; }
+
+          # No target given: ask. Graphically when there is a session to ask in,
+          # since this is also the magnet-link handler.
+          if [ -z "$host" ]; then
+            if [ ''${#specs[@]} -eq 1 ]; then
+              host="''${specs[0]%%|*}"
+            elif [ -n "''${WAYLAND_DISPLAY:-}''${DISPLAY:-}" ]; then
+              names=()
+              for s in "''${specs[@]}"; do names+=("''${s%%|*}"); done
+              host="$(zenity --list --title="Download on" \
+                --text="Which machine should download this?" \
+                --column="Machine" "''${names[@]}" 2>/dev/null)" || exit 1
+              [ -n "$host" ] || exit 1
+            else
+              echo "Download on which machine?" >&2
+              i=1
+              for s in "''${specs[@]}"; do echo "  $i) ''${s%%|*}" >&2; i=$((i+1)); done
+              read -rp "> " pick
+              host="$(printf '%s\n' "''${specs[@]}" | sed -n "''${pick}p" | cut -d'|' -f1)"
+              [ -n "$host" ] || { echo "no such choice" >&2; exit 1; }
+            fi
+          fi
+
+          spec=""
+          for s in "''${specs[@]}"; do
+            [ "''${s%%|*}" = "$host" ] && spec="$s"
+          done
+          [ -n "$spec" ] || { echo "unknown machine: $host" >&2; usage; exit 1; }
+          port="''${spec##*|}"
+
+          # Find an address that answers before posting anything, so a torrent is
+          # never half-sent and the error names every route that was tried.
+          api=""; tried=""
+          for addr in $(printf '%s' "$spec" | cut -d'|' -f2 | tr ',' ' '); do
+            tried="$tried $addr"
+            if curl -fsS -o /dev/null --connect-timeout 2 "http://$addr:$port/api/v2/app/version"; then
+              api="http://$addr:$port/api/v2/torrents/add"
+              break
+            fi
+          done
+          [ -n "$api" ] || { echo "$host: no answer on$tried (port $port)" >&2; exit 1; }
+
+          for item in "''${items[@]}"; do
+            if [ -f "$item" ]; then
+              out="$(curl -fsS -X POST "$api" -F "torrents=@$item" \
+                ''${category:+-F "category=$category"} 2>&1)" || {
+                  echo "$host: refused $item ($out)" >&2; exit 1; }
+            else
+              out="$(curl -fsS -X POST "$api" --data-urlencode "urls=$item" \
+                ''${category:+--data-urlencode "category=$category"} 2>&1)" || {
+                  echo "$host: refused $item ($out)" >&2; exit 1; }
+            fi
+            echo "$host: queued ''${item:0:60}''${category:+ (category $category)}"
+          done
+        '';
+      };
+
+      # Registers balaur-torrent as a handler for magnet: links, without putting
+      # another icon in the app grid.
+      magnetHandler = pkgs.makeDesktopItem {
+        name = "balaur-torrent";
+        desktopName = "Download with Balaur";
+        comment = "Send this torrent to a machine in the fleet";
+        exec = "${lib.getExe sendTorrent} %u";
+        icon = "qbittorrent";
+        categories = [ "Network" ];
+        mimeTypes = [ "x-scheme-handler/magnet" "application/x-bittorrent" ];
+        noDisplay = true;
+      };
+    in
+    {
+      environment.systemPackages = [ sendTorrent magnetHandler ];
     };
 }

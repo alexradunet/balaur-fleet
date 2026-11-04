@@ -34,6 +34,7 @@ in
       network
       files
       torrents
+      torrents-client
       media
       adblock
       assistant

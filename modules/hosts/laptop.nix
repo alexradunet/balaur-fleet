@@ -16,7 +16,7 @@ in
     lanIp = null; # DHCP: it was 192.168.50.43, not reserved in the router
     userKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBaXwupVG+t3PlhIRwjvcvyWE9NyzesTUU55qaC0buGd" ];
     syncthingId = "OIWJQ4H-XCGNO6G-YC34T53-KYOUVC6-WWYNUXF-U47H6QL-ULMIURW-BLZ7DQY";
-    torrentsPort = 8080;
+    # torrentsPort: unset — this machine sends downloads, it does not take them.
     # The cockpit is also the fleet's builder: 8 cores / 16 threads against the
     # Duet's 4 / 8, and the Duet is busy being the living-room screen. 8 jobs
     # leaves half the threads for whoever is actually using this laptop.
@@ -41,7 +41,9 @@ in
         desktop
         dev
         files
-        torrents
+        # torrents (the qBittorrent server) stays on duet; this is just the
+        # client, so a magnet clicked here can be sent there.
+        torrents-client
         assistant
       ])
       # Its own disk/boot layout, copied from /etc/nixos (see CLAUDE.md, "Adding a
@@ -106,20 +108,7 @@ in
         mode = "0640";
       };
 
-      # The same FileList account as the Duet, so search works on both.
-      sops.secrets."filelist-username" = { };
-      sops.secrets."filelist-passkey" = { };
-      sops.templates."filelist.json" = {
-        owner = config.services.qbittorrent.user;
-        mode = "0400";
-        content = builtins.toJSON {
-          username = config.sops.placeholder."filelist-username";
-          passkey = config.sops.placeholder."filelist-passkey";
-        };
-      };
-      balaur.torrents = {
-        filelistCredentialsFile = config.sops.templates."filelist.json".path;
-        manageFilelistCredentials = false;
-      };
+      # No FileList credentials here: searching happens in qBittorrent, which
+      # runs on duet. This machine only hands it magnets.
     };
 }
