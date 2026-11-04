@@ -26,6 +26,10 @@ skipped). The **dendritic pattern** works like this:
 - A change to a shared aspect (base, fleet, home, network, dev) affects every host:
   evaluate them all.
 - Deploying to another machine over the tailnet: `nixos-rebuild switch --flake .#<host> --target-host <host> --sudo`.
+  This builds locally and copies the closure over, so do fleet work on **laptop**, the
+  cockpit: it is much the stronger machine, and duet is also the household screen, where a
+  long build competes with the people using it. duet is a deploy target, not a workstation.
+  After pushing, fast-forward duet's own clone so the next session there is not stale.
 
 ## Adding a machine (run on the new machine, in a clone of this repo)
 
