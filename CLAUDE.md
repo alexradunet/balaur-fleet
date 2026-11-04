@@ -1,7 +1,5 @@
 # Balaur
 
-**Registering the laptop? Read docs/HANDOFF-LAPTOP.md first** (delete it and this line when done).
-
 One flake configures every machine at home (the fleet). README.md explains the
 layout. In short: every `.nix` file under `modules/` is a flake-parts module,
 loaded automatically by import-tree (files or directories starting with `_` are
@@ -48,19 +46,22 @@ skipped). The **dendritic pattern** works like this:
    - `flake.nixosConfigurations.<hostname> = inputs.nixpkgs.lib.nixosSystem { modules = [ aspects.<hostname> ]; };`
    - `flake.modules.nixos.<hostname>`: its aspects, `hardware-configuration.nix`,
      `networking.hostName`, `time.timeZone`, `system.stateVersion`, `balaur.user`.
-   - Hardware specifics go in a `modules/hardware/<model>.nix` aspect (see `yoga-duet-7.nix`).
+   - Hardware specifics go in a `modules/hardware/<model>.nix` aspect (see `yoga-duet-7.nix`
+     for Intel, `yoga-pro-7.nix` for AMD).
 5. Choose aspects with the user. Every machine gets `base fleet home network`, and usually `dev`.
+   A machine with a screen gets `gnome` plus exactly one of `tablet` or `desktop`.
    Don't give a normal laptop the Duet-only ones:
    - `always-on`: never sleeps, ignores the lid.
    - `tablet`: the household kiosk account with auto-login and no lock.
    - `camera`: patched modules for the Duet's sensor.
-   - `assistant`: it needs `tablet`.
 
    `media` and `adblock` are services, normally on one machine only.
 
-   A personal GNOME desktop is a new aspect. Before writing it, move the generic GNOME
-   parts out of `tablet.nix` (GDM, GNOME, PipeWire, Firefox policies) into a shared aspect
-   that both use. Verify with nix-diff that duet doesn't change.
+   `assistant` runs in the session of `balaur.assistant.user`, which defaults to the
+   household account where `tablet` is present and the admin account otherwise, so it
+   works on a personal desktop too. Set `balaur.assistant.audio.input` only on a machine
+   whose default microphone is too quiet for the wake word (the Duet's array); null means
+   PipeWire's default source. Retune `wakeThreshold` per machine with `sudo duet-wake-test`.
 6. `nixos-rebuild build --flake .#<hostname>`. Then `sudo nixos-rebuild boot --flake .#<hostname>`
    and reboot. The first switch to a new layout is safer at boot, and older generations
    stay in the boot menu.
