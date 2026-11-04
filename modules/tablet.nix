@@ -7,9 +7,12 @@
 #   - Screen off/on: GNOME blanks it after balaur.camera.screenTimeout idle and
 #     never locks; movement in front of the camera counts as activity
 #     (duet-presence, camera.nix), so it stays on while someone is there.
-#   - Sound: the session's PipeWire, shared by the apps and the voice assistant
-#     (a user service of this session, assistant.nix), which also adds the
-#     microphone array's 16 kHz device as the default source.
+#   - Sound: the `gnome` aspect's PipeWire, shared by the apps and the voice
+#     assistant (a user service of this session, assistant.nix), which also adds
+#     the microphone array's 16 kHz device as the default source.
+#
+# Needs the `gnome` aspect alongside it: that one has GDM, the GNOME session,
+# PipeWire and the Firefox policies.
 {
   flake.modules.nixos.tablet =
     { config, lib, pkgs, ... }:
@@ -148,8 +151,8 @@
 
       config = {
         # ---- GNOME, trimmed to what a wall tablet needs ----
-        services.displayManager.gdm.enable = true;
-        services.desktopManager.gnome.enable = true;
+        # GDM, the GNOME session, PipeWire and the Firefox policies are the shared
+        # `gnome` aspect; this one only takes away what a wall screen doesn't need.
         services.displayManager.autoLogin = { enable = true; inherit user; };
 
         services.gnome = {
@@ -183,24 +186,6 @@
           gnome-calculator
           snapshot # GNOME camera: shows the front camera (the relay's webcam)
         ];
-
-        programs.firefox = {
-          enable = true;
-          policies = {
-            DisableTelemetry = true;
-            DisableFirefoxStudies = true;
-            DisablePocket = true;
-            DontCheckDefaultBrowser = true;
-            OverrideFirstRunPage = "";
-            OverridePostUpdatePage = "";
-            NoDefaultBookmarks = true;
-            # Ads the router-level AdGuard can't see (same-domain ones, e.g. YouTube).
-            ExtensionSettings."uBlock0@raymondhill.net" = {
-              installation_mode = "force_installed";
-              install_url = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi";
-            };
-          };
-        };
 
         # Rotation.
         hardware.sensor.iio.enable = true;
@@ -271,19 +256,8 @@
           ];
         }];
 
-        # ---- sound ----
-        services.pulseaudio.enable = false;
-        security.rtkit.enable = true;
-        services.pipewire = {
-          enable = true;
-          alsa.enable = true;
-          pulse.enable = true;
-        };
-
         environment.etc."duet/services.json".text = servicesJson;
         environment.etc."duet/ambient.json".text = ambientJson;
-
-        hardware.graphics.enable = true;
       };
     };
 }

@@ -9,6 +9,10 @@ fully declarative NixOS home server. The detachable-tablet laptop becomes an app
 the built-in touchscreen is a household tablet running stock GNOME, everything on it is
 GNOME-native, and the battery is the UPS.
 
+The second is **laptop**, a **Lenovo Yoga Pro 7 14APH8**: the personal machine, and where
+the fleet is built and deployed from. It shares the base, the admin's environment and the
+voice assistant, and runs none of the house services.
+
 ## Layout: the dendritic pattern
 
 Every `.nix` file under `modules/` is a [flake-parts](https://flake.parts) module and is
@@ -24,20 +28,24 @@ flake.nix                 inputs; outputs = every file under modules/
 modules/
   flake/                  flake wiring: packages, checks, dev shell
   hosts/duet.nix          duet = these aspects + its own settings (account, voices, ...)
-  hardware/yoga-duet-7.nix  the Duet's firmware and CPU bits
+  hosts/laptop.nix        laptop = its aspects + its own settings (locales, printing, ...)
+  hardware/yoga-duet-7.nix  the Duet's firmware and CPU bits (Intel)
+  hardware/yoga-pro-7.nix   the laptop's firmware and CPU bits (AMD)
   fleet.nix               the registry: every machine, its IPs and keys; SSH trust between them
   home.nix                home-manager: the admin's shell, git, gh, the same on every machine
   base.nix                boot, admin account, SSH, Nix, housekeeping; the `balaur.services` registry
   network.nix             NetworkManager, Tailscale (+ SSH), <host>.local (mDNS)
   always-on.nix           a laptop as a server: never sleep, ignore lid, battery = UPS, 80% charge cap
+  gnome.nix               GNOME itself: GDM, the session, PipeWire, the Firefox policies
   tablet.nix              GNOME as a household tablet: auto-login, OSK, rotation, apps, web apps, the Balaur app + Shell extension, ambient screen
-  assistant.nix           the voice assistant, a service of the tablet's GNOME session
+  desktop.nix             GNOME as a personal desktop: a normal login, and the Balaur app + Shell extension
+  assistant.nix           the voice assistant, a service of a GNOME session
   camera.nix              the Duet's front camera: patched kernel modules + RGB-IR relay, movement wakes the screen
   media.nix               Jellyfin + qBittorrent with FileList search (`sudo duet-filelist-login` once), /srv/media
   adblock.nix             AdGuard Home: network-wide ad/tracker blocking on :53, UI on :3000
-  files.nix               Syncthing (not on any host yet)
+  files.nix               Syncthing, on both machines; devices and folders are paired in its UI
   dev.nix                 Claude Code + pi + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep
-hosts/duet/               machine-generated files only (hardware-configuration.nix)
+hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages, built by the aspects and exposed as flake packages
 gnome/                    everything GNOME-facing, in GJS; gnome/CONTRACT.md is how the pieces talk
   assistant/              the assistant daemon: PipeWire audio, wake word, Voxtral speech, D-Bus org.balaur.Assistant

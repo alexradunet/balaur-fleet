@@ -27,12 +27,13 @@ in
       home
       always-on
       network
-      # files (Syncthing): not on this machine yet
+      files
       media
       adblock
       assistant
       dev
       camera
+      gnome
       tablet
     ]
     # Your machine's own disk/boot layout, copied from /etc/nixos on the Duet
@@ -66,6 +67,10 @@ in
       # Voice assistant: "Hey Jarvis", Romanian + English; Mistral for speech, a pi SDK agent for the rest.
       # Key: Balaur app > Assistant settings (GNOME Keyring), or `sudo duet-assistant-login` (/var/lib/secrets).
       assistant = {
+        # This machine's microphone array at 16 kHz (`arecord -l`: DMIC16kHz). Without
+        # it PipeWire picks the 48 kHz DMIC, whose processing leaves a voice far too
+        # quiet for the wake word. A laptop with an ordinary mic leaves this null.
+        audio.input = "plughw:0,7";
         # Mistral (EU, Paris): OpenAI-compatible, tool calling. Key from console.mistral.ai.
         llm = {
           baseUrl = "https://api.mistral.ai/v1";

@@ -1,4 +1,4 @@
-# The voice assistant, an app of the household's GNOME session (gnome/):
+# The voice assistant, an app of a GNOME session (gnome/):
 #
 #   openWakeWord    127.0.0.1:10400   listens for "Hey Jarvis" (tiny, local, nothing leaves)
 #   duet-assistant  session service   the GJS daemon: microphone and speaker through
@@ -10,28 +10,42 @@
 # you said), the model with tools (what to do; any provider pi supports, set in
 # the Balaur app), Voxtral TTS (the voice), and the web_search tool. Audio is sent
 # only for the sentence after the wake word and is not kept here.
+#
+# It runs in the session of `balaur.assistant.user`, which defaults to the
+# household account on a host with the `tablet` aspect and to the admin account
+# otherwise. Give the host a session to run in — `gnome` plus `tablet` or
+# `desktop` — since those also install its front end (the Balaur app and the Shell
+# extension's orb and mic toggle).
 {
   flake.modules.nixos.assistant =
     { config, lib, pkgs, ... }:
     let
       cfg = config.balaur;
       as = cfg.assistant;
-      user = cfg.tablet.user or (throw "the assistant runs in the household GNOME session: give this host the tablet aspect too");
+      user = as.user;
       package = pkgs.callPackage ../pkgs/duet-assistant-gjs.nix { };
       wakewordDir = "/var/lib/duet-wakewords";
       wakePort = 10400;
 
-      # The array's dedicated 16 kHz device (DMIC16kHz), as its own PipeWire source.
-      # PipeWire's stock "Digital Microphone" is the 48 kHz DMIC (hw:0,6), whose
-      # processing leaves a voice far too quiet for the wake word.
+      # A dedicated ALSA capture device as its own PipeWire source, for machines
+      # whose default microphone is not good enough for the wake word. On the Duet
+      # that is the array's 16 kHz device (DMIC16kHz): PipeWire's stock "Digital
+      # Microphone" is the 48 kHz DMIC (hw:0,6), whose processing leaves a voice far
+      # too quiet. Where `audio.input` is null we just use the server's default
+      # source, which is what an ordinary laptop microphone wants.
+      customMic = as.audio.input != null;
       micNode = "duet-mic";
-      micHw = lib.removePrefix "plug" as.audio.input;
+      micHw = lib.removePrefix "plug" (toString as.audio.input);
+      # What the daemon records from: "pulse" is the sound server's default source.
+      inputDevice = if customMic then "pulse:${micNode}" else "pulse";
+      # ... and what `parec` needs to read that same source in duet-wake-test.
+      parecDevice = lib.optionalString customMic "--device=${micNode} ";
 
       # Defaults for the daemon; the model, server and voices can be changed in the
       # Balaur app (GSettings org.balaur.Assistant), which then take precedence.
       configFile = pkgs.writeText "duet-assistant.json" (builtins.toJSON {
         inherit (as) name defaultLanguage;
-        audio = { input = "pulse:${micNode}"; output = "pulse"; card = "0"; };
+        audio = { input = inputDevice; output = "pulse"; card = "0"; };
         wake = { uri = "127.0.0.1:${toString wakePort}"; words = [ as.wakeWord ]; };
         stt.model = as.stt.model;
         tts = {
@@ -110,7 +124,7 @@
           echo "Recording $secs s: $prompt."
           install -m 600 /dev/null "$rec"
           # From the same PipeWire source the assistant uses.
-          ${inSession ''timeout "$secs" parec --device=${micNode} --raw --format=s16le --rate=16000 --channels=1''} > "$rec" || true
+          ${inSession ''timeout "$secs" parec ${parecDevice}--raw --format=s16le --rate=16000 --channels=1''} > "$rec" || true
           "$py" ${./assistant/wake-test.py} "$model" "$rec" ${toString as.wakeThreshold}
         '';
       };
@@ -118,6 +132,17 @@
     {
       options.balaur = {
         assistant = {
+          user = lib.mkOption {
+            type = lib.types.str;
+            default = cfg.tablet.user or cfg.user;
+            defaultText = lib.literalExpression "the tablet's household account if there is one, else balaur.user";
+            description = ''
+              The account whose GNOME session runs the assistant. On the Duet that is
+              the household account (the `tablet` aspect); on a personal machine it is
+              the admin account, so leaving this alone is right in both cases.
+            '';
+          };
+
           name = lib.mkOption {
             type = lib.types.str;
             default = "Jarvis";
@@ -196,14 +221,28 @@
 
           audio = {
             input = lib.mkOption {
-              type = lib.types.str;
-              default = "plughw:0,7";
-              description = "ALSA device of the Duet's microphone array at 16 kHz (`arecord -l`: DMIC16kHz). It becomes the PipeWire source `duet-mic`, the default microphone, which the assistant records from.";
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              example = "plughw:0,7";
+              description = ''
+                ALSA device to record from, when the machine's default microphone is
+                not good enough for the wake word. It becomes the PipeWire source
+                `duet-mic`, the default microphone, which the assistant records from.
+                The Duet sets it to its array's 16 kHz device (`arecord -l`: DMIC16kHz).
+                null = record from whatever PipeWire's default source is, which is what
+                an ordinary laptop microphone wants.
+              '';
             };
             micGain = lib.mkOption {
               type = lib.types.ints.between 0 70;
               default = 65;
-              description = "Microphone level (ALSA 'Dmic0', 50 = 0 dB, 70 = +20 dB). The built-in array is quiet: 65 hears a normal voice across the room; lower it if it wakes on noise.";
+              description = ''
+                Microphone level (ALSA 'Dmic0', 50 = 0 dB, 70 = +20 dB), applied to the
+                card at each login. Only used together with `audio.input`: without it
+                the machine's own mixer levels are left alone. The Duet's built-in
+                array is quiet: 65 hears a normal voice across the room; lower it if it
+                wakes on noise.
+              '';
             };
           };
 
@@ -292,8 +331,8 @@
           };
         };
 
-        services.pipewire.extraConfig.pipewire."60-duet-mic" = {
-          "context.objects" = [{
+        services.pipewire.extraConfig.pipewire = lib.mkIf customMic {
+          "60-duet-mic"."context.objects" = [{
             factory = "adapter";
             args = {
               "factory.name" = "api.alsa.pcm.source";
@@ -316,7 +355,7 @@
         # volume of its own, so set audio.micGain on the card at each login, once
         # WirePlumber has set the card up (it restores the mixer as it does). Nothing
         # else opens the 48 kHz "Digital Microphone", whose volume would move it.
-        systemd.user.services.duet-mic-gain = {
+        systemd.user.services.duet-mic-gain = lib.mkIf customMic {
           description = "Microphone array gain";
           wantedBy = [ "pipewire-pulse.service" ];
           after = [ "pipewire-pulse.service" "wireplumber.service" ];
