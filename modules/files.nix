@@ -106,6 +106,9 @@ in
           requires = [ mountUnit ]; # don't touch the bare mount point if it failed
           before = [ "syncthing.service" ];
           requiredBy = [ "syncthing.service" ];
+          # Also on its own: a switch that does not restart syncthing would
+          # otherwise never run this.
+          wantedBy = [ "multi-user.target" ];
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
@@ -139,7 +142,13 @@ in
           enable = true;
           user = "syncthing";
           group = "media";
-          dataDir = mountPoint;
+          # NOT the volume. The module makes dataDir the syncthing user's home with
+          # `createHome`, which resets it to 0700 on every activation — that would
+          # fight the 2775 the volume needs and lock the admin out of their own
+          # synced folder. dataDir is only the home and the default folder path,
+          # and the folder below sets its path explicitly, so point it at the state
+          # directory instead and leave the volume to balaur-files-perms.
+          dataDir = "/var/lib/syncthing";
           configDir = "/var/lib/syncthing";
           guiAddress = "0.0.0.0:8384";
           openDefaultPorts = true; # 22000 sync + 21027 discovery
