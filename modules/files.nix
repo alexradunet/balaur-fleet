@@ -23,6 +23,12 @@ in
       cfg = config.balaur;
       root = toString cfg.storage.root;
       mountPoint = "${root}/files";
+      # The synced folder is a subdirectory of the volume, not its root. A
+      # filesystem root comes with a lost+found that Syncthing cannot read, which
+      # stops the filesystem watcher and gets replicated between machines; one
+      # level down, that and anything else belonging to the filesystem rather
+      # than to the user stays outside the synced set.
+      folderPath = "${mountPoint}/${cfg.files.folderName}";
       # /srv/files -> srv-files.mount
       mountUnit = (lib.replaceStrings [ "/" ] [ "-" ] (lib.removePrefix "/" mountPoint)) + ".mount";
 
@@ -58,8 +64,8 @@ in
           else
             # Top the reservation back up if something punched holes in it, or if
             # sizeGiB grew. Allocating holes does not touch the data, so this is
-            # safe on a mounted image; growing the inner filesystem to match a
-            # larger size is a separate, manual resize2fs.
+            # safe even while the image is mounted. The filesystem inside is then
+            # grown to match by balaur-files-volume, once it is mounted.
             fallocate -l ${toString sizeGiB}G ${image}
           fi
         '';
@@ -72,9 +78,23 @@ in
           default = 200;
           description = ''
             Size of the synced volume, in GiB. It is preallocated, so this much
-            disk is committed on every machine running this aspect. Growing it
-            later is `truncate -s` plus `resize2fs` on the unmounted image;
-            shrinking it means moving the data out first.
+            disk is committed on every machine running this aspect, and it can
+            differ per machine — the folder syncs either way.
+
+            Raising it is enough on its own: the backing file is extended and the
+            filesystem inside it grown to match, both while mounted. Lowering it
+            does nothing, since ext4 cannot shrink in place; that means moving the
+            data out, deleting the image and letting it be made again.
+          '';
+        };
+        folderName = lib.mkOption {
+          type = lib.types.str;
+          default = "shared";
+          description = ''
+            Subdirectory of the volume that is actually synced. The volume's own
+            root is not: a filesystem root carries a lost+found that Syncthing
+            cannot read, which stops its watcher and gets replicated between
+            machines.
           '';
         };
         image = lib.mkOption {
@@ -110,14 +130,15 @@ in
           options = [ "loop" "nofail" ];
         };
 
-        # mkfs leaves the volume's root owned by root, and a tmpfiles rule is no
-        # use here: on a `switch` it runs before the new mount, so it would set
-        # the permissions on the hidden mount point underneath and Syncthing would
-        # fail with "folder marker missing". Order it against the mount instead.
-        systemd.services.balaur-files-perms = {
-          description = "Hand the Syncthing volume to ${config.services.syncthing.user}";
+        # Everything the mounted volume needs before Syncthing may touch it. It has
+        # to be ordered against the mount, not done with a tmpfiles rule: on a
+        # `switch` tmpfiles runs before the new mount, so it would act on the mount
+        # point hidden underneath and Syncthing would fail with "folder marker
+        # missing".
+        systemd.services.balaur-files-volume = {
+          description = "Prepare the Syncthing volume";
           after = [ mountUnit ];
-          requires = [ mountUnit ]; # don't touch the bare mount point if it failed
+          requires = [ mountUnit ]; # do nothing at all if the mount failed
           before = [ "syncthing.service" ];
           requiredBy = [ "syncthing.service" ];
           # Also on its own: a switch that does not restart syncthing would
@@ -127,24 +148,29 @@ in
             Type = "oneshot";
             RemainAfterExit = true;
           };
-          path = [ pkgs.coreutils pkgs.util-linux ];
+          path = [ pkgs.coreutils pkgs.util-linux pkgs.e2fsprogs ];
           script = ''
-            # Belt and braces: never chown the root filesystem's directory.
+            # Belt and braces: never act on a directory of the root filesystem.
             if ! mountpoint -q ${mountPoint}; then
               echo "${mountPoint} is not a mount point; refusing to touch it" >&2
               exit 1
             fi
-            chown ${config.services.syncthing.user}:${config.services.syncthing.group} ${mountPoint}
-            chmod 2775 ${mountPoint}
-            # mkfs leaves lost+found as 0700 root *inside* the synced folder, which
-            # Syncthing cannot traverse: the filesystem watcher then refuses to
-            # start, so the folder falls back to periodic rescans. It is excluded
-            # from syncing by ignorePatterns below; this just lets Syncthing look
-            # at it. Mode stays 0700 — fsck puts recovered files here and runs as
-            # root regardless of who owns it.
-            if [ -d ${mountPoint}/lost+found ]; then
-              chown ${config.services.syncthing.user}:${config.services.syncthing.group} ${mountPoint}/lost+found
-            fi
+
+            # balaur-files-image only extends the backing file. Grow the filesystem
+            # inside it to match, so raising sizeGiB is all it takes. ext4 grows
+            # while mounted, and resize2fs is a no-op once it fills the device, so
+            # this is safe to run every boot. (It never shrinks: making sizeGiB
+            # smaller leaves the filesystem as it is.)
+            resize2fs "$(findmnt -no SOURCE ${mountPoint})"
+
+            # The synced folder is this subdirectory, so the volume's own root and
+            # its lost+found stay out of the synced set. The root itself stays
+            # root-owned and read-only to users, so files can only be dropped in
+            # the place that actually syncs.
+            chown root:root ${mountPoint}
+            chmod 0755 ${mountPoint}
+            install -d -o ${config.services.syncthing.user} \
+                         -g ${config.services.syncthing.group} -m 2775 ${folderPath}
           '';
         };
 
@@ -183,14 +209,9 @@ in
             devices = lib.mapAttrs (_: h: { id = h.syncthingId; }) peers;
             folders.${folderId} = {
               label = "Balaur files";
-              path = mountPoint;
+              path = folderPath;
               devices = lib.attrNames peers;
               type = "sendreceive";
-              # The folder is a filesystem root, so it has a lost+found. Left
-              # alone, the machines try to replicate it to each other forever
-              # ("handling dir (setting permissions): operation not permitted").
-              # It belongs to the filesystem, not to the synced set.
-              ignorePatterns = [ "/lost+found" ];
             };
             # Don't phone home, and don't nag about it in the UI.
             options.urAccepted = -1;
