@@ -60,6 +60,16 @@ in
             device.
           '';
         };
+        torrentsPort = mkOption {
+          type = types.nullOr types.port;
+          default = null;
+          description = ''
+            qBittorrent's web UI port on this machine, if it runs one (the
+            `torrents` aspect). It is what the other machines' `balaur-torrent`
+            offers as a download target, so a machine missing from the list here
+            is a machine you cannot send a torrent to.
+          '';
+        };
         builder = mkOption {
           default = null;
           description = ''

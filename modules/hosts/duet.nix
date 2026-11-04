@@ -13,6 +13,7 @@ in
     lanIp = "192.168.50.233"; # reserved in the router
     sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKgXcAskVb3sHgL8Z0VlVpSYHB2yDirUQ3GV5xfDvKQo";
     syncthingId = "MEDQJ5M-PGUYPER-IEGEHM4-NZMCWBM-LKCJVXL-W72PFVP-5OJUMTG-4X3CQAS";
+    torrentsPort = 8080;
     # userKeys: none yet (you reach it with Tailscale SSH)
   };
 
@@ -32,6 +33,7 @@ in
       always-on
       network
       files
+      torrents
       media
       adblock
       assistant
@@ -107,6 +109,23 @@ in
       owner = "root";
       group = "duet-assistant";
       mode = "0640";
+    };
+
+    # FileList's username and passkey are two readable entries in the sops file;
+    # the search plugin wants them as one JSON object, so sops renders it.
+    sops.secrets."filelist-username" = { };
+    sops.secrets."filelist-passkey" = { };
+    sops.templates."filelist.json" = {
+      owner = config.services.qbittorrent.user;
+      mode = "0400";
+      content = builtins.toJSON {
+        username = config.sops.placeholder."filelist-username";
+        passkey = config.sops.placeholder."filelist-passkey";
+      };
+    };
+    balaur.torrents = {
+      filelistCredentialsFile = config.sops.templates."filelist.json".path;
+      manageFilelistCredentials = false;
     };
   };
 }
