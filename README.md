@@ -72,4 +72,4 @@ directory under `gnome/` has a short README.
 ## Status
 
 Running on the Duet: GNOME, the assistant (wake word, Voxtral, the pi agent), the Duet app
-and Shell extension, camera wake, AdGuard Home and the media services.
+and Shell extension, camera wake, AdGuard Home and the media services. Next steps: [docs/ROADMAP.md](docs/ROADMAP.md).
