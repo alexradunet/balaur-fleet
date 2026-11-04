@@ -74,11 +74,12 @@ This file adds the context behind them. **Delete it once the laptop is registere
 - **Syncthing between the machines.** The `files` aspect exists but no host uses it yet.
   The fleet registry could fill in the devices automatically.
 
-## Open decisions (asked, not answered yet)
+## Names
 
-- Should the GNOME app "Duet" and the D-Bus names `org.duet.*` become Balaur names?
-  Unit and state names (`duet-assistant`, `/var/lib/duet-*`) would need migrations,
-  so they stay unless the user asks. The hostname `duet` stays: it names the device.
+- The GNOME app is **Balaur** (`org.balaur.Balaur`), the assistant `org.balaur.Assistant`, the
+  Shell extension `balaur@balaur.local` (renamed 2026-11-04). Package, command and unit names
+  (`duet-app`, `duet-assistant`, `/var/lib/duet-*`) stay: renaming them would need state
+  migrations. The hostname `duet` stays: it names the device.
 
 ## How the user likes to work
 

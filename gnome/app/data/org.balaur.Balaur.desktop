@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
-Name=Duet
+Name=Balaur
 GenericName=Home
 Comment=The household's assistant, lists, timers and home services
 Exec=duet-app
-Icon=org.duet.Duet
+Icon=org.balaur.Balaur
 Terminal=false
 Categories=Utility;GTK;GNOME;
 Keywords=assistant;jarvis;shopping;list;timer;reminder;home;services;

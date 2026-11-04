@@ -2,7 +2,7 @@
 // served from, the API keys, and Mistral's speech settings (gnome/CONTRACT.md,
 // "Settings: model, server, API key").
 //
-// Plain settings live in GSettings (org.duet.Assistant, shipped by the daemon
+// Plain settings live in GSettings (org.balaur.Assistant, shipped by the daemon
 // package) and are bound straight to the rows; the daemon watches them and
 // applies changes live. API keys never pass through GSettings or this app's
 // memory longer than the Apply tap: they go to the daemon (SetApiKey), which
@@ -13,7 +13,7 @@ import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk?version=4.0';
 import Adw from 'gi://Adw?version=1';
 
-const SCHEMA_ID = 'org.duet.Assistant';
+const SCHEMA_ID = 'org.balaur.Assistant';
 
 // The schema comes from the daemon package; without it Gio.Settings would
 // abort the whole app, so look first.

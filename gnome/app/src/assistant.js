@@ -1,4 +1,4 @@
-// Client for the voice assistant daemon, org.duet.Assistant on the session bus
+// Client for the voice assistant daemon, org.balaur.Assistant on the session bus
 // (API in gnome/CONTRACT.md). One instance per app; every page reads from it
 // and listens to its `changed` signal.
 //
@@ -15,13 +15,13 @@ import GLib from 'gi://GLib';
 Gio._promisify(Gio.DBusProxy.prototype, 'call');
 Gio._promisify(Gio.DBusConnection.prototype, 'call');
 
-const BUS_NAME = 'org.duet.Assistant';
-const OBJECT_PATH = '/org/duet/Assistant';
-const IFACE_NAME = 'org.duet.Assistant1';
+const BUS_NAME = 'org.balaur.Assistant';
+const OBJECT_PATH = '/org/balaur/Assistant';
+const IFACE_NAME = 'org.balaur.Assistant1';
 
 const IFACE_XML = `
 <node>
-  <interface name="org.duet.Assistant1">
+  <interface name="org.balaur.Assistant1">
     <property name="State" type="s" access="read"/>
     <property name="Caption" type="s" access="read"/>
     <property name="Muted" type="b" access="readwrite"/>

@@ -18,8 +18,8 @@ class DuetWindow extends Adw.ApplicationWindow {
     constructor(app) {
         super({
             application: app,
-            title: 'Duet',
-            icon_name: 'org.duet.Duet',
+            title: 'Balaur',
+            icon_name: 'org.balaur.Balaur',
             default_width: 1080,
             default_height: 720,
             width_request: 360,
@@ -40,7 +40,7 @@ class DuetWindow extends Adw.ApplicationWindow {
 
         // Header: the switcher when wide, the app name when narrow.
         const switcher = new Adw.ViewSwitcher({stack, policy: Adw.ViewSwitcherPolicy.WIDE});
-        const title = new Adw.WindowTitle({title: 'Duet', visible: false});
+        const title = new Adw.WindowTitle({title: 'Balaur', visible: false});
         const titleBox = new Gtk.Box();
         titleBox.append(switcher);
         titleBox.append(title);

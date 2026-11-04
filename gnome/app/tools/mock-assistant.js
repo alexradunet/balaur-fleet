@@ -1,12 +1,12 @@
 #!/usr/bin/env -S gjs -m
 // A stand-in for the assistant daemon, to try the app without it: owns
-// org.duet.Assistant on the session bus, implements the whole
-// org.duet.Assistant1 API from gnome/CONTRACT.md on made-up state, and logs
+// org.balaur.Assistant on the session bus, implements the whole
+// org.balaur.Assistant1 API from gnome/CONTRACT.md on made-up state, and logs
 // every call on stdout ("CALL ...") so a test can check what the app did.
 //
 //   gjs -m gnome/app/tools/mock-assistant.js
 //
-// Ask("fail ...") fails with org.duet.Assistant.Error.Failed, to see the
+// Ask("fail ...") fails with org.balaur.Assistant.Error.Failed, to see the
 // app's error toast. Ask() walks State through thinking -> speaking -> idle.
 
 import Gio from 'gi://Gio';
@@ -14,7 +14,7 @@ import GLib from 'gi://GLib';
 
 const XML = `
 <node>
-  <interface name="org.duet.Assistant1">
+  <interface name="org.balaur.Assistant1">
     <property name="State" type="s" access="read"/>
     <property name="Caption" type="s" access="read"/>
     <property name="Muted" type="b" access="readwrite"/>
@@ -79,7 +79,7 @@ const props = {State: 'idle', Caption: '', Muted: false, Volume: 60, Name: 'Jarv
 
 const fail = text => {
     const e = new Error(text);
-    e.name = 'org.duet.Assistant.Error.Failed';
+    e.name = 'org.balaur.Assistant.Error.Failed';
     return e;
 };
 
@@ -102,7 +102,7 @@ const apiKeys = {mistral: true};
 
 function settings() {
     const source = Gio.SettingsSchemaSource.get_default();
-    return source?.lookup('org.duet.Assistant', true) ? new Gio.Settings({schema_id: 'org.duet.Assistant'}) : null;
+    return source?.lookup('org.balaur.Assistant', true) ? new Gio.Settings({schema_id: 'org.balaur.Assistant'}) : null;
 }
 
 let exported = null;
@@ -114,9 +114,9 @@ function changed(names) {
             WakeWord: 's', Error: 's', Snapshot: 's', Models: 's', ApiKeys: 's'}[n];
         values[n] = new GLib.Variant(sig, n === 'Snapshot' ? JSON.stringify(house) : n === 'Models' ? JSON.stringify(models) : n === 'ApiKeys' ? JSON.stringify(apiKeys) : props[n]);
     }
-    exported.get_connection().emit_signal(null, '/org/duet/Assistant',
+    exported.get_connection().emit_signal(null, '/org/balaur/Assistant',
         'org.freedesktop.DBus.Properties', 'PropertiesChanged',
-        new GLib.Variant('(sa{sv}as)', ['org.duet.Assistant1', values, []]));
+        new GLib.Variant('(sa{sv}as)', ['org.balaur.Assistant1', values, []]));
 }
 
 function setState(state, caption = '') {
@@ -186,7 +186,7 @@ const impl = {
         later(1200, () => {
             if (text.startsWith('fail')) {
                 setState('idle');
-                invocation.return_dbus_error('org.duet.Assistant.Error.Failed',
+                invocation.return_dbus_error('org.balaur.Assistant.Error.Failed',
                     "Mistral didn't answer (mock failure)");
                 return;
             }
@@ -255,14 +255,14 @@ const impl = {
 };
 
 const loop = new GLib.MainLoop(null, false);
-Gio.bus_own_name(Gio.BusType.SESSION, 'org.duet.Assistant', Gio.BusNameOwnerFlags.NONE,
+Gio.bus_own_name(Gio.BusType.SESSION, 'org.balaur.Assistant', Gio.BusNameOwnerFlags.NONE,
     conn => {
         exported = Gio.DBusExportedObject.wrapJSObject(XML, impl);
-        exported.export(conn, '/org/duet/Assistant');
+        exported.export(conn, '/org/balaur/Assistant');
     },
-    () => print('READY org.duet.Assistant'),
+    () => print('READY org.balaur.Assistant'),
     () => {
-        printerr('Lost or could not own org.duet.Assistant');
+        printerr('Lost or could not own org.balaur.Assistant');
         loop.quit();
     });
 loop.run();

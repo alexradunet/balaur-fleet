@@ -1,6 +1,6 @@
 { lib, stdenvNoCC }:
 
-# GNOME Shell extension duet@duet.local (gnome/shell-extension/): the voice
+# GNOME Shell extension balaur@balaur.local (gnome/shell-extension/): the voice
 # assistant's orb overlay and Quick Settings microphone toggle. Plain GJS
 # and CSS, no settings schema, so installing is just copying the files.
 let
@@ -29,7 +29,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   '';
 
   passthru = {
-    extensionUuid = "duet@duet.local";
+    extensionUuid = "balaur@balaur.local";
     extensionPortalSlug = "duet";
   };
 

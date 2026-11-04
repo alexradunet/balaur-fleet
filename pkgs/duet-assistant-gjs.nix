@@ -4,8 +4,8 @@
 # the agent (pkgs/duet-agent.nix) for the model and its tools.
 #
 # Outputs: bin/duet-assistant, libexec/duet-assistant-tests,
-# share/applications/org.duet.Assistant.desktop (so GNOME accepts its
-# notifications), share/glib-2.0/schemas (org.duet.Assistant + gschemas.compiled).
+# share/applications/org.balaur.Assistant.desktop (so GNOME accepts its
+# notifications), share/glib-2.0/schemas (org.balaur.Assistant + gschemas.compiled).
 { lib, stdenv, callPackage, gjs, glib, gobject-introspection, wrapGAppsNoGuiHook
 , libsoup_3, libsecret, gst_all_1, pipewire, wireplumber, alsa-utils
 , duet-agent ? callPackage ./duet-agent.nix { } }:
@@ -34,8 +34,8 @@ stdenv.mkDerivation {
     mkdir -p $app/tests $out/bin $out/libexec $out/share/applications $out/share/glib-2.0/schemas
     cp *.js $app/
     cp tests/*.js $app/tests/
-    install -m644 org.duet.Assistant.desktop $out/share/applications/
-    install -m644 org.duet.Assistant.gschema.xml $out/share/glib-2.0/schemas/
+    install -m644 org.balaur.Assistant.desktop $out/share/applications/
+    install -m644 org.balaur.Assistant.gschema.xml $out/share/glib-2.0/schemas/
     glib-compile-schemas --strict $out/share/glib-2.0/schemas
 
     cat > $out/bin/duet-assistant <<SH

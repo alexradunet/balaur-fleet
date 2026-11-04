@@ -20,7 +20,7 @@
       # Without the camera there's nothing to wake the screen but a touch: keep it on.
       screenTimeout = cfg.camera.screenTimeout or 0;
 
-      # Ours, GNOME-native (gnome/): the Duet app (assistant, lists, timers, memory,
+      # Ours, GNOME-native (gnome/): the Balaur app (assistant, lists, timers, memory,
       # home services) and the Shell extension (assistant orb over every app, mic toggle).
       duetApp = pkgs.callPackage ../pkgs/duet-app.nix { };
       duetExtension = pkgs.callPackage ../pkgs/duet-shell-extension.nix { };
@@ -44,7 +44,7 @@
         })
         (lib.filter hasWebApp cfg.services);
 
-      # The home services for the Duet app's Home page (gnome/CONTRACT.md).
+      # The home services for the Balaur app's Home page (gnome/CONTRACT.md).
       servicesJson = builtins.toJSON (map (s: {
         inherit (s) name description icon unit;
         url = serviceUrl s;
@@ -64,7 +64,7 @@
       };
 
       favorites = [
-        "org.duet.Duet.desktop"
+        "org.balaur.Balaur.desktop"
         "firefox.desktop"
         "org.jellyfin.JellyfinDesktop.desktop"
         "io.m51.Gelly.desktop"

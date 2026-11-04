@@ -30,7 +30,7 @@ export function systemPrompt(c: TurnContext, lang: string): string {
 	else if (lang === "ro") b += "- The user is speaking Romanian now: reply in Romanian.\n";
 	if (c.typed)
 		b +=
-			"- This message was typed in the Duet app, not spoken; the reply is shown as text and may be a little longer, still plain text.\n";
+			"- This message was typed in the Balaur app, not spoken; the reply is shown as text and may be a little longer, still plain text.\n";
 	const mems = c.memories ?? [];
 	if (mems.length > 0) {
 		b += "\nWhat you know about this household (id in brackets, for forget):\n";

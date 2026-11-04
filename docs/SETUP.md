@@ -112,12 +112,12 @@ reboot
 ## Stage 6: What you should see
 
 Boot splash, then GNOME logs in by itself as the household account (`balaur.tablet.user`, default `home`):
-the **Duet** app, Firefox, Jellyfin and Gelly are in the dock. Swipe up for the app switcher.
+the **Balaur** app, Firefox, Jellyfin and Gelly are in the dock. Swipe up for the app switcher.
 
 | Problem | Do this |
 |---|---|
 | Black screen / no desktop | Plug in a keyboard, press Ctrl+Alt+F3, log in, then `journalctl -u display-manager -b` |
-| A service shows "Failed" on the Duet app's Home page | `systemctl status <its unit>`; the page shows `systemctl is-active` live |
+| A service shows "Failed" on the Balaur app's Home page | `systemctl status <its unit>`; the page shows `systemctl is-active` live |
 | Can't log in at console | Your old password still works for your old username (`balaur.user`) |
 
 ## Stage 7: Tailscale and SSH
@@ -138,7 +138,7 @@ LAN SSH works too (password): `ssh alex@duet.local` (or use the IP from `ip -br 
 
 ## Stage 8: Check the services
 
-On the Duet, open the **Duet** app's **Home** page: it lists the home's services with their
+On the Duet, open the **Balaur** app's **Home** page: it lists the home's services with their
 live state, and **Open** starts each one's app (web UIs such as AdGuard Home and qBittorrent
 are installed as GNOME web apps). As we add services, each one appears there.
 
@@ -205,7 +205,7 @@ The `camera` aspect (already in the list in `modules/hosts/duet.nix`) does four 
 3. Watches those frames for movement and reports it (`/run/duet-camera-relay/motion`); the `duet-presence` service
    in the household session turns it into activity for GNOME, which keeps the screen on and wakes it
    (`balaur.camera.screenTimeout`).
-4. Puts the camera on the Duet app's Home page, opening Snapshot.
+4. Puts the camera on the Balaur app's Home page, opening Snapshot.
 
 ### Why the picture was yellow-green, and what fixes it
 
@@ -290,7 +290,7 @@ camera.tuning = {
 };
 ```
 
-To try a value without rebuilding, write it to the live overlay and reload (the Duet app updates in a second):
+To try a value without rebuilding, write it to the live overlay and reload (the Balaur app updates in a second):
 
 ```bash
 echo '{"cfa":"GIGI/RGBG/GIGI/BGRG"}' | sudo tee /var/lib/duet-camera/tuning.json
@@ -313,7 +313,7 @@ Other knobs, same way (defaults in `camera/config.go`):
 | `view` | `"color"` (default); `"raw"`: grey picture straight from the sensor, no layout/IR/colour processing; `"noir"`: colour without IR subtraction. |
 
 Then open Snapshot. "No camera found" means the relay or the device is missing; the **Camera**
-row on the Duet app's Home page shows the relay's state.
+row on the Balaur app's Home page shows the relay's state.
 
 ### If the preview is black
 
@@ -361,7 +361,7 @@ pi SDK does the thinking:
 | Piece | Where | Does |
 |---|---|---|
 | openWakeWord | on the Duet, 127.0.0.1:10400 | listens for "Hey Jarvis"; nothing leaves the house before it fires |
-| duet-assistant (`gnome/assistant/`) | on the Duet, a service of the GNOME session | microphone and speaker (PipeWire), timers, reminders, lists, memory, notifications; D-Bus `org.duet.Assistant` |
+| duet-assistant (`gnome/assistant/`) | on the Duet, a service of the GNOME session | microphone and speaker (PipeWire), timers, reminders, lists, memory, notifications; D-Bus `org.balaur.Assistant` |
 | duet-agent (`gnome/agent/`) | on the Duet, its child | the pi SDK agent: the model and its tools, and nothing else (no shell, no files) |
 | Voxtral transcription (`voxtral-mini-transcribe-3-0`) | Mistral | what you said, Romanian or English |
 | Chat model (`mistral-medium-latest`) | Mistral, through pi | what to do: answers and calls the tools |
@@ -375,7 +375,7 @@ Weather comes from Open-Meteo and news from RSS feeds, directly. No port is open
 
 Make a key at console.mistral.ai, then either:
 
-- on the Duet: **Duet** app → Assistant → ⚙ **Assistant settings** → Mistral API key → Apply. The key goes to
+- on the Duet: **Balaur** app → Assistant → ⚙ **Assistant settings** → Mistral API key → Apply. The key goes to
   the GNOME Keyring; the first time, GNOME asks for a keyring password: **leave it empty** (the household account
   has no password to unlock it with). The same dialog sets the provider, model, server and voices, and has a
   **Test** button.
@@ -400,7 +400,7 @@ Saying "Hey Jarvis" again interrupts it (speech, a slow answer, or a ringing tim
 it keeps listening for the answer without the wake word. While it listens or speaks, its orb and captions show
 over every app; tap the orb to stop it. Timers and reminders also arrive as GNOME notifications with a **Stop**
 button. The mic toggle is in Quick Settings ("Assistant"; off closes the microphone, and GNOME's mic indicator
-goes away). The **Duet** app shows the conversation (and you can type to it there), the lists, timers,
+goes away). The **Balaur** app shows the conversation (and you can type to it there), the lists, timers,
 reminders and memory.
 
 ### Tuning

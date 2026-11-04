@@ -22,9 +22,9 @@ export function fakeAgentArgv() {
     return [gjsBinary(), '-m', GLib.build_filenamev([here, 'fake-agent.js'])];
 }
 
-/** Gio.Settings for org.duet.Assistant in memory, or null when the schema is not installed. */
+/** Gio.Settings for org.balaur.Assistant in memory, or null when the schema is not installed. */
 export function memorySettings() {
-    const schema = Gio.SettingsSchemaSource.get_default()?.lookup('org.duet.Assistant', true);
+    const schema = Gio.SettingsSchemaSource.get_default()?.lookup('org.balaur.Assistant', true);
     if (!schema)
         return null;
     return new Gio.Settings({settings_schema: schema, backend: Gio.memory_settings_backend_new()});

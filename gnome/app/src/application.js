@@ -1,4 +1,4 @@
-// org.duet.Duet: the household's companion app for the Duet home server.
+// org.balaur.Balaur: the household's companion app for the Duet home server.
 //
 // Every user action goes through an application action (app.list-add,
 // app.stop, ...). Buttons bind to them directly, they are disabled while the
@@ -22,10 +22,10 @@ export const DuetApplication = GObject.registerClass(
 class DuetApplication extends Adw.Application {
     constructor() {
         super({
-            application_id: 'org.duet.Duet',
+            application_id: 'org.balaur.Balaur',
             flags: Gio.ApplicationFlags.DEFAULT_FLAGS,
         });
-        GLib.set_application_name('Duet');
+        GLib.set_application_name('Balaur');
     }
 
     vfunc_startup() {
@@ -56,7 +56,7 @@ class DuetApplication extends Adw.Application {
 
     // Show a failure where the user is looking.
     toast(text) {
-        log(`Duet: ${text}`);
+        log(`Balaur: ${text}`);
         this.active_window?.toast?.(text);
     }
 

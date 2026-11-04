@@ -1,5 +1,5 @@
 #!/usr/bin/env -S gjs -m
-// A fake org.duet.Assistant for developing the Shell extension and the app
+// A fake org.balaur.Assistant for developing the Shell extension and the app
 // without the real daemon (gnome/CONTRACT.md has the API).
 //
 // It owns the name on the session bus, implements every property and method

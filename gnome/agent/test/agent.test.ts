@@ -166,7 +166,7 @@ test("the system prompt follows each turn's context", async () => {
 	);
 	await next("reply");
 	assert.match(agent.systemPrompt, /The local time is 16:14/);
-	assert.match(agent.systemPrompt, /typed in the Duet app/);
+	assert.match(agent.systemPrompt, /typed in the Balaur app/);
 	assert.doesNotMatch(agent.systemPrompt, /speaking English now/);
 	agent.dispose();
 });
@@ -214,5 +214,5 @@ test("systemPrompt matches assistant.go for English, typed, no memories", () => 
 	const p = systemPrompt({ name: "Jarvis", date: "Monday, 2 January 2006", time: "15:04", zone: "Local", typed: true }, "en");
 	assert.ok(p.startsWith("You are Jarvis, the private voice assistant of a home. You run on a small home server"));
 	assert.ok(p.includes("Today is Monday, 2 January 2006. The local time is 15:04 (24-hour clock, Local).\n\nRules:\n"));
-	assert.ok(p.endsWith("- This message was typed in the Duet app, not spoken; the reply is shown as text and may be a little longer, still plain text.\n"));
+	assert.ok(p.endsWith("- This message was typed in the Balaur app, not spoken; the reply is shown as text and may be a little longer, still plain text.\n"));
 });

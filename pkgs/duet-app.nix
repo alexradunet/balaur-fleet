@@ -53,11 +53,11 @@ stdenv.mkDerivation {
     EOF
     chmod +x $out/bin/duet-app
 
-    install -Dm644 data/org.duet.Duet.desktop -t $out/share/applications
-    substituteInPlace $out/share/applications/org.duet.Duet.desktop \
+    install -Dm644 data/org.balaur.Balaur.desktop -t $out/share/applications
+    substituteInPlace $out/share/applications/org.balaur.Balaur.desktop \
       --replace-fail "Exec=duet-app" "Exec=$out/bin/duet-app"
-    desktop-file-validate $out/share/applications/org.duet.Duet.desktop
-    install -Dm644 data/org.duet.Duet.svg -t $out/share/icons/hicolor/scalable/apps
+    desktop-file-validate $out/share/applications/org.balaur.Balaur.desktop
+    install -Dm644 data/org.balaur.Balaur.svg -t $out/share/icons/hicolor/scalable/apps
 
     runHook postInstall
   '';

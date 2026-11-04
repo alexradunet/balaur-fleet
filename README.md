@@ -30,7 +30,7 @@ modules/
   base.nix                boot, admin account, SSH, Nix, housekeeping; the `balaur.services` registry
   network.nix             NetworkManager, Tailscale (+ SSH), <host>.local (mDNS)
   always-on.nix           a laptop as a server: never sleep, ignore lid, battery = UPS, 80% charge cap
-  tablet.nix              GNOME as a household tablet: auto-login, OSK, rotation, apps, web apps, the Duet app + Shell extension
+  tablet.nix              GNOME as a household tablet: auto-login, OSK, rotation, apps, web apps, the Balaur app + Shell extension
   assistant.nix           the voice assistant, a service of the tablet's GNOME session
   camera.nix              the Duet's front camera: patched kernel modules + RGB-IR relay, movement wakes the screen
   media.nix               Jellyfin + qBittorrent with FileList search (`sudo duet-filelist-login` once), /srv/media
@@ -40,9 +40,9 @@ modules/
 hosts/duet/               machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages, built by the aspects and exposed as flake packages
 gnome/                    everything GNOME-facing, in GJS; gnome/CONTRACT.md is how the pieces talk
-  assistant/              the assistant daemon: PipeWire audio, wake word, Voxtral speech, D-Bus org.duet.Assistant
+  assistant/              the assistant daemon: PipeWire audio, wake word, Voxtral speech, D-Bus org.balaur.Assistant
   agent/                  its brain, on the pi SDK (TypeScript): the model and its tools
-  app/                    "Duet", a libadwaita app: assistant, lists, timers, memory, home services
+  app/                    "Balaur", a libadwaita app: assistant, lists, timers, memory, home services
   shell-extension/        the assistant's orb over every app, the mic toggle in Quick Settings
 camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 frames -> webcam
 ```
@@ -51,13 +51,13 @@ camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 fram
 
 | Where | What |
 |---|---|
-| Built-in screen | GNOME, logged in by itself as a household account (`balaur.tablet.user`, `home`) that never locks. Apps run full screen; swipe up for the app switcher. The on-screen keyboard pops up on touch (English and Romanian), and the screen follows rotation. Dock: **Duet**, **Firefox** (uBlock Origin), **Jellyfin**, **Gelly** (Jellyfin music). **AdGuard Home** and **qBittorrent** (and **Syncthing** with the `files` aspect) are installed as GNOME web apps. **Snapshot** shows the front camera. Admin tools sit in an **Admin** folder, with a **Developer terminal** that asks for the admin password. |
+| Built-in screen | GNOME, logged in by itself as a household account (`balaur.tablet.user`, `home`) that never locks. Apps run full screen; swipe up for the app switcher. The on-screen keyboard pops up on touch (English and Romanian), and the screen follows rotation. Dock: **Balaur**, **Firefox** (uBlock Origin), **Jellyfin**, **Gelly** (Jellyfin music). **AdGuard Home** and **qBittorrent** (and **Syncthing** with the `files` aspect) are installed as GNOME web apps. **Snapshot** shows the front camera. Admin tools sit in an **Admin** folder, with a **Developer terminal** that asks for the admin password. |
 | Screen on/off | GNOME blanks the screen after `balaur.camera.screenTimeout` (2 minutes) idle, and never locks. Movement in front of the camera counts as activity: it keeps the screen on and wakes it (`0` = always on). The relay looks at 3 frames a second for this, and runs its full image pipeline only while an app uses the webcam (`balaur.camera.tuning.idleFps`). |
 | Voice (aspect `assistant`) | Say **“Hey Jarvis”**, then speak Romanian or English. Only the wake word runs on this machine; after it, Mistral (EU) transcribes what you said (Voxtral) and speaks the answer (Voxtral TTS), and an agent built on the pi SDK decides what to do: timers and reminders (GNOME notifications with a Stop button), the house **shopping** and **tasks** lists, memory, weather, news and web search. Its orb and captions show over every app; tap it to stop. The mic toggle is in Quick Settings. |
-| The Duet app | **Assistant** (the conversation, type to ask, mic, volume, and **Assistant settings**: provider, model, server and API keys, kept in GNOME settings and the GNOME Keyring), **Lists**, **Timers & reminders**, **Memory**, and **Home**: every service with its live state and a button that opens its app. |
+| The Balaur app | **Assistant** (the conversation, type to ask, mic, volume, and **Assistant settings**: provider, model, server and API keys, kept in GNOME settings and the GNOME Keyring), **Lists**, **Timers & reminders**, **Memory**, and **Home**: every service with its live state and a button that opens its app. |
 | Ad blocking (aspect `adblock`) | AdGuard Home as the LAN DNS server, with European upstreams (Quad9, DNS4EU) and Samsung TV ad/ACR-tracking rules. Set it as the router's DNS 1 (keep a public DNS 2 so the network survives the box being off). |
 
-Adding a service = an aspect that appends to `balaur.services`: it shows on the Duet app's Home
+Adding a service = an aspect that appends to `balaur.services`: it shows on the Balaur app's Home
 page with its live systemd state, and an `appIcon` installs its web UI as a GNOME web app.
 
 ## Install
@@ -93,5 +93,5 @@ directory under `gnome/` has a short README.
 
 ## Status
 
-Running on the Duet: GNOME, the assistant (wake word, Voxtral, the pi agent), the Duet app
+Running on the Duet: GNOME, the assistant (wake word, Voxtral, the pi agent), the Balaur app
 and Shell extension, camera wake, AdGuard Home and the media services. Next steps: [docs/ROADMAP.md](docs/ROADMAP.md).

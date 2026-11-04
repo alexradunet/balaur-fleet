@@ -1,6 +1,6 @@
 // What the app can change: the model, its server, the speech models and
-// voices (GSettings org.duet.Assistant, watched live), and API keys (GNOME
-// Keyring through libsecret, schema org.duet.Assistant.ApiKey, attribute
+// voices (GSettings org.balaur.Assistant, watched live), and API keys (GNOME
+// Keyring through libsecret, schema org.balaur.Assistant.ApiKey, attribute
 // "provider"). A setting left empty falls back to the config JSON; the
 // Mistral key falls back to the systemd credential.
 
@@ -10,7 +10,7 @@ import GLib from 'gi://GLib';
 import {credentialKey} from './config.js';
 import {errText, log} from './util.js';
 
-const SCHEMA_ID = 'org.duet.Assistant';
+const SCHEMA_ID = 'org.balaur.Assistant';
 const KEYS = ['llm-provider', 'llm-model', 'llm-base-url', 'speech-base-url', 'stt-model', 'tts-model', 'voice-ro', 'voice-en'];
 // Changing these restarts the agent (they are its start-up parameters).
 export const LLM_KEYS = ['llm-provider', 'llm-model', 'llm-base-url', 'speech-base-url'];
@@ -172,7 +172,7 @@ export class Settings {
             };
             if (key) {
                 Secret.password_store(this.secretSchema, {provider}, Secret.COLLECTION_DEFAULT,
-                    `Duet assistant: ${provider} API key`, key, null, done(r => Secret.password_store_finish(r)));
+                    `Balaur assistant: ${provider} API key`, key, null, done(r => Secret.password_store_finish(r)));
             } else {
                 Secret.password_clear(this.secretSchema, {provider}, null, done(r => Secret.password_clear_finish(r)));
             }

@@ -3,7 +3,7 @@
      NixOS sets the defaults from duet.assistant.* with a gschema override; an
      empty string falls back to the config file. -->
 <schemalist>
-  <schema id="org.duet.Assistant" path="/org/duet/assistant/">
+  <schema id="org.balaur.Assistant" path="/org/balaur/assistant/">
     <key name="llm-provider" type="s">
       <default>'mistral'</default>
       <summary>Model provider</summary>

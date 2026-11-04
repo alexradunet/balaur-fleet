@@ -47,7 +47,7 @@
         services = lib.mkOption {
           default = [ ];
           description = ''
-            The home's services, as listed on the Duet app's Home page (written to
+            The home's services, as listed on the Balaur app's Home page (written to
             /etc/duet/services.json). Feature modules append to this.
           '';
           type = lib.types.listOf (lib.types.submodule {

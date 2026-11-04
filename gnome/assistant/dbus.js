@@ -1,17 +1,17 @@
-// The D-Bus API on the session bus: org.duet.Assistant1 at /org/duet/Assistant
+// The D-Bus API on the session bus: org.balaur.Assistant1 at /org/balaur/Assistant
 // (gnome/CONTRACT.md). Properties announce changes with PropertiesChanged;
-// methods fail with org.duet.Assistant.Error.Failed and a human message.
+// methods fail with org.balaur.Assistant.Error.Failed and a human message.
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
 import {errText, log} from './util.js';
 
-export const OBJECT_PATH = '/org/duet/Assistant';
-export const ERROR_NAME = 'org.duet.Assistant.Error.Failed';
+export const OBJECT_PATH = '/org/balaur/Assistant';
+export const ERROR_NAME = 'org.balaur.Assistant.Error.Failed';
 
 export const IFACE_XML = `<node>
-  <interface name="org.duet.Assistant1">
+  <interface name="org.balaur.Assistant1">
     <property name="State" type="s" access="read"/>
     <property name="Caption" type="s" access="read"/>
     <property name="Muted" type="b" access="readwrite"/>

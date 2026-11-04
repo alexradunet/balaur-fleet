@@ -1,7 +1,7 @@
 # duet-assistant (GJS)
 
 The household's voice assistant ("Hey Jarvis") as a GNOME session service:
-a `Gio.Application` (`org.duet.Assistant`) started by the systemd user unit
+a `Gio.Application` (`org.balaur.Assistant`) started by the systemd user unit
 `duet-assistant.service`. It replaced a Go service and keeps its config JSON
 and state files; the API is D-Bus only (see `gnome/CONTRACT.md`). The model and its tools run in a separate process,
 `duet-agent` (`gnome/agent/`, pi SDK), which this daemon spawns.
@@ -11,12 +11,12 @@ and state files; the API is D-Bus only (see `gnome/CONTRACT.md`). The model and 
 | File | What |
 |---|---|
 | `main.js`, `application.js` | Entry point; the `Gio.Application`, `app.stop`, alarm notifications |
-| `dbus.js` | `org.duet.Assistant1` (properties, methods, `Error.Failed`) |
+| `dbus.js` | `org.balaur.Assistant1` (properties, methods, `Error.Failed`) |
 | `assistant.js` | The pipeline: wake word → listen → transcribe → agent → speak; alarms; Snapshot |
 | `agent.js` | Spawns `duet-agent` (`$DUET_AGENT`) and speaks its JSON-lines protocol |
 | `tools.js`, `timers.js` | The daemon-side tools the agent forwards (timers, reminders, lists, memory, volume) |
 | `store.js`, `gojson.js` | `house.json`, `memory.json`, `reminders.json`, byte-compatible with Go's encoding/json |
-| `settings.js`, `org.duet.Assistant.gschema.xml` | GSettings (model, servers, voices; changes debounced 1.5 s) and keyring API keys |
+| `settings.js`, `org.balaur.Assistant.gschema.xml` | GSettings (model, servers, voices; changes debounced 1.5 s) and keyring API keys |
 | `audio.js` | GStreamer capture (`pipewiresrc` from `duet-mic`, mic watchdog), playback (`pipewiresink`, `media.role=Assistant`), earcons, `wpctl` volume |
 | `wyoming.js` | Client for openWakeWord's Wyoming server (127.0.0.1:10400), reconnects when it restarts |
 | `mistral.js`, `http.js` | Voxtral speech-to-text and text-to-speech over libsoup 3 |
@@ -47,9 +47,9 @@ sudo -u home env XDG_RUNTIME_DIR=/run/user/1002 DBUS_SESSION_BUS_ADDRESS=unix:pa
   DUET_ASSISTANT_CONFIG=/nix/store/...-duet-assistant.json TZ=Europe/Bucharest \
   ./result/bin/duet-assistant
 
-gdbus introspect --session --dest org.duet.Assistant --object-path /org/duet/Assistant
-gdbus call --session --timeout 120 --dest org.duet.Assistant --object-path /org/duet/Assistant \
-  --method org.duet.Assistant1.Ask "What time is it?" false
+gdbus introspect --session --dest org.balaur.Assistant --object-path /org/balaur/Assistant
+gdbus call --session --timeout 120 --dest org.balaur.Assistant --object-path /org/balaur/Assistant \
+  --method org.balaur.Assistant1.Ask "What time is it?" false
 ```
 
 `Ask` can take longer than gdbus's default 25 s timeout when the model uses
@@ -61,7 +61,7 @@ tools; pass `--timeout`.
   (SpiderMonkey and V8 JIT need writable+executable memory).
 - Keep `LoadCredential=llm-key:...`, `StateDirectory=duet-assistant`, `TZ`.
 - Put the package in `environment.systemPackages` so GNOME Shell finds
-  `org.duet.Assistant.desktop` (needed for its notifications) and the
+  `org.balaur.Assistant.desktop` (needed for its notifications) and the
   GSettings schema is compiled into the system profile; defaults go in a
   gschema override.
 - `RestrictAddressFamilies` must keep `AF_UNIX` (D-Bus, PipeWire, the agent's pipes).

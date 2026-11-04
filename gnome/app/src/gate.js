@@ -1,4 +1,4 @@
-// Wraps an assistant-backed page: shows the page while org.duet.Assistant is
+// Wraps an assistant-backed page: shows the page while org.balaur.Assistant is
 // on the bus, and a status page saying so while it isn't. Home doesn't use
 // it, so services stay usable when the assistant is down.
 

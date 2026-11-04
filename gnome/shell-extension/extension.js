@@ -1,10 +1,10 @@
-// duet@duet.local: the Duet voice assistant in GNOME Shell.
+// balaur@balaur.local: the Duet voice assistant in GNOME Shell.
 //
 // - an orb + caption overlay over everything while the assistant listens,
 //   thinks, speaks or rings (tap = Stop);
 // - a Quick Settings "Assistant" toggle for the microphone.
 //
-// Both follow the org.duet.Assistant D-Bus service (gnome/CONTRACT.md)
+// Both follow the org.balaur.Assistant D-Bus service (gnome/CONTRACT.md)
 // through one AssistantClient, and cope with the service being absent.
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';

@@ -64,7 +64,7 @@ in
       # 192.168.50.233 (both reserved in the router); AdGuard (the adblock aspect) blocks its ads.
 
       # Voice assistant: "Hey Jarvis", Romanian + English; Mistral for speech, a pi SDK agent for the rest.
-      # Key: Duet app > Assistant settings (GNOME Keyring), or `sudo duet-assistant-login` (/var/lib/secrets).
+      # Key: Balaur app > Assistant settings (GNOME Keyring), or `sudo duet-assistant-login` (/var/lib/secrets).
       assistant = {
         # Mistral (EU, Paris): OpenAI-compatible, tool calling. Key from console.mistral.ai.
         llm = {

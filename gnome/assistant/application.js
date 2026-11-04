@@ -1,6 +1,6 @@
-// The daemon as a Gio.Application (id org.duet.Assistant): owns the bus
+// The daemon as a Gio.Application (id org.balaur.Assistant): owns the bus
 // name, exports the D-Bus API, and sends the alarm notifications (which GNOME
-// attributes to org.duet.Assistant.desktop) with a Stop button (app.stop).
+// attributes to org.balaur.Assistant.desktop) with a Stop button (app.stop).
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -17,7 +17,7 @@ import {errText, log} from './util.js';
 export const DuetAssistantApp = GObject.registerClass(
 class DuetAssistantApp extends Gio.Application {
     _init() {
-        super._init({application_id: 'org.duet.Assistant', flags: Gio.ApplicationFlags.DEFAULT_FLAGS});
+        super._init({application_id: 'org.balaur.Assistant', flags: Gio.ApplicationFlags.DEFAULT_FLAGS});
         this.cfg = loadConfig();
         const dir = GLib.getenv('STATE_DIRECTORY') || GLib.build_filenamev([GLib.get_tmp_dir(), 'duet-assistant']);
         // A broken state file stops us, as in Go: better than overwriting the household's lists.
@@ -68,7 +68,7 @@ class DuetAssistantApp extends Gio.Application {
             });
         }
         const c = this.cfg;
-        log(`duet-assistant "${c.name}" on the session bus as org.duet.Assistant ` +
+        log(`duet-assistant "${c.name}" on the session bus as org.balaur.Assistant ` +
             `(model ${this.settings.llmProvider}/${this.settings.llmModel}, wake word ${c.wake.words.join(', ')})`);
         this.assistant.start().catch(e => {
             logError(e, 'start');
@@ -77,6 +77,6 @@ class DuetAssistantApp extends Gio.Application {
     }
 
     vfunc_activate() {
-        // Nothing to show: the app (org.duet.Duet) is the user interface.
+        // Nothing to show: the app (org.balaur.Balaur) is the user interface.
     }
 });

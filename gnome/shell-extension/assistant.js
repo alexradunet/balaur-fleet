@@ -1,4 +1,4 @@
-// The org.duet.Assistant D-Bus API (gnome/CONTRACT.md) and a small client
+// The org.balaur.Assistant D-Bus API (gnome/CONTRACT.md) and a small client
 // for it. Pure Gio/GLib on purpose: no Shell imports, so it can be loaded
 // with plain `gjs -m` (tools/mock-assistant.js and tools/watch-assistant.js
 // use it) as well as inside GNOME Shell.
@@ -6,15 +6,15 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-export const BUS_NAME = 'org.duet.Assistant';
-export const OBJECT_PATH = '/org/duet/Assistant';
-export const INTERFACE_NAME = 'org.duet.Assistant1';
-export const ERROR_FAILED = 'org.duet.Assistant.Error.Failed';
+export const BUS_NAME = 'org.balaur.Assistant';
+export const OBJECT_PATH = '/org/balaur/Assistant';
+export const INTERFACE_NAME = 'org.balaur.Assistant1';
+export const ERROR_FAILED = 'org.balaur.Assistant.Error.Failed';
 
 // Verbatim from gnome/CONTRACT.md (comments dropped).
 export const INTERFACE_XML = `
 <node>
-  <interface name="org.duet.Assistant1">
+  <interface name="org.balaur.Assistant1">
     <property name="State" type="s" access="read"/>
     <property name="Caption" type="s" access="read"/>
     <property name="Muted" type="b" access="readwrite"/>

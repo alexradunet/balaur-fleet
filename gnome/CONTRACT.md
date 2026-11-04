@@ -9,9 +9,9 @@ Nix packaging needs). Three pieces talk over the **session D-Bus**:
 
 | Piece | Dir | What |
 |---|---|---|
-| Assistant daemon | `gnome/assistant/` | Voice assistant ("Hey Jarvis"): a `Gio.Application` running as the systemd **user** service `duet-assistant.service` in the household session. Owns `org.duet.Assistant` on the session bus. (It replaced a Go service; its state files keep that format.) |
-| Shell extension | `gnome/shell-extension/` | `duet@duet.local`: orb + captions over every app while the assistant listens/thinks/speaks/rings (tap = Stop), and a Quick Settings toggle for the microphone. |
-| App | `gnome/app/` | `org.duet.Duet`, libadwaita: conversation (+ type to ask), lists, timers & reminders, memory, home services. |
+| Assistant daemon | `gnome/assistant/` | Voice assistant ("Hey Jarvis"): a `Gio.Application` running as the systemd **user** service `duet-assistant.service` in the household session. Owns `org.balaur.Assistant` on the session bus. (It replaced a Go service; its state files keep that format.) |
+| Shell extension | `gnome/shell-extension/` | `balaur@balaur.local`: orb + captions over every app while the assistant listens/thinks/speaks/rings (tap = Stop), and a Quick Settings toggle for the microphone. |
+| App | `gnome/app/` | `org.balaur.Balaur`, libadwaita: conversation (+ type to ask), lists, timers & reminders, memory, home services. |
 
 ## The agent: built on the pi SDK (`gnome/agent/`)
 
@@ -63,7 +63,7 @@ Packaging: `pkgs/duet-agent.nix` with `buildNpmPackage` (committed
 
 Editable in the app (Preferences on the Assistant page), GNOME-native:
 
-- **GSettings** schema `org.duet.Assistant` (path `/org/duet/assistant/`),
+- **GSettings** schema `org.balaur.Assistant` (path `/org/balaur/assistant/`),
   shipped by the daemon package. Keys:
   `llm-provider` (s, a pi provider id, default `mistral`), `llm-model` (s),
   `llm-base-url` (s, "" = the provider's default; for OpenAI-compatible
@@ -74,7 +74,7 @@ Editable in the app (Preferences on the Assistant page), GNOME-native:
   `changed::` and applies new values without a restart (it restarts the
   agent child when an LLM key changes).
 - **API keys** in the GNOME Keyring via libsecret: schema
-  `org.duet.Assistant.ApiKey`, attribute `provider` (`mistral`, `openai`, ...).
+  `org.balaur.Assistant.ApiKey`, attribute `provider` (`mistral`, `openai`, ...).
   Only the daemon reads them. Fallback when the keyring has none for
   `mistral`: the credential file (`$CREDENTIALS_DIRECTORY/llm-key`), as today.
   The household account has no password, so the first store makes GNOME ask
@@ -82,7 +82,7 @@ Editable in the app (Preferences on the Assistant page), GNOME-native:
 - Speech (Voxtral STT/TTS) always uses the `mistral` key and `speech-base-url`;
   the chat model may use any pi provider with its own key.
 
-D-Bus additions on `org.duet.Assistant1` (same object):
+D-Bus additions on `org.balaur.Assistant1` (same object):
 
 ```xml
 <!-- pi's catalog for the model picker: {"providers":[{"id":"mistral","name":"Mistral",
@@ -98,17 +98,17 @@ D-Bus additions on `org.duet.Assistant1` (same object):
 The agent reports pi's model catalog in its `ready` record (`"models": {...}`
 in the same shape) so the daemon can publish `Models`.
 
-## D-Bus API: `org.duet.Assistant`
+## D-Bus API: `org.balaur.Assistant`
 
-- Bus name `org.duet.Assistant`, object `/org/duet/Assistant`, interface `org.duet.Assistant1`.
-- The daemon is a `Gio.Application` with application id `org.duet.Assistant`
-  (so its desktop file `org.duet.Assistant.desktop`, `NoDisplay=true`, lets it
+- Bus name `org.balaur.Assistant`, object `/org/balaur/Assistant`, interface `org.balaur.Assistant1`.
+- The daemon is a `Gio.Application` with application id `org.balaur.Assistant`
+  (so its desktop file `org.balaur.Assistant.desktop`, `NoDisplay=true`, lets it
   send GNOME notifications). Exports the interface on the bus connection it
   gets in `vfunc_dbus_register` at the path above.
 
 ```xml
 <node>
-  <interface name="org.duet.Assistant1">
+  <interface name="org.balaur.Assistant1">
     <!-- idle | listening | thinking | speaking | ringing | muted -->
     <property name="State" type="s" access="read"/>
     <!-- What to show under the orb now: what it heard while thinking, the reply
@@ -143,7 +143,7 @@ in the same shape) so the daemon can publish `Models`.
 </node>
 ```
 
-Errors: methods fail with a D-Bus error `org.duet.Assistant.Error.Failed` (message = human text).
+Errors: methods fail with a D-Bus error `org.balaur.Assistant.Error.Failed` (message = human text).
 
 ### `Snapshot` JSON
 
@@ -165,7 +165,7 @@ The example is indicative; `store.js` is authoritative. Times are RFC 3339 with 
 ### Notifications (sent by the daemon)
 
 Timers and reminders going off are GNOME notifications from
-`org.duet.Assistant` (`Gio.Notification`, priority `URGENT` for alarms) with a
+`org.balaur.Assistant` (`Gio.Notification`, priority `URGENT` for alarms) with a
 **Stop** button (app action `app.stop`) besides the spoken alarm.
 
 ## Runtime facts (this machine)

@@ -21,7 +21,7 @@ export const tests = {
     async debouncedRestartOncePerBatchAndNotMidTurn() {
         const gs = memorySettings();
         if (!gs) {
-            print('      (skipped: schema org.duet.Assistant not installed; run through the package)');
+            print('      (skipped: schema org.balaur.Assistant not installed; run through the package)');
             return;
         }
         const a = makeAssistant({gsettings: gs});

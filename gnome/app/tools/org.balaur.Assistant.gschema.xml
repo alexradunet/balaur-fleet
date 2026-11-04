@@ -5,7 +5,7 @@
        glib-compile-schemas --targetdir=/tmp/duet-schemas gnome/app/tools
      The defaults here are placeholders; NixOS sets the real ones. -->
 <schemalist>
-  <schema id="org.duet.Assistant" path="/org/duet/assistant/">
+  <schema id="org.balaur.Assistant" path="/org/balaur/assistant/">
     <key name="llm-provider" type="s"><default>'mistral'</default></key>
     <key name="llm-model" type="s"><default>'mistral-medium-latest'</default></key>
     <key name="llm-base-url" type="s"><default>''</default></key>

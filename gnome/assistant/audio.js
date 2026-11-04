@@ -82,8 +82,8 @@ export class Mic {
             return this.sourceOverride;
         const [name, pulse] = pulseDevice(this.device);
         if (pulse) {
-            return `pipewiresrc client-name=${q('Duet assistant')}` +
-                ` stream-properties=${q('props,media.name=(string)"Wake word",application.name=(string)"Duet assistant"')}` +
+            return `pipewiresrc client-name=${q('Balaur assistant')}` +
+                ` stream-properties=${q('props,media.name=(string)"Wake word",application.name=(string)"Balaur assistant"')}` +
                 (name ? ` target-object=${q(name)}` : '');
         }
         return `alsasrc device=${q(this.device)}`;
@@ -221,8 +221,8 @@ export class Player {
             return this.sinkOverride;
         const [name, pulse] = pulseDevice(this.device);
         if (pulse) {
-            return `pipewiresink client-name=${q('Duet assistant')}` +
-                ` stream-properties=${q('props,media.role=(string)Assistant,media.name=(string)Voice,application.name=(string)"Duet assistant"')}` +
+            return `pipewiresink client-name=${q('Balaur assistant')}` +
+                ` stream-properties=${q('props,media.role=(string)Assistant,media.name=(string)Voice,application.name=(string)"Balaur assistant"')}` +
                 (name ? ` target-object=${q(name)}` : '');
         }
         return `alsasink device=${q(this.device)}`;

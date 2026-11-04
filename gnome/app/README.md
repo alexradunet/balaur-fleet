@@ -1,10 +1,10 @@
-# Duet (org.duet.Duet)
+# Duet (org.balaur.Balaur)
 
 The household's libadwaita app on the built-in screen, written in GJS (no
 build step). Pages: **Assistant** (conversation, type to ask, Stop, mic
 switch, volume), **Lists**, **Timers** (timers & reminders), **Memory**, **Home**
 (services with live systemd state and an Open button). It talks to the
-assistant daemon over the session bus (`org.duet.Assistant`, see
+assistant daemon over the session bus (`org.balaur.Assistant`, see
 `../CONTRACT.md`); the assistant pages show "Assistant isn't running" while it
 is away, Home keeps working.
 
@@ -17,7 +17,7 @@ below 720 sp (portrait). Style follows the system dark/light setting.
 - `src/application.js`: the app and its actions; every user action is an
   `app.*` action, and failures become toasts there.
 - `src/window.js`: window, view stack, breakpoint.
-- `src/assistant.js`: D-Bus client for `org.duet.Assistant1`.
+- `src/assistant.js`: D-Bus client for `org.balaur.Assistant1`.
 - `src/systemd.js`: unit state from systemd (system bus, or the session bus
   for `user:` units).
 - `src/services.js`: reads `/etc/duet/services.json` (`$DUET_SERVICES`
@@ -25,7 +25,7 @@ below 720 sp (portrait). Style follows the system dark/light setting.
 - `src/pages/*.js`, `src/style.css`: the pages.
 - `src/settings-dialog.js`: "Assistant Settings" (gear on the Assistant page,
   or the main menu): chat provider/model/server and Mistral speech settings
-  bound to GSettings `org.duet.Assistant`, API keys via the daemon's
+  bound to GSettings `org.balaur.Assistant`, API keys via the daemon's
   `SetApiKey` (never shown or read back), and a Test button (`TestModel`).
 - `data/`: desktop file and icon. Packaged by `pkgs/duet-app.nix`.
 
@@ -45,7 +45,7 @@ The app's actions are on the bus, so they can be poked without touching the
 screen, e.g.:
 
 ```sh
-gdbus call --session -d org.duet.Duet -o /org/duet/Duet -m org.gtk.Actions.Activate \
+gdbus call --session -d org.balaur.Balaur -o /org/balaur/Balaur -m org.gtk.Actions.Activate \
   list-add "[<('shopping', 'eggs')>]" '{}'
 ```
 

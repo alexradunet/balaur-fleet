@@ -3,12 +3,12 @@
 #   openWakeWord    127.0.0.1:10400   listens for "Hey Jarvis" (tiny, local, nothing leaves)
 #   duet-assistant  session service   the GJS daemon: microphone and speaker through
 #                                     PipeWire, Voxtral speech, timers, lists, memory,
-#                                     notifications; D-Bus org.duet.Assistant
+#                                     notifications; D-Bus org.balaur.Assistant
 #   duet-agent      its child         the brain, on the pi SDK: the model and its tools
 #
 # After the wake word, Mistral (EU) does the rest: Voxtral transcription (what
 # you said), the model with tools (what to do; any provider pi supports, set in
-# the Duet app), Voxtral TTS (the voice), and the web_search tool. Audio is sent
+# the Balaur app), Voxtral TTS (the voice), and the web_search tool. Audio is sent
 # only for the sentence after the wake word and is not kept here.
 {
   flake.modules.nixos.assistant =
@@ -28,7 +28,7 @@
       micHw = lib.removePrefix "plug" as.audio.input;
 
       # Defaults for the daemon; the model, server and voices can be changed in the
-      # Duet app (GSettings org.duet.Assistant), which then take precedence.
+      # Balaur app (GSettings org.balaur.Assistant), which then take precedence.
       configFile = pkgs.writeText "duet-assistant.json" (builtins.toJSON {
         inherit (as) name defaultLanguage;
         audio = { input = "pulse:${micNode}"; output = "pulse"; card = "0"; };
@@ -48,7 +48,7 @@
 
       # The API key from a terminal: state only, never in the repo or the store. Read
       # from stdin so it never shows up in the process list; checked against the API,
-      # which also lists the voices to choose from. The Duet app's Assistant settings
+      # which also lists the voices to choose from. The Balaur app's Assistant settings
       # do the same from the screen (they keep keys in the GNOME Keyring instead).
       login = pkgs.writeShellApplication {
         name = "duet-assistant-login";
@@ -66,7 +66,7 @@
           api() { printf 'header = "Authorization: Bearer %s"\n' "$key" | curl -sS -m 15 -K - "$base$1"; }
           if api /models | jq -e '.data | length > 0' >/dev/null 2>&1; then
             echo "Saved. The API accepted the key."
-            echo "Voices (set balaur.assistant.tts.voices.ro / .en, or in the Duet app; empty = the API's default):"
+            echo "Voices (set balaur.assistant.tts.voices.ro / .en, or in the Balaur app; empty = the API's default):"
             api '/audio/voices?limit=100' | jq -r '.items[] | "  \(.id)  \(.languages | join(","))  \(.name)"' 2>/dev/null | sort -k2 \
               || echo "  (could not list them)"
           else
@@ -102,8 +102,8 @@
           secs="''${1:-$( [ $model = all ] && echo 40 || echo 15 )}"
           # Muted, the assistant doesn't answer the wake words said for the test.
           setmute() {
-            ${inSession ''gdbus call --session --dest org.duet.Assistant --object-path /org/duet/Assistant \
-              --method org.freedesktop.DBus.Properties.Set org.duet.Assistant1 Muted "<$1>"''} >/dev/null || true
+            ${inSession ''gdbus call --session --dest org.balaur.Assistant --object-path /org/balaur/Assistant \
+              --method org.freedesktop.DBus.Properties.Set org.balaur.Assistant1 Muted "<$1>"''} >/dev/null || true
           }
           trap 'setmute false' EXIT
           setmute true
@@ -150,19 +150,19 @@
             baseUrl = lib.mkOption {
               type = lib.types.str;
               example = "https://api.mistral.ai/v1";
-              description = "Mistral API base for speech (Voxtral) and the default for the model. Changeable in the Duet app.";
+              description = "Mistral API base for speech (Voxtral) and the default for the model. Changeable in the Balaur app.";
             };
             model = lib.mkOption {
               type = lib.types.str;
               example = "mistral-small-latest";
-              description = "Default model (Mistral, through pi; it must support tool calling). Changeable in the Duet app, with any provider pi supports.";
+              description = "Default model (Mistral, through pi; it must support tool calling). Changeable in the Balaur app, with any provider pi supports.";
             };
             apiKeyFile = lib.mkOption {
               type = lib.types.path;
               default = "/var/lib/secrets/duet-assistant-llm-key";
               description = ''
                 File with the Mistral API key, written by `sudo duet-assistant-login`: the
-                fallback when the GNOME Keyring has none (keys saved in the Duet app go there).
+                fallback when the GNOME Keyring has none (keys saved in the Balaur app go there).
               '';
             };
           };
@@ -244,7 +244,7 @@
 
       config = {
         # The daemon's desktop file (GNOME only shows notifications from known apps)
-        # and its GSettings schema (model, server, voices; edited in the Duet app).
+        # and its GSettings schema (model, server, voices; edited in the Balaur app).
         environment.systemPackages = [ package login wakeTest ];
         services.desktopManager.gnome.sessionPath = [ package ];
 
@@ -345,7 +345,7 @@
           description = "Voice assistant · say “${lib.concatMapStringsSep " " (w: lib.toUpper (lib.substring 0 1 w) + lib.substring 1 (-1) w) (lib.splitString "_" as.wakeWord)}”";
           icon = "🎙";
           unit = "user:duet-assistant.service";
-          desktopId = "org.duet.Duet.desktop";
+          desktopId = "org.balaur.Balaur.desktop";
           group = "Home";
         }];
       };

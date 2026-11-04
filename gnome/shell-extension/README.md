@@ -1,7 +1,7 @@
-# duet@duet.local
+# balaur@balaur.local
 
 GNOME Shell 50 extension for the Duet's built-in screen. It follows the
-`org.duet.Assistant` service on the session bus (API in `../CONTRACT.md`):
+`org.balaur.Assistant` service on the session bus (API in `../CONTRACT.md`):
 
 - **Overlay**: while the assistant is listening, thinking, speaking or ringing,
   a large animated orb (blue breathing, violet with orbiting dots, green, amber)
@@ -29,8 +29,8 @@ Packaged by `pkgs/duet-shell-extension.nix`. No GSettings.
 nix shell nixpkgs#gjs
 gjs -m tools/mock-assistant.js [--no-cycle] [--quit-after 60]   # fake daemon
 gjs -m tools/watch-assistant.js                                  # what the UI would show
-gdbus call --session -d org.duet.Assistant -o /org/duet/Assistant \
-  -m org.duet.Assistant1.Ask "hello" true
+gdbus call --session -d org.balaur.Assistant -o /org/balaur/Assistant \
+  -m org.balaur.Assistant1.Ask "hello" true
 ```
 
 Run the mock as the household user (see `../CONTRACT.md`) only briefly, and
