@@ -24,6 +24,19 @@
         (pkgs.callPackage ../pkgs/duet-app.nix { })
         (pkgs.callPackage ../pkgs/duet-shell-extension.nix { })
       ];
+
+      # GNOME ships these; a personal desktop here has no use for any of them.
+      # `tablet` drops the same ones for the household screen, for the same
+      # reasons — this is not about taste, which belongs in the host file.
+      environment.gnome.excludePackages = with pkgs; [
+        # The browser is Firefox (the `gnome` aspect sets it up with policies).
+        # GNOME Web stays on duet, which needs it to run the service web apps.
+        epiphany
+        gnome-tour # a first-run walkthrough, on a machine already set up
+        yelp # the help browser; the answers are on the web
+      ];
+      # Shares media over DLNA to whatever is on the network. Nothing asked for that.
+      services.gnome.rygel.enable = false;
     };
 
   # Host wiring (modules/home.nix explains the pattern):

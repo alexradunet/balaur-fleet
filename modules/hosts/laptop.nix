@@ -28,7 +28,7 @@ in
   };
 
   flake.modules.nixos.laptop =
-    { config, ... }:
+    { config, pkgs, ... }:
     {
       imports = (with aspects; [
         yoga-pro-7
@@ -69,13 +69,35 @@ in
       services.printing.enable = true;
       nixpkgs.config.allowUnfree = true;
 
+      # GNOME defaults this machine does not want. The `desktop` aspect already
+      # drops the ones no personal desktop needs; these are this laptop's taste,
+      # so they live here. The media apps (Music, Decibels, Showtime, Snapshot)
+      # are deliberately kept: a webcam check and a one-off local video file are
+      # worth having even with Jellyfin on duet.
+      environment.gnome.excludePackages = with pkgs; [
+        # Only useful tied to an online account, and none is set up.
+        gnome-calendar
+        gnome-contacts
+        gnome-clocks
+        gnome-weather
+        gnome-maps
+        # No scanner attached; remote machines are reached over SSH and Tailscale.
+        simple-scan
+        gnome-connections
+        gnome-characters
+        gnome-color-manager
+      ];
+      # Drops the offline manual and its "NixOS Manual" launcher. It duplicates
+      # the web one, and building nixos-manual-html is a slice of every rebuild.
+      documentation.nixos.enable = false;
+
       # The value this machine's first install wrote. Never "upgrade" it by hand.
       system.stateVersion = "26.05";
       # The EFI partition is at /boot and the install uses systemd-boot, which is
       # what `base` sets: no boot.loader override needed here.
 
       # The admin's own GNOME bits on top of the shared shell/git (modules/home.nix).
-      home-manager.users.${config.balaur.user}.imports = [ hm.desktop ];
+      home-manager.users.${config.balaur.user}.imports = [ hm.desktop hm.torrents-client ];
 
       balaur = {
         # The existing login on this machine; its password is kept as is.

@@ -288,4 +288,23 @@ in
     {
       environment.systemPackages = [ sendTorrent magnetHandler ];
     };
+
+  # Host wiring (modules/home.nix explains the pattern):
+  #   home-manager.users.${config.balaur.user}.imports = [ aspects.homeManager.torrents-client ];
+  flake.modules.homeManager.torrents-client = {
+    # Pin balaur-torrent as the handler for magnet links. It already wins by
+    # being the only app claiming the scheme, but that holds only until
+    # something else claims it too (Fragments, Transmission), so say it outright.
+    #
+    # Written as gnome-mimeapps.list rather than through home-manager's
+    # xdg.mimeApps, which would take over mimeapps.list entirely — and Claude
+    # Code keeps its own x-scheme-handler/claude-cli association in that file.
+    # GNOME reads the desktop-prefixed list first (XDG spec), so this decides
+    # magnet: and nothing else, and leaves the rest of that file alone.
+    xdg.configFile."gnome-mimeapps.list".text = ''
+      [Default Applications]
+      x-scheme-handler/magnet=balaur-torrent.desktop
+      application/x-bittorrent=balaur-torrent.desktop
+    '';
+  };
 }
