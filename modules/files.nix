@@ -169,8 +169,24 @@ in
             # the place that actually syncs.
             chown root:root ${mountPoint}
             chmod 0755 ${mountPoint}
+            # A numeric mode does not clear setgid on a *directory* — GNU chmod
+            # preserves it deliberately — and the volume root carries one over from
+            # when it was the synced folder itself. Say it explicitly.
+            chmod g-s ${mountPoint}
+
             install -d -o ${config.services.syncthing.user} \
                          -g ${config.services.syncthing.group} -m 2775 ${folderPath}
+
+            # Syncthing creates its .stfolder marker only for a folder it has never
+            # seen. Once there is an index it refuses, since a missing marker is how
+            # it recognises "my disk did not mount" rather than "everything was
+            # deleted" — it would otherwise propagate the deletion of everything.
+            # Here systemd makes that guarantee far better than a marker file can:
+            # syncthing Requires the mount, and this unit refuses to run unless the
+            # path really is a mount point. So create the marker ourselves, which
+            # also means a folder survives being moved or an image being replaced.
+            install -d -o ${config.services.syncthing.user} \
+                         -g ${config.services.syncthing.group} -m 0755 ${folderPath}/.stfolder
           '';
         };
 
