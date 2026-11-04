@@ -63,9 +63,44 @@ let
       echo "duet-assistant restarted. Try: curl -s localhost/api/assistant/status"
     '';
   };
+
+  # `sudo duet-wake-test`: say the wake word a few times; prints its score each
+  # time, to tune duet.assistant.wakeThreshold and audio.micGain with real voices.
+  wakeTest = pkgs.writeShellApplication {
+    name = "duet-wake-test";
+    runtimeInputs = [ pkgs.alsa-utils pkgs.curl pkgs.coreutils ];
+    text = ''
+      if [ "$(id -u)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
+      py=${pkgs.python3.withPackages (ps: [ ps.pyopen-wakeword ])}/bin/python3
+      # The recording is kept (root only) for a second look:
+      #   sudo duet-wake-test [seconds]           say the wake word a few times
+      #   sudo duet-wake-test all [seconds]       compare every built-in wake word
+      #   sudo duet-wake-test score [gain] [all]  rescore the last recording, optionally amplified
+      rec=/var/tmp/duet-wake-test.raw
+      if [ "''${1:-}" = score ]; then
+        exec "$py" ${./assistant/wake-test.py} "''${3:-${as.wakeWord}}" "$rec" ${toString as.wakeThreshold} "''${2:-1}"
+      fi
+      model=${as.wakeWord}
+      prompt="say \"${lib.replaceStrings [ "_" ] [ " " ] as.wakeWord}\" a few times, as you normally would"
+      if [ "''${1:-}" = all ]; then
+        model=all; shift
+        prompt="say each twice, a few seconds apart: \"Hey Jarvis\", \"Alexa\", \"Hey Mycroft\", \"Okay Nabu\", \"Hey Rhasspy\""
+      fi
+      secs="''${1:-$( [ $model = all ] && echo 40 || echo 15 )}"
+      unmute() { curl -s -X POST localhost:${toString ports.api}/mute -d '{"muted":false}' >/dev/null || true; }
+      trap unmute EXIT
+      # The assistant holds the microphone; muting it frees the device.
+      curl -s -X POST localhost:${toString ports.api}/mute -d '{"muted":true}' >/dev/null || true
+      sleep 0.5
+      echo "Recording $secs s: $prompt."
+      install -m 600 /dev/null "$rec"
+      arecord -q -D ${as.audio.input} -f S16_LE -r 16000 -c 1 -t raw -d "$secs" "$rec"
+      "$py" ${./assistant/wake-test.py} "$model" "$rec" ${toString as.wakeThreshold}
+    '';
+  };
 in
 lib.mkIf as.enable {
-  environment.systemPackages = [ login pkgs.alsa-utils ];
+  environment.systemPackages = [ login wakeTest pkgs.alsa-utils ];
 
   # ---- the wake word: the one local piece (upstream NixOS module), localhost only ----
   services.wyoming.openwakeword = {
