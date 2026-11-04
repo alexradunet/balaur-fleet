@@ -364,6 +364,11 @@ in
               default = null;
               description = "Icon (name or file) for installing the service's web UI as a GNOME web app on the built-in screen (GNOME Web's application mode); null = no app.";
             };
+            desktopId = mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              description = "The GNOME app that opens this service (a desktop file id); a web app from appIcon fills it in.";
+            };
           };
         });
       };

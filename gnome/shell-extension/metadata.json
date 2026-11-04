@@ -1,0 +1,8 @@
+{
+  "uuid": "duet@duet.local",
+  "name": "Duet Assistant",
+  "description": "Shows the Duet voice assistant over every app while it listens, thinks, speaks or rings (tap to stop), and adds a microphone toggle to Quick Settings.",
+  "shell-version": ["50"],
+  "url": "https://github.com/alexradunet/yoga-duet-7-home-server",
+  "version": 1
+}

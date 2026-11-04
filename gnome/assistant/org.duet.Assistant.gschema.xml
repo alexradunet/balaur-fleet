@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The assistant's settings the app can change (gnome/CONTRACT.md, "Settings").
+     NixOS sets the defaults from duet.assistant.* with a gschema override; an
+     empty string falls back to the config file. -->
+<schemalist>
+  <schema id="org.duet.Assistant" path="/org/duet/assistant/">
+    <key name="llm-provider" type="s">
+      <default>'mistral'</default>
+      <summary>Model provider</summary>
+      <description>A pi provider id, e.g. mistral, openai, anthropic.</description>
+    </key>
+    <key name="llm-model" type="s">
+      <default>''</default>
+      <summary>Chat model</summary>
+      <description>The provider's model id; empty uses the config file's llm.model.</description>
+    </key>
+    <key name="llm-base-url" type="s">
+      <default>''</default>
+      <summary>Model server</summary>
+      <description>Base URL for the chat model, e.g. an OpenAI-compatible server; empty uses the provider's default.</description>
+    </key>
+    <key name="speech-base-url" type="s">
+      <default>'https://api.mistral.ai/v1'</default>
+      <summary>Speech server</summary>
+      <description>Mistral API base URL for transcription, voices and web search.</description>
+    </key>
+    <key name="stt-model" type="s">
+      <default>''</default>
+      <summary>Transcription model</summary>
+      <description>Empty uses the config file's stt.model.</description>
+    </key>
+    <key name="tts-model" type="s">
+      <default>''</default>
+      <summary>Voice model</summary>
+      <description>Empty uses the config file's tts.model.</description>
+    </key>
+    <key name="voice-ro" type="s">
+      <default>''</default>
+      <summary>Romanian voice</summary>
+      <description>Voice id for Romanian replies; empty uses the config file's, else the API's default.</description>
+    </key>
+    <key name="voice-en" type="s">
+      <default>''</default>
+      <summary>English voice</summary>
+      <description>Voice id for English replies; empty uses the config file's, else the API's default.</description>
+    </key>
+  </schema>
+</schemalist>

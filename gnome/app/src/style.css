@@ -1,0 +1,65 @@
+/* Duet: a few touches on top of libadwaita. Colors come from libadwaita's
+   CSS variables, so dark and light style both just work. */
+
+/* Fingers, not pointers: taller rows and bigger tap targets. */
+.duet-touch-list > row {
+  min-height: 64px;
+}
+
+.duet-touch-list > row .title {
+  font-size: 1.1em;
+}
+
+button.duet-touch-button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Ticking off list items should be an easy target too. */
+.duet-touch-list checkbutton check {
+  min-width: 26px;
+  min-height: 26px;
+}
+
+/* The ask box. */
+entry.duet-ask {
+  min-height: 48px;
+  font-size: 1.15em;
+  border-radius: 24px;
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+/* Conversation bubbles. */
+.duet-bubble {
+  padding: 10px 16px;
+  border-radius: 20px;
+  font-size: 1.1em;
+}
+
+.duet-bubble.you {
+  background-color: var(--accent-bg-color);
+  color: var(--accent-fg-color);
+  border-bottom-right-radius: 6px;
+}
+
+.duet-bubble.bot {
+  background-color: var(--card-bg-color);
+  color: var(--card-fg-color);
+  box-shadow: 0 0 0 1px var(--card-shade-color, rgb(0 0 0 / 7%));
+  border-bottom-left-radius: 6px;
+}
+
+/* Service state pill on Home. */
+.duet-state {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-weight: bold;
+  font-size: 0.9em;
+  background-color: alpha(currentColor, 0.12);
+}
+
+/* Emoji icons from services.json. */
+.duet-emoji {
+  font-size: 24px;
+}

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Assistant
+Comment=The home's voice assistant
+Icon=audio-input-microphone-symbolic
+Exec=duet-assistant
+NoDisplay=true
+Terminal=false
+X-GNOME-UsesNotifications=true

@@ -13,7 +13,10 @@
 let
   cfg = config.duet;
   as = cfg.assistant;
-  package = pkgs.callPackage ../pkgs/duet-assistant.nix { };
+  # Go (headless, system service) or GJS + the pi SDK agent (desktop session).
+  package = if cfg.desktop.enable
+    then pkgs.callPackage ../pkgs/duet-assistant-gjs.nix { }
+    else pkgs.callPackage ../pkgs/duet-assistant.nix { };
   amixer = "${pkgs.alsa-utils}/bin/amixer";
   wakewordDir = "/var/lib/duet-wakewords";
 
@@ -110,10 +113,20 @@ let
         prompt="say each twice, a few seconds apart: \"Hey Jarvis\", \"Alexa\", \"Hey Mycroft\", \"Okay Nabu\", \"Hey Rhasspy\""
       fi
       secs="''${1:-$( [ $model = all ] && echo 40 || echo 15 )}"
-      unmute() { curl -s -X POST localhost:${toString ports.api}/mute -d '{"muted":false}' >/dev/null || true; }
+      ${if session then ''
+        # The assistant is a service of the household session: mute it over D-Bus.
+        setmute() {
+          runuser -u ${user} -- env DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u ${user})/bus" \
+            ${pkgs.glib.bin}/bin/gdbus call --session --dest org.duet.Assistant --object-path /org/duet/Assistant \
+            --method org.freedesktop.DBus.Properties.Set org.duet.Assistant1 Muted "<$1>" >/dev/null || true
+        }
+      '' else ''
+        setmute() { curl -s -X POST localhost:${toString ports.api}/mute -d "{\"muted\":$1}" >/dev/null || true; }
+      ''}
+      unmute() { setmute false; }
       trap unmute EXIT
-      # The assistant holds the microphone; muting it frees the device.
-      curl -s -X POST localhost:${toString ports.api}/mute -d '{"muted":true}' >/dev/null || true
+      # Muted, it doesn't answer the wake words said for the test.
+      setmute true
       sleep 0.5
       echo "Recording $secs s: $prompt."
       install -m 600 /dev/null "$rec"
@@ -151,7 +164,8 @@ let
       NoNewPrivileges = true;
       RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" ];
       LockPersonality = true;
-      MemoryDenyWriteExecute = true;
+      # GJS and Node JIT-compile: they need writable+executable memory.
+      MemoryDenyWriteExecute = !session;
       SystemCallArchitectures = "native";
       SystemCallFilter = [ "@system-service" "~@privileged" ];
       UMask = "0077";
@@ -193,6 +207,11 @@ lib.mkIf as.enable (lib.mkMerge [
   # ---- with the desktop: an app of the household session ----
   (lib.mkIf session {
     users.users.${user}.extraGroups = [ "duet-assistant" ];
+
+    # Its desktop file (GNOME only shows notifications from known apps) and
+    # its GSettings schema (model, server; edited in the Duet app) in the session.
+    environment.systemPackages = [ package ];
+    services.desktopManager.gnome.sessionPath = [ package ];
 
     systemd.user.services.duet-assistant = lib.mkMerge [
       unit

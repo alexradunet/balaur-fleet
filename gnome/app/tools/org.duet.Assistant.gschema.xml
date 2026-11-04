@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- TEST COPY for trying the app's settings dialog without the daemon
+     package, which ships the real schema (see gnome/CONTRACT.md, "Settings").
+     Compile it into a temp dir and point GSETTINGS_SCHEMA_DIR there:
+       glib-compile-schemas --targetdir=/tmp/duet-schemas gnome/app/tools
+     The defaults here are placeholders; NixOS sets the real ones. -->
+<schemalist>
+  <schema id="org.duet.Assistant" path="/org/duet/assistant/">
+    <key name="llm-provider" type="s"><default>'mistral'</default></key>
+    <key name="llm-model" type="s"><default>'mistral-medium-latest'</default></key>
+    <key name="llm-base-url" type="s"><default>''</default></key>
+    <key name="speech-base-url" type="s"><default>'https://api.mistral.ai/v1'</default></key>
+    <key name="stt-model" type="s"><default>'voxtral-mini-latest'</default></key>
+    <key name="tts-model" type="s"><default>'voxtral-tts-latest'</default></key>
+    <key name="voice-ro" type="s"><default>''</default></key>
+    <key name="voice-en" type="s"><default>''</default></key>
+  </schema>
+</schemalist>

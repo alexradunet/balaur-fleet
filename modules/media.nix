@@ -130,6 +130,7 @@ lib.mkIf cfg.media.enable {
       icon = "🎬";
       port = 8096;
       unit = "jellyfin.service";
+      desktopId = "org.jellyfin.JellyfinDesktop.desktop";
       group = "Media & files";
     }
     {

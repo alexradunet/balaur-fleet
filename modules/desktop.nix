@@ -17,43 +17,36 @@ let
   # Without the camera there's nothing to wake the screen but a touch: keep it on.
   screenTimeout = if cfg.camera.enable then cfg.camera.screenTimeout else 0;
 
-  # The dashboard as an app of its own: a Chromium app window (no tabs or
-  # address bar) with its own profile, so it never mixes with browsing.
-  # ?kiosk=1 is the dashboard's "built-in screen" mode (voice orb, mirrored
-  # camera, back to Services after a minute).
-  duetLauncher = pkgs.writeShellScript "duet-app" ''
-    exec ${pkgs.chromium}/bin/chromium --app='http://127.0.0.1/?kiosk=1' \
-      --user-data-dir="$HOME/.local/share/duet-app" --ozone-platform=wayland \
-      --no-first-run --password-store=basic --disable-pinch --overscroll-history-navigation=0
-  '';
-  duetApp = pkgs.makeDesktopItem {
-    name = "duet";
-    desktopName = "Duet";
-    comment = "Home server dashboard: services, TV remote, assistant, camera";
-    icon = "${../tv-app/icon.png}"; # the same tile as on the TV
-    exec = "${duetLauncher}";
-    # Chromium names an --app window after its URL and profile.
-    startupWMClass = "chrome-127.0.0.1__-Default";
-    categories = [ "Utility" ];
-  };
+  # Ours, GNOME-native (gnome/): the Duet app (assistant, lists, timers, memory,
+  # home services) and the Shell extension (assistant orb over every app, mic toggle).
+  duetApp = pkgs.callPackage ../pkgs/duet-app.nix { };
+  duetExtension = pkgs.callPackage ../pkgs/duet-shell-extension.nix { };
 
   # Each service with a web UI (and an appIcon) as an app of its own: GNOME Web
   # (Epiphany) "system web applications". Launched with
   # --application-mode=<this desktop file>, Epiphany makes the app a separate
   # profile and window identity (org.gnome.Epiphany.WebApp_<sha1 of the name>),
   # so it gets its own dock icon and never mixes with browsing.
-  webApps = map (s:
-    let id = "duet-web-" + lib.toLower (lib.replaceStrings [ " " ] [ "-" ] s.name);
-    in pkgs.makeDesktopItem {
-      name = id;
+  webAppId = s: "duet-web-" + lib.toLower (lib.replaceStrings [ " " ] [ "-" ] s.name);
+  serviceUrl = s: if s.port == null then null else "http://127.0.0.1:${toString s.port}${s.path}";
+  hasWebApp = s: s.port != null && s.appIcon != null;
+  webApps = map (s: pkgs.makeDesktopItem {
+      name = webAppId s;
       desktopName = s.name;
       comment = s.description;
       icon = s.appIcon;
-      exec = "${pkgs.epiphany}/bin/epiphany --application-mode=${id}.desktop http://127.0.0.1:${toString s.port}${s.path}";
+      exec = "${pkgs.epiphany}/bin/epiphany --application-mode=${webAppId s}.desktop ${serviceUrl s}";
       startupWMClass = "org.gnome.Epiphany.WebApp_${builtins.hashString "sha1" s.name}";
       categories = [ "Network" ];
     })
-    (lib.filter (s: s.port != null && s.appIcon != null) cfg.dashboard.services);
+    (lib.filter hasWebApp cfg.dashboard.services);
+
+  # The home services for the Duet app's Home page (gnome/CONTRACT.md).
+  servicesJson = builtins.toJSON (map (s: {
+    inherit (s) name description icon unit;
+    url = serviceUrl s;
+    desktopId = if hasWebApp s then "${webAppId s}.desktop" else s.desktopId;
+  }) cfg.dashboard.services);
 
   # Working on the box itself (keyboard attached): a terminal logged in as the
   # admin account, where the repo and Claude Code live. Asks that account's
@@ -68,7 +61,7 @@ let
   };
 
   favorites = [
-    "duet.desktop"
+    "org.duet.Duet.desktop"
     "firefox.desktop"
     "org.jellyfin.JellyfinDesktop.desktop"
     "io.m51.Gelly.desktop"
@@ -99,6 +92,7 @@ lib.mkIf cfg.desktop.enable {
 
   environment.systemPackages = with pkgs; [
     duetApp
+    duetExtension
     devTerminal
     epiphany # GNOME Web: runs the web apps below
   ] ++ webApps ++ [
@@ -108,6 +102,7 @@ lib.mkIf cfg.desktop.enable {
     nautilus
     loupe
     gnome-calculator
+    snapshot # GNOME camera: shows the front camera (the relay's webcam)
   ];
 
   programs.firefox = {
@@ -170,6 +165,7 @@ lib.mkIf cfg.desktop.enable {
       "org/gnome/shell" = {
         favorite-apps = favorites;
         welcome-dialog-last-shown-version = "999";
+        enabled-extensions = [ duetExtension.passthru.extensionUuid ];
       };
       "org/gnome/mutter".dynamic-workspaces = true;
       # Tools for whoever administers the box, out of the household's way.
@@ -204,6 +200,8 @@ lib.mkIf cfg.desktop.enable {
     alsa.enable = true;
     pulse.enable = true;
   };
+
+  environment.etc."duet/services.json".text = servicesJson;
 
   hardware.graphics.enable = true;
 }

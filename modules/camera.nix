@@ -206,6 +206,7 @@ lib.mkIf cfg.camera.enable {
     description = "Front camera relay";
     icon = "📷";
     unit = "duet-camera-relay.service";
+    desktopId = "org.gnome.Snapshot.desktop"; # GNOME's camera app shows the webcam
     group = "Home";
   }];
 }
