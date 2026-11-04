@@ -1,5 +1,7 @@
 # Balaur
 
+**Registering the laptop? Read docs/HANDOFF-LAPTOP.md first** (delete it and this line when done).
+
 One flake configures every machine at home (the fleet). README.md explains the
 layout. In short: every `.nix` file under `modules/` is a flake-parts module,
 loaded automatically by import-tree (files or directories starting with `_` are
