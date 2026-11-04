@@ -136,6 +136,15 @@ in
             fi
             chown ${config.services.syncthing.user}:${config.services.syncthing.group} ${mountPoint}
             chmod 2775 ${mountPoint}
+            # mkfs leaves lost+found as 0700 root *inside* the synced folder, which
+            # Syncthing cannot traverse: the filesystem watcher then refuses to
+            # start, so the folder falls back to periodic rescans. It is excluded
+            # from syncing by ignorePatterns below; this just lets Syncthing look
+            # at it. Mode stays 0700 — fsck puts recovered files here and runs as
+            # root regardless of who owns it.
+            if [ -d ${mountPoint}/lost+found ]; then
+              chown ${config.services.syncthing.user}:${config.services.syncthing.group} ${mountPoint}/lost+found
+            fi
           '';
         };
 
@@ -177,6 +186,11 @@ in
               path = mountPoint;
               devices = lib.attrNames peers;
               type = "sendreceive";
+              # The folder is a filesystem root, so it has a lost+found. Left
+              # alone, the machines try to replicate it to each other forever
+              # ("handling dir (setting permissions): operation not permitted").
+              # It belongs to the filesystem, not to the synced set.
+              ignorePatterns = [ "/lost+found" ];
             };
             # Don't phone home, and don't nag about it in the UI.
             options.urAccepted = -1;
