@@ -39,16 +39,29 @@ in
         runtimeInputs = [ pkgs.coreutils pkgs.e2fsprogs pkgs.util-linux ];
         text = ''
           install -d -m 0755 "$(dirname ${image})"
-          # Preallocated rather than sparse: the space is committed up front, the
-          # way a partition would be, so this cannot quietly overcommit the disk.
-          avail=$(df --output=avail --block-size=1G "$(dirname ${image})" | tail -1)
-          if [ "$avail" -lt ${toString (sizeGiB + 5)} ]; then
-            echo "only $avail GiB free; a ${toString sizeGiB} GiB volume needs ${toString (sizeGiB + 5)} GiB" >&2
-            exit 1
+
+          if [ ! -e ${image} ]; then
+            # Enough room for the volume itself plus a little slack.
+            avail=$(df --output=avail --block-size=1G "$(dirname ${image})" | tail -1)
+            if [ "$avail" -lt ${toString (sizeGiB + 5)} ]; then
+              echo "only $avail GiB free; a ${toString sizeGiB} GiB volume needs ${toString (sizeGiB + 5)} GiB" >&2
+              exit 1
+            fi
+            fallocate -l ${toString sizeGiB}G ${image}
+            # -m 0: no 5% root reserve, the whole volume is for synced files.
+            # -E nodiscard: mkfs otherwise punches holes straight back through the
+            # fallocate above and leaves a sparse image. That still caps the synced
+            # set, but it stops reserving the space, so other things on the root
+            # filesystem (on duet, the media library) could eat it and the volume
+            # would then hit ENOSPC on its own backing file.
+            mkfs.ext4 -q -m 0 -E nodiscard -L ${folderId} ${image}
+          else
+            # Top the reservation back up if something punched holes in it, or if
+            # sizeGiB grew. Allocating holes does not touch the data, so this is
+            # safe on a mounted image; growing the inner filesystem to match a
+            # larger size is a separate, manual resize2fs.
+            fallocate -l ${toString sizeGiB}G ${image}
           fi
-          fallocate -l ${toString sizeGiB}G ${image}
-          # -m 0: no 5% root reserve, the whole volume is for synced files.
-          mkfs.ext4 -q -m 0 -L ${folderId} ${image}
         '';
       };
     in
@@ -73,12 +86,13 @@ in
 
       config = {
         # ---- the volume ----
-        # Runs once, before the mount; ConditionPathExists skips it ever after.
+        # Creates the volume, then on later runs only tops its reservation back
+        # up, so it is safe to run before the mount every boot.
         systemd.services.balaur-files-image = {
-          description = "Create the ${toString sizeGiB} GiB Syncthing volume";
+          description = "Keep the ${toString sizeGiB} GiB Syncthing volume allocated";
           before = [ mountUnit ];
           requiredBy = [ mountUnit ];
-          unitConfig.ConditionPathExists = "!${image}";
+          wantedBy = [ "multi-user.target" ];
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
