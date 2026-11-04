@@ -15,6 +15,7 @@ in
     sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPuF+Lz5BXcudqKdUv2Fuohry+8hib+ArCKy1Cg8qqZm";
     lanIp = null; # DHCP: it was 192.168.50.43, not reserved in the router
     userKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBaXwupVG+t3PlhIRwjvcvyWE9NyzesTUU55qaC0buGd" ];
+    syncthingId = "OIWJQ4H-XCGNO6G-YC34T53-KYOUVC6-WWYNUXF-U47H6QL-ULMIURW-BLZ7DQY";
     # The cockpit is also the fleet's builder: 8 cores / 16 threads against the
     # Duet's 4 / 8, and the Duet is busy being the living-room screen. 8 jobs
     # leaves half the threads for whoever is actually using this laptop.

@@ -12,6 +12,7 @@ in
     tailnetIp = "100.118.102.119";
     lanIp = "192.168.50.233"; # reserved in the router
     sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKgXcAskVb3sHgL8Z0VlVpSYHB2yDirUQ3GV5xfDvKQo";
+    syncthingId = "MEDQJ5M-PGUYPER-IEGEHM4-NZMCWBM-LKCJVXL-W72PFVP-5OJUMTG-4X3CQAS";
     # userKeys: none yet (you reach it with Tailscale SSH)
   };
 

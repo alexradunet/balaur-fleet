@@ -46,6 +46,20 @@ in
           default = [ ];
           description = "The admin's SSH public keys on this machine (~/.ssh/id_ed25519.pub), trusted by every machine.";
         };
+        syncthingId = mkOption {
+          type = types.nullOr types.str;
+          default = null;
+          description = ''
+            Its Syncthing device ID, so the `files` aspect can pair the machines
+            without anyone clicking through the UI. Read it off the machine with
+            `journalctl -u syncthing -b | grep "device ID"`, or
+            `sudo syncthing --home=/var/lib/syncthing cli show system`.
+
+            It is a hash of the device's public certificate, so it is safe here
+            next to the SSH host keys: knowing it lets nobody impersonate the
+            device.
+          '';
+        };
         builder = mkOption {
           default = null;
           description = ''
