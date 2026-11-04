@@ -15,6 +15,10 @@ in
     sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPuF+Lz5BXcudqKdUv2Fuohry+8hib+ArCKy1Cg8qqZm";
     lanIp = null; # DHCP: it was 192.168.50.43, not reserved in the router
     userKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBaXwupVG+t3PlhIRwjvcvyWE9NyzesTUU55qaC0buGd" ];
+    # The cockpit is also the fleet's builder: 8 cores / 16 threads against the
+    # Duet's 4 / 8, and the Duet is busy being the living-room screen. 8 jobs
+    # leaves half the threads for whoever is actually using this laptop.
+    builder = { maxJobs = 8; speedFactor = 2; };
   };
 
   flake.nixosConfigurations.laptop = inputs.nixpkgs.lib.nixosSystem {
