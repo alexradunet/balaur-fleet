@@ -69,7 +69,7 @@ Editable in the app (Preferences on the Assistant page), GNOME-native:
   `llm-base-url` (s, "" = the provider's default; for OpenAI-compatible
   servers), `speech-base-url` (s, Mistral, default `https://api.mistral.ai/v1`),
   `stt-model` (s), `tts-model` (s), `voice-ro` (s), `voice-en` (s).
-  NixOS sets the defaults from `duet.assistant.*` with a gschema override
+  NixOS sets the defaults from `balaur.assistant.*` with a gschema override
   (integrator's job); user changes live in dconf. The daemon watches
   `changed::` and applies new values without a restart (it restarts the
   agent child when an LLM key changes).

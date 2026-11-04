@@ -343,6 +343,6 @@ func cmdAnalyze(args []string) error {
 		fmt.Printf("  %s %s  awb %.2f/%.2f/%.2f  %s\n", mark, c, g[0], g[1], g[2], name)
 	}
 	fmt.Println("\n* = IR position agrees with the statistics. Pick the image with natural colours")
-	fmt.Println("(red things red, blue things blue) and set duet.camera.tuning.cfa to its layout.")
+	fmt.Println("(red things red, blue things blue) and set balaur.camera.tuning.cfa to its layout.")
 	return nil
 }

@@ -1,5 +1,5 @@
 // The household's home services, from /etc/duet/services.json (written by
-// NixOS from duet.services; $DUET_SERVICES overrides the path for
+// NixOS from balaur.services; $DUET_SERVICES overrides the path for
 // testing). An array of {name, description, icon, url, unit, desktopId}, plus
 // an optional `group` to section the Home page.
 

@@ -3,31 +3,33 @@
 # not nixpkgs, which lags upstream by months. Bump them with:
 #   nix flake update llm-agents && nixos-rebuild switch --flake .#duet --sudo
 # Per-project toolchains come from `nix develop` (see each repo's flake).
-{ config, lib, pkgs, llm-agents, ... }:
-let
-  cfg = config.duet;
-  agents = llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
-in
-lib.mkIf cfg.dev.enable {
-  environment.systemPackages = [
-    agents.claude-code # `claude`
-    agents.pi # `pi` (pi.dev)
-    agents.herdr # workspace manager for agent sessions (herdr.dev)
-  ] ++ (with pkgs; [
-    gh
-    ripgrep
-    fd
-    tree
-    nodejs
-  ]);
+{ inputs, ... }: {
+  flake.modules.nixos.dev =
+    { pkgs, ... }:
+    let
+      agents = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
+    in
+    {
+      environment.systemPackages = [
+        agents.claude-code # `claude`
+        agents.pi # `pi` (pi.dev)
+        agents.herdr # workspace manager for agent sessions (herdr.dev)
+      ] ++ (with pkgs; [
+        gh
+        ripgrep
+        fd
+        tree
+        nodejs
+      ]);
 
-  # Fetch the pre-built agents instead of compiling them on the Duet.
-  nix.settings = {
-    extra-substituters = [ "https://cache.numtide.com" ];
-    extra-trusted-public-keys = [ "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=" ];
-  };
+      # Fetch the pre-built agents instead of compiling them on the Duet.
+      nix.settings = {
+        extra-substituters = [ "https://cache.numtide.com" ];
+        extra-trusted-public-keys = [ "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=" ];
+      };
 
-  # Lets prebuilt binaries that tools download at runtime (npm/pip packages,
-  # language servers, agent helpers) run on NixOS.
-  programs.nix-ld.enable = true;
+      # Lets prebuilt binaries that tools download at runtime (npm/pip packages,
+      # language servers, agent helpers) run on NixOS.
+      programs.nix-ld.enable = true;
+    };
 }

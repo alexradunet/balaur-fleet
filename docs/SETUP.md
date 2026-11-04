@@ -22,7 +22,7 @@ grep -E 'stateVersion|systemd-boot|grub|efiSysMountPoint' /etc/nixos/configurati
 
 | You learn | Why it matters |
 |---|---|
-| `whoami` (your username) | Becomes `duet.user`. If it is missing from the config, NixOS removes that account on the next rebuild. |
+| `whoami` (your username) | Becomes `balaur.user`. If it is missing from the config, NixOS removes that account on the next rebuild. |
 | Where the EFI partition is mounted (`/boot` or `/boot/efi`) | The config uses systemd-boot. If yours is `/boot/efi`, you add one line (stage 3). |
 | `stateVersion` | Keep the value your install chose; do not "upgrade" it by hand. |
 | Whether `lsblk -f` shows `crypto_LUKS` | A disk-encrypted server waits for a passphrase on every reboot, including after a power cut. Fine for a laptop, awkward for a server. Tell me if you see it. |
@@ -64,7 +64,7 @@ Check: `ls hosts/duet/` shows `hardware-configuration.nix`.
 ## Stage 3: Edit the one file that is yours
 
 ```bash
-nano hosts/duet/default.nix
+nano modules/hosts/duet.nix
 ```
 
 Set, using what you learned in stage 0:
@@ -78,7 +78,7 @@ Set, using what you learned in stage 0:
   };
 ```
 
-- **SSH keys are skipped for now**: SSH logs in with your account password (the one you use at the console). Later: put keys in `duet.sshKeys` and set `duet.ssh.passwordAuth = false`.
+- **SSH keys are skipped for now**: SSH logs in with your account password (the one you use at the console). Later: put keys in `balaur.sshKeys` and set `balaur.ssh.passwordAuth = false`.
 - If stage 0 showed the EFI partition at `/boot/efi`, also add at the top level of the file:
   `boot.loader.efi.efiSysMountPoint = "/boot/efi";`
 
@@ -111,14 +111,14 @@ reboot
 
 ## Stage 6: What you should see
 
-Boot splash, then GNOME logs in by itself as the household account (`duet.desktop.user`, default `home`):
+Boot splash, then GNOME logs in by itself as the household account (`balaur.tablet.user`, default `home`):
 the **Duet** app, Firefox, Jellyfin and Gelly are in the dock. Swipe up for the app switcher.
 
 | Problem | Do this |
 |---|---|
 | Black screen / no desktop | Plug in a keyboard, press Ctrl+Alt+F3, log in, then `journalctl -u display-manager -b` |
 | A service shows "Failed" on the Duet app's Home page | `systemctl status <its unit>`; the page shows `systemctl is-active` live |
-| Can't log in at console | Your old password still works for your old username (`duet.user`) |
+| Can't log in at console | Your old password still works for your old username (`balaur.user`) |
 
 ## Stage 7: Tailscale and SSH
 
@@ -147,13 +147,12 @@ are installed as GNOME web apps). As we add services, each one appears there.
 
 ```bash
 cd ~/yoda-duet-7-home-server
-nano hosts/duet/default.nix        # or any module
+nano modules/hosts/duet.nix        # or any module
 nixos-rebuild switch --flake .#duet --sudo
 git add -A && git commit -m "..."  # the repo is your system's source of truth
 ```
 
-Optional things you can turn on later (all in `hosts/duet/default.nix`):
-`duet.files.enable` (Syncthing). The repo grows as we add services; each one registers itself in `duet.services`.
+Optional things you can turn on later: the `files` aspect (Syncthing), by adding it to the list in `modules/hosts/duet.nix`. The repo grows as we add services; each one registers itself in `balaur.services`.
 
 ## Stage 9: Code on the Duet
 
@@ -195,7 +194,7 @@ toolchains should come from each project's own `nix develop` shell instead of sy
 
 ## Stage 10: Front camera
 
-`duet.camera.enable = true` (already set in `hosts/duet/default.nix`) does four things:
+The `camera` aspect (already in the list in `modules/hosts/duet.nix`) does four things:
 
 1. Builds three patched kernel modules (`ipu-bridge`, `ov5675`, `intel_skl_int3472_discrete`) from the running kernel's
    source, so the front OVTI5678 sensor is recognised. The patch is `pkgs/camera-yoga-duet-ov5678.patch`; it
@@ -205,7 +204,7 @@ toolchains should come from each project's own `nix develop` shell instead of sy
    runs while an app has the webcam open; otherwise the relay looks at 3 frames a second.
 3. Watches those frames for movement and reports it (`/run/duet-camera-relay/motion`); the `duet-presence` service
    in the household session turns it into activity for GNOME, which keeps the screen on and wakes it
-   (`duet.camera.screenTimeout`).
+   (`balaur.camera.screenTimeout`).
 4. Puts the camera on the Duet app's Home page, opening Snapshot.
 
 ### Why the picture was yellow-green, and what fixes it
@@ -227,7 +226,7 @@ which is why it looked yellow-green on both installs.
 Windows gets it right because the IPU's hardware ISP, driven by Lenovo's tuning file, rebuilds R, G, B and IR,
 subtracts the infrared that leaks into the colour pixels, then runs auto exposure, white balance, a colour matrix and gamma.
 `duet-camera` (Go, in `camera/`) does those same steps on the CPU: raw frames from the IPU6 capture node in,
-1280x720 YUYV out. It is the default (`duet.camera.backend = "rgbir"`); `"libcamera"` brings back the old path.
+1280x720 YUYV out. It is the default (`balaur.camera.backend = "rgbir"`); `"libcamera"` brings back the old path.
 
 ### Apply, then calibrate once
 
@@ -264,7 +263,7 @@ up something clearly red. If it shows blue, switch to the other layout:
 echo '{"cfa":"GIGI/BGRG/GIGI/RGBG"}' | sudo tee /var/lib/duet-camera/tuning.json && sudo systemctl reload duet-camera-relay
 ```
 
-and pin it with `camera.tuning.cfa` in `hosts/duet/default.nix`.
+and pin it with `camera.tuning.cfa` in `modules/hosts/duet.nix`.
 
 To redo the measurement from scratch (another sensor, odd results), point the camera at something with clear
 red **and** blue (a book cover, a towel), then:
@@ -283,7 +282,7 @@ duet-camera analyze -out ~/cfa "$(ls -t /var/lib/duet-camera/snapshots/*.raw16 |
 It prints the brightness of each of the 16 tile positions (the IR ones are clearly darker indoors), marks the
 layouts whose IR position matches with `*`, and writes one PNG per layout into `~/cfa`. Copy them to your
 PC (`scp -r alex@duet.local:cfa .`) and pick the one where red is red and blue is blue. Its layout goes in
-`hosts/duet/default.nix`:
+`modules/hosts/duet.nix`:
 
 ```nix
 camera.tuning = {
@@ -345,7 +344,7 @@ echo '{"view":"noir"}' | sudo tee /var/lib/duet-camera/tuning.json && sudo syste
 Colour without infrared subtraction: if this shows a picture and `"color"` doesn't, the layout or `irCoeffs` is the problem.
 Remove the overlay afterwards with `sudo rm /var/lib/duet-camera/tuning.json && sudo systemctl reload duet-camera-relay`.
 
-As a stop-gap, `duet.camera.backend = "libcamera";` in `hosts/duet/default.nix` brings back the old (tinted) picture.
+As a stop-gap, `balaur.camera.backend = "libcamera";` in `modules/hosts/duet.nix` brings back the old (tinted) picture.
 
 ### Later: the Windows colour matrix
 
@@ -355,7 +354,7 @@ for colour as close to Windows as this pipeline gets. That's a separate step.
 
 ## Stage 11: The voice assistant
 
-`duet.assistant.enable = true;` (on in `hosts/duet/default.nix`) adds a voice assistant to the household's
+The `assistant` aspect (in the list in `modules/hosts/duet.nix`) adds a voice assistant to the household's
 GNOME session. Only the wake word runs on the Duet; speech goes to Mistral (EU), and an agent built on the
 pi SDK does the thinking:
 
@@ -383,7 +382,7 @@ Make a key at console.mistral.ai, then either:
 - or from a terminal: `sudo duet-assistant-login` (paste the key, hidden; it is checked, saved to
   /var/lib/secrets as the fallback, the voices are listed, the assistant restarts).
 
-The defaults for model, voices and servers come from `duet.assistant.*`; what you change in the app wins.
+The defaults for model, voices and servers come from `balaur.assistant.*`; what you change in the app wins.
 
 ### Use it
 
@@ -406,18 +405,18 @@ reminders and memory.
 
 ### Tuning
 
-- Doesn't hear you from across the room: `duet.assistant.audio.micGain` (default 65; 50 = 0 dB, max 70 = +20 dB).
-- Wakes by itself: raise `duet.assistant.wakeThreshold`. Misses you: lower it. `sudo duet-wake-test` records a few
+- Doesn't hear you from across the room: `balaur.assistant.audio.micGain` (default 65; 50 = 0 dB, max 70 = +20 dB).
+- Wakes by itself: raise `balaur.assistant.wakeThreshold`. Misses you: lower it. `sudo duet-wake-test` records a few
   tries and prints each one's score (`sudo duet-wake-test all` compares the built-in wake words).
 - What it heard, every tool call and the time to the reply:
   `journalctl _SYSTEMD_USER_UNIT=duet-assistant.service -f` (or, as the household user, `journalctl --user -u duet-assistant -f`).
-- Location for the weather: `duet.assistant.location`. News sources: `duet.assistant.newsFeeds`.
+- Location for the weather: `balaur.assistant.location`. News sources: `balaur.assistant.newsFeeds`.
 
 ### Custom wake word
 
 Train one with the openWakeWord synthetic-data notebook (Google Colab, about an hour, no recordings needed;
 search for "openWakeWord automatic model training"). Copy the resulting `hei_duet.tflite` to
-`/var/lib/duet-wakewords/`, set `duet.assistant.wakeWord = "hei_duet";`, rebuild.
+`/var/lib/duet-wakewords/`, set `balaur.assistant.wakeWord = "hei_duet";`, rebuild.
 
 ### Where things are kept
 
