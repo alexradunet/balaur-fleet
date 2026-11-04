@@ -1,4 +1,0 @@
-html, body { margin: 0; height: 100%; background: #0b0e14; color: #e6eaf2; font: 32px/1.4 sans-serif; }
-body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; }
-.logo { width: 120px; height: 120px; border-radius: 32px; background: linear-gradient(135deg, #7aa2ff, #c084fc); }
-p { margin: 0; color: #8b95ab; }

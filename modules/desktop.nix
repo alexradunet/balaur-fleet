@@ -4,8 +4,9 @@
 # and the screen follows rotation.
 #
 # What stays ours rather than GNOME's:
-#   - Screen off/on: the camera relay (camera.nix) switches the backlight on
-#     movement, so GNOME's own blanking, dimming and locking are off.
+#   - Screen off/on: GNOME blanks it after duet.camera.screenTimeout idle and
+#     never locks; movement in front of the camera counts as activity
+#     (duet-presence, camera.nix), so it stays on while someone is there.
 #   - Sound: the session's PipeWire, shared by the apps and the voice assistant
 #     (a user service of this session, assistant.nix), which also adds the
 #     microphone array's 16 kHz device as the default source.
@@ -39,14 +40,14 @@ let
       startupWMClass = "org.gnome.Epiphany.WebApp_${builtins.hashString "sha1" s.name}";
       categories = [ "Network" ];
     })
-    (lib.filter hasWebApp cfg.dashboard.services);
+    (lib.filter hasWebApp cfg.services);
 
   # The home services for the Duet app's Home page (gnome/CONTRACT.md).
   servicesJson = builtins.toJSON (map (s: {
     inherit (s) name description icon unit;
     url = serviceUrl s;
     desktopId = if hasWebApp s then "${webAppId s}.desktop" else s.desktopId;
-  }) cfg.dashboard.services);
+  }) cfg.services);
 
   # Working on the box itself (keyboard attached): a terminal logged in as the
   # admin account, where the repo and Claude Code live. Asks that account's

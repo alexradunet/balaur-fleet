@@ -1,7 +1,7 @@
 // Outside information for the agent-side tools: weather (Open-Meteo, no key),
 // news (RSS/Atom feeds from the config) and web search (Mistral's web_search
 // tool). Only the query leaves the house, never audio. A port of
-// assistant/web.go and the WebSearch half of assistant/mistral.go.
+// assistant/web.go (the former Go service, in git history) and the WebSearch half of assistant/mistral.go (the former Go service, in git history).
 
 export interface Location {
 	name: string;

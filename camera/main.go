@@ -2,8 +2,8 @@
 // webcam: raw frames from the IPU6 capture node, an RGB-IR rebuild with IR
 // subtraction, auto white balance, colour correction, gamma and auto exposure
 // (the steps the Windows driver runs in the IPU's ISP), then YUYV frames into
-// the v4l2loopback webcam, plus an MJPEG live view on a Unix socket
-// ($DUET_CAMERA_STREAM) that the dashboard serves to its viewers.
+// the v4l2loopback webcam. It also watches the picture for movement and
+// reports it ($DUET_MOTION_FILE), so the desktop can treat it as presence.
 package main
 
 import (
@@ -107,42 +107,18 @@ func cmdRun(args []string) error {
 	frame := make([]byte, cfg.OutWidth*cfg.OutHeight*2)
 	log.Printf("cfa %s, ir %v, %s, writing %dx%d YUYV to %s", proc.cfa, cfg.IRCoeffs, ae, cfg.OutWidth, cfg.OutHeight, *output)
 
-	var stream *Stream
-	if path := os.Getenv("DUET_CAMERA_STREAM"); path != "" {
-		if stream, err = ServeStream(path, cfg.OutWidth, cfg.OutHeight); err != nil {
-			return fmt.Errorf("live view: %w", err)
-		}
-		log.Printf("%s on %s", stream, path)
-	}
-
 	webcam := newWebcamWatch(*output)
 	var lastProcessed time.Time
 	idle := false
 	motion := NewMotion(cfg.MotionThreshold, cfg.MotionArea)
-	var screen *Screen
-	startScreen := func() {
-		if screen != nil || cfg.ScreenTimeout <= 0 {
-			return
-		}
-		s, err := NewScreen(time.Duration(cfg.ScreenTimeout)*time.Second, os.Getenv("DUET_SCREEN_RESTORE"))
-		if err != nil {
-			log.Printf("screen: %v (it stays on)", err)
-			return
-		}
-		screen = s
-		log.Printf("%s, motion threshold %v, area %.1f%%", s, cfg.MotionThreshold, cfg.MotionArea*100)
-	}
-	startScreen()
-	// With a desktop, the desktop blanks the screen: we only report movement by
-	// rewriting this file (at most every motionReport), for a session service
-	// to turn into user activity (modules/camera.nix).
+	// The desktop blanks the screen; we only report movement by rewriting this
+	// file (at most every motionReport), for a session service to turn into
+	// user activity (modules/camera.nix). Unset: no motion detection at all.
 	motionFile := os.Getenv("DUET_MOTION_FILE")
 	var lastReport time.Time
-	defer func() {
-		if screen != nil {
-			screen.Close() // never leave the screen dark behind us
-		}
-	}()
+	if motionFile != "" {
+		log.Printf("reporting movement to %s, threshold %v, area %.1f%%", motionFile, cfg.MotionThreshold, cfg.MotionArea*100)
+	}
 
 	sigs := make(chan os.Signal, 4)
 	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGUSR1, syscall.SIGTERM, syscall.SIGINT)
@@ -164,12 +140,7 @@ func cmdRun(args []string) error {
 				} else {
 					cfg = c
 					motion.Threshold, motion.Area = cfg.MotionThreshold, cfg.MotionArea
-					if screen != nil {
-						screen.SetTimeout(time.Duration(cfg.ScreenTimeout) * time.Second)
-					} else {
-						startScreen()
-					}
-					log.Printf("reloaded tuning: view %s, cfa %s, ir %v, ccm %v, screenTimeout %ds", cfg.View, proc.cfa, cfg.IRCoeffs, cfg.CCM, cfg.ScreenTimeout)
+					log.Printf("reloaded tuning: view %s, cfa %s, ir %v, ccm %v", cfg.View, proc.cfa, cfg.IRCoeffs, cfg.CCM)
 				}
 			case syscall.SIGUSR1:
 				snapshot = true
@@ -195,14 +166,14 @@ func cmdRun(args []string) error {
 		}
 		lastTs = ts
 
-		// Nobody watching: process only cfg.IdleFPS frames per second.
-		nowIdle := (stream == nil || stream.Viewers() == 0) && !webcam.InUse()
+		// Nobody has the webcam open: process only cfg.IdleFPS frames per second.
+		nowIdle := !webcam.InUse()
 		if nowIdle != idle {
 			idle = nowIdle
 			if idle {
-				log.Printf("no viewers: idle at %v fps", cfg.IdleFPS)
+				log.Printf("webcam closed: idle at %v fps", cfg.IdleFPS)
 			} else {
-				log.Printf("viewer connected: full rate")
+				log.Printf("webcam open: full rate")
 			}
 		}
 		if idle && (cfg.IdleFPS <= 0 || time.Since(lastProcessed) < time.Duration(float64(time.Second)/cfg.IdleFPS)) {
@@ -224,16 +195,7 @@ func cmdRun(args []string) error {
 		if err := out.Write(frame); err != nil {
 			return fmt.Errorf("write %s: %w", *output, err)
 		}
-		if stream != nil {
-			stream.Offer(frame)
-		}
-		if screen != nil {
-			if screen.Settling() {
-				motion.Reset()
-			} else if motion.Update(frame, cfg.OutWidth, cfg.OutHeight) {
-				screen.Activity("movement")
-			}
-		} else if motionFile != "" && motion.Update(frame, cfg.OutWidth, cfg.OutHeight) && time.Since(lastReport) >= motionReport {
+		if motionFile != "" && motion.Update(frame, cfg.OutWidth, cfg.OutHeight) && time.Since(lastReport) >= motionReport {
 			lastReport = time.Now()
 			if err := os.WriteFile(motionFile, []byte(lastReport.Format(time.RFC3339)+"\n"), 0o644); err != nil {
 				log.Printf("motion: %v", err)
@@ -261,11 +223,8 @@ func cmdRun(args []string) error {
 			log.Printf("%.1f fps (sensor %.1f), %.1f ms/frame, raw level %.3f, green %.3f, clipped %.1f%%, awb %.2f/%.2f/%.2f, %s",
 				float64(frames)/since.Seconds(), 1/math.Max(frameDur.Seconds(), 1e-6),
 				busy.Seconds()*1000/float64(frames), st.MeanY(), st.MeanG(), st.ClipFrac()*100, g[0], g[1], g[2], ae)
-			if screen == nil && motionFile != "" {
+			if motionFile != "" {
 				log.Printf("motion peak %.1f%% of the picture (reported at %.1f%%)", motion.Peak()*100, cfg.MotionArea*100)
-			}
-			if screen != nil {
-				log.Printf("%s, motion peak %.1f%% of the picture (wakes at %.1f%%)", screen, motion.Peak()*100, cfg.MotionArea*100)
 			}
 			frames, busy, lastLog = 0, 0, time.Now()
 		}

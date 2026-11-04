@@ -1,6 +1,6 @@
 // Everything the assistant keeps lives in small JSON files in the state
 // directory (memory.json, house.json, reminders.json), each rewritten
-// atomically on change. A port of assistant/store.go that writes the same
+// atomically on change. A port of assistant/store.go (the former Go service, in git history) that writes the same
 // bytes: the Go and GJS versions can take turns on the same files.
 //
 // Times are kept as the strings read from (or written to) the files, so a

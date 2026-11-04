@@ -2,9 +2,8 @@
 
 The household's voice assistant ("Hey Jarvis") as a GNOME session service:
 a `Gio.Application` (`org.duet.Assistant`) started by the systemd user unit
-`duet-assistant.service`. It replaces the Go service in `assistant/` with the
-same behaviour, config JSON and state files; the API is D-Bus only (see
-`gnome/CONTRACT.md`). The model and its tools run in a separate process,
+`duet-assistant.service`. It replaced a Go service and keeps its config JSON
+and state files; the API is D-Bus only (see `gnome/CONTRACT.md`). The model and its tools run in a separate process,
 `duet-agent` (`gnome/agent/`, pi SDK), which this daemon spawns.
 
 ## Layout
@@ -39,7 +38,7 @@ builds (`node --test test/*.test.ts` in `gnome/agent/`).
 
 ## Running by hand
 
-The Go assistant is the live one; while this runs, both answer "Hey Jarvis",
+The installed assistant is live; while this runs, both answer "Hey Jarvis",
 so keep it short. As the household user, on a copy of the state:
 
 ```sh

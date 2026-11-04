@@ -322,6 +322,8 @@ func BenchmarkUnpack16(b *testing.B) {
 func TestAnalyzeCommand(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("STATE_DIRECTORY", dir)
+	defer func(p string) { systemConfigPath = p }(systemConfigPath)
+	systemConfigPath = dir + "/none.json" // defaults only, whatever this host has deployed
 	f := mosaic("GIGI/RGBG/GIGI/BGRG", 64, 48, 1, func(cx, cy int) [4]float64 {
 		if cx < 16 {
 			return [4]float64{0.7, 0.3, 0.1, 0.05}

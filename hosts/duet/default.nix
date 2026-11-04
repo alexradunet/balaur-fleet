@@ -31,7 +31,7 @@
     # create a new user and drop yours, so set it before the first rebuild.
     user = "alex";
 
-    # Front camera + live view on the dashboard's Camera tab (patched kernel modules + the RGB-IR pipeline in camera/).
+    # Front camera: patched kernel modules + the RGB-IR pipeline in camera/; GNOME Snapshot shows it, movement wakes the screen.
     camera.enable = true;
 
     # Jellyfin (:8096) + qBittorrent with torrent search (:8080), media in /srv/media.
@@ -40,24 +40,11 @@
     # AdGuard Home (DNS :53, UI :3000). Point the TV's DNS (or the router's) at this machine.
     adblock.enable = true;
 
-    # The living-room Samsung (UE65AU7172, Tizen 6): TV tab on the dashboard + `duet-tv-sideload`.
-    # Reserve both IPs in the router (TV 192.168.50.106, this machine 192.168.50.233).
-    tv = {
-      enable = true;
-      host = "192.168.50.106";
-      mac = "a0:d7:f3:9f:2d:18";
-      name = "Living room TV";
-      dashboardUrl = "http://192.168.50.233/";
-      apps = [
-        { name = "YouTube"; id = "111299001912"; icon = "▶"; }
-        { name = "Netflix"; id = "3201907018807"; icon = "🍿"; }
-        { name = "Prime Video"; id = "3201910019365"; icon = "📦"; }
-        { name = "Disney+"; id = "3201901017640"; icon = "✨"; }
-        { name = "Spotify"; id = "3201606009684"; icon = "🎵"; }
-      ];
-    };
-    # Voice assistant: "Hey Jarvis", Romanian + English, speech handled on this machine.
-    # Key: `sudo duet-assistant-login` (kept in /var/lib/secrets, never in the repo).
+    # The living-room Samsung (UE65AU7172, Tizen 6) is at 192.168.50.106, this machine at
+    # 192.168.50.233 (both reserved in the router); AdGuard above blocks its ads.
+
+    # Voice assistant: "Hey Jarvis", Romanian + English; Mistral for speech, a pi SDK agent for the rest.
+    # Key: Duet app > Assistant settings (GNOME Keyring), or `sudo duet-assistant-login` (/var/lib/secrets).
     assistant = {
       enable = true;
       # Mistral (EU, Paris): OpenAI-compatible, tool calling. Key from console.mistral.ai.

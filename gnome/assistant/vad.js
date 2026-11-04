@@ -1,6 +1,6 @@
 // End-of-speech detection by energy: an adaptive noise floor plus a margin.
 // Good enough for a quiet room and a person speaking close to the laptop.
-// A port of assistant/vad.go; the recorder is a push-driven state machine
+// A port of assistant/vad.go (the former Go service, in git history); the recorder is a push-driven state machine
 // here (frames arrive from the GStreamer capture on the main loop).
 
 export const MIC_RATE = 16000;

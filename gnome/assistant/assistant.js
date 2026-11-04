@@ -7,7 +7,7 @@
 // Typed requests (D-Bus Ask) and ringing timers/reminders go through the
 // same loop. Saying the wake word interrupts whatever is going on (speech, a
 // ringing timer, a slow answer) and starts listening again. A port of
-// assistant/assistant.go; the model and its tools live in the agent process.
+// assistant/assistant.go (the former Go service, in git history); the model and its tools live in the agent process.
 
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';

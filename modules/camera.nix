@@ -1,4 +1,5 @@
-# Front camera (OVTI5678 sensor behind the Intel IPU6), shown on the dashboard.
+# Front camera (OVTI5678 sensor behind the Intel IPU6), a webcam for GNOME's
+# Snapshot and video calls, and a presence sensor for the desktop.
 #
 # The sensor is RGB-IR (Lenovo: "IR + RGB hybrid"): a 4x4 colour filter with
 # infrared pixels where an ordinary Bayer sensor has blue. Read as Bayer it
@@ -6,11 +7,11 @@
 # ISP does, in our own Go program (camera/):
 #   patched kernel modules -> raw frames from the IPU6 capture node ->
 #   duet-camera (RGB-IR rebuild, IR subtraction, AWB, CCM, gamma, AE) ->
-#   v4l2loopback webcam "Duet Front Camera" (/dev/video64), and an MJPEG live
-#   view on a Unix socket that the dashboard shows on its Camera tab (built-in screen,
-#   tailnet, and the LAN with duet.camera.lanView).
+#   v4l2loopback webcam "Duet Front Camera" (/dev/video64). The relay runs the
+#   full pipeline only while something has the webcam open, and otherwise
+#   looks at a few frames a second for movement (duet-presence, below).
 # duet.camera.backend = "libcamera" swaps duet-camera for libcamera + GStreamer
-# (webcam only, no live view).
+# (webcam only, no motion reporting).
 # The kernel changes are kept in pkgs/ so they can be dropped once upstream has them.
 { config, lib, pkgs, ... }:
 let
@@ -95,11 +96,9 @@ lib.mkIf cfg.camera.enable {
   # No devices at load time: the relay creates its own.
   boot.extraModprobeConfig = "options v4l2loopback devices=0";
 
-  environment.etc."duet-camera.json".text = builtins.toJSON ({
-    # The relay never switches the screen itself: GNOME blanks it (desktop.nix),
-    # and movement is reported to the session as activity (below).
-    screenTimeout = 0;
-  } // cfg.camera.tuning);
+  # The relay never switches the screen itself: GNOME blanks it (desktop.nix),
+  # and movement is reported to the session as activity (below).
+  environment.etc."duet-camera.json".text = builtins.toJSON cfg.camera.tuning;
 
   # A producer that stays running (v4l2-relayd's on-demand mode stalls after
   # the first black frame with v4l2loopback).
@@ -111,13 +110,8 @@ lib.mkIf cfg.camera.enable {
 
     environment = {
       V4L2_DEVICE_FILE = "/run/duet-camera-relay/device";
-      # Brightness to restore while the relay has the screen switched off.
-      DUET_SCREEN_RESTORE = "/run/duet-camera-relay/screen-brightness";
     } // lib.optionalAttrs motionWake {
       DUET_MOTION_FILE = motionFile;
-    } // lib.optionalAttrs rgbir {
-      # MJPEG live view; dashboard.nix reads this path to proxy it.
-      DUET_CAMERA_STREAM = "/run/duet-camera-relay/stream.sock";
     } // lib.optionalAttrs (!rgbir) {
       GST_PLUGIN_PATH = lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstPlugins;
     };
@@ -147,13 +141,6 @@ lib.mkIf cfg.camera.enable {
       '';
 
     postStop = ''
-      # The relay died while the screen was off (motion wake): light it again.
-      if test -s "$DUET_SCREEN_RESTORE"; then
-        for b in /sys/class/backlight/*; do
-          if test "$(cat "$b/brightness")" = 0; then cat "$DUET_SCREEN_RESTORE" > "$b/brightness"; fi
-          break
-        done
-      fi
       if test -s "$V4L2_DEVICE_FILE"; then
         ${v4l2loopback.bin}/bin/v4l2loopback-ctl \
           delete "$(cat "$V4L2_DEVICE_FILE")" || true
@@ -201,7 +188,7 @@ lib.mkIf cfg.camera.enable {
     cameraCheck
   ];
 
-  duet.dashboard.services = [{
+  duet.services = [{
     name = "Camera";
     description = "Front camera relay";
     icon = "📷";

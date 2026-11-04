@@ -40,14 +40,12 @@ type Config struct {
 	MaxDigitalGain float64 `json:"maxDigitalGain"`
 	AntiFlicker    int     `json:"antiFlicker"` // mains frequency in Hz (50/60), 0 = off
 
-	// Seconds without movement in front of the camera (or touch) before the
-	// screen's backlight goes off; 0 = always on.
-	ScreenTimeout   int     `json:"screenTimeout"`
+	// Movement detection, reported through $DUET_MOTION_FILE.
 	MotionThreshold float64 `json:"motionThreshold"` // luma change (of 255) that counts for one cell
 	MotionArea      float64 `json:"motionArea"`      // fraction of the picture that must change
 
-	// Frames per second processed while nobody watches the live view or uses
-	// the webcam (motion wake and exposure keep working). 0 = none.
+	// Frames per second processed while nobody has the webcam open (motion
+	// reporting and exposure keep working). 0 = none.
 	IdleFPS float64 `json:"idleFps"`
 }
 
@@ -87,7 +85,8 @@ func defaultConfig() Config {
 	}
 }
 
-const systemConfigPath = "/etc/duet-camera.json"
+// A variable so tests don't depend on the config of the machine they run on.
+var systemConfigPath = "/etc/duet-camera.json"
 
 func stateDir() string {
 	if d := os.Getenv("STATE_DIRECTORY"); d != "" {
@@ -137,8 +136,6 @@ func (c *Config) validate() error {
 		return fmt.Errorf("maxGain %v must be at least 1", c.MaxGain)
 	case c.MaxDigitalGain < 1:
 		return fmt.Errorf("maxDigitalGain %v must be at least 1", c.MaxDigitalGain)
-	case c.ScreenTimeout < 0:
-		return fmt.Errorf("screenTimeout %v must be 0 (always on) or more", c.ScreenTimeout)
 	case c.MotionThreshold <= 0:
 		return fmt.Errorf("motionThreshold %v must be above 0", c.MotionThreshold)
 	case c.IdleFPS < 0 || c.IdleFPS > 30:

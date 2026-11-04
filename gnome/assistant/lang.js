@@ -1,6 +1,6 @@
 // Romanian or English? Used to pick the voice for a reply and the language of
 // the conversation. Voxtral reports the language when it can; otherwise (and
-// for typed text) this heuristic decides. A port of assistant/lang.go.
+// for typed text) this heuristic decides. A port of assistant/lang.go (the former Go service, in git history).
 
 import {trimChars} from './util.js';
 

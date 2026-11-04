@@ -32,7 +32,7 @@ in
   # Reach the admin UIs over the tailnet as well as the LAN.
   networking.firewall.trustedInterfaces = lib.mkIf net.enable [ "tailscale0" ];
 
-  duet.dashboard.services =
+  duet.services =
     lib.optional net.enable {
       name = "Tailscale";
       description = "Private remote access";

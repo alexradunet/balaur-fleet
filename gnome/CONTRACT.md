@@ -9,7 +9,7 @@ Nix packaging needs). Three pieces talk over the **session D-Bus**:
 
 | Piece | Dir | What |
 |---|---|---|
-| Assistant daemon | `gnome/assistant/` | Voice assistant ("Hey Jarvis"): a `Gio.Application` running as the systemd **user** service `duet-assistant.service` in the household session. Owns `org.duet.Assistant` on the session bus. Replaces the Go one in `assistant/` (same behaviour, same config and state files). |
+| Assistant daemon | `gnome/assistant/` | Voice assistant ("Hey Jarvis"): a `Gio.Application` running as the systemd **user** service `duet-assistant.service` in the household session. Owns `org.duet.Assistant` on the session bus. (It replaced a Go service; its state files keep that format.) |
 | Shell extension | `gnome/shell-extension/` | `duet@duet.local`: orb + captions over every app while the assistant listens/thinks/speaks/rings (tap = Stop), and a Quick Settings toggle for the microphone. |
 | App | `gnome/app/` | `org.duet.Duet`, libadwaita: conversation (+ type to ask), lists, timers & reminders, memory, home services. |
 
@@ -34,16 +34,15 @@ and GJS is neither, so the GJS daemon spawns `duet-agent` with
 - **No filesystem resource discovery** (no `.pi` dirs, settings files,
   skills, prompt templates, AGENTS.md/context files, MCP): everything is
   passed explicitly in code. In-memory `SessionManager`.
-- Our tools, registered through the SDK (TypeBox schemas), with the same
-  names, descriptions and parameters as the Go `assistant/tools.go`:
+- Our tools, registered through the SDK (TypeBox schemas), (`gnome/agent/src/`):
   - agent-side (Node `fetch`): weather (Open-Meteo), news (RSS feeds from
-    the config), web search (Mistral's web_search, as the Go code does);
+    the config), web search (Mistral's web_search);
   - daemon-side (the GJS daemon owns the state and GNOME): timers,
     reminders, lists, memory, volume, time. The agent forwards these as
     `tool_call` records and awaits the matching `tool_result`.
 - Conversation: one session kept across turns (follow-ups work), reset after
-  the Go code's quiet period; the system prompt is rebuilt per turn from the
-  `context` the daemon sends, as `assistant/assistant.go` builds it today.
+  5 quiet minutes; the system prompt is rebuilt per turn from the `context`
+  the daemon sends (time, language, memories, lists).
 
 Protocol (one JSON object per line; `id` correlates):
 
@@ -148,8 +147,7 @@ Errors: methods fail with a D-Bus error `org.duet.Assistant.Error.Failed` (messa
 
 ### `Snapshot` JSON
 
-The same shape the Go service's `GET /status` returns today (see
-`assistant/assistant.go` `Status`, `assistant/store.go`), so nothing is lost:
+Built in `gnome/assistant/` (`assistant.js`, `store.js`):
 
 ```json
 {
@@ -162,8 +160,7 @@ The same shape the Go service's `GET /status` returns today (see
 }
 ```
 
-Field names follow the Go structs' JSON tags exactly (check them; the example
-above is indicative). Times are RFC 3339 with offset.
+The example is indicative; `store.js` is authoritative. Times are RFC 3339 with offset.
 
 ### Notifications (sent by the daemon)
 
@@ -180,25 +177,25 @@ Timers and reminders going off are GNOME notifications from
   Speak through the default sink (`appsrc ! audioconvert ! audioresample !
   pipewiresink`), stream property `media.role=Assistant`.
 - Wake word: openWakeWord's Wyoming server at `tcp://127.0.0.1:10400`
-  (protocol: see `assistant/wyoming.go`), 80 ms chunks (1280 samples).
-- Config: JSON file at `$DUET_ASSISTANT_CONFIG` (same schema as the Go
-  `Config` in `assistant/assistant.go`; Nix writes it in `modules/assistant.nix`).
-- API key: `$CREDENTIALS_DIRECTORY/llm-key` (systemd LoadCredential), fallback
-  `$DUET_ASSISTANT_LLM_KEY`.
+  (client: `gnome/assistant/wyoming.js`), 80 ms chunks (1280 samples).
+- Config: JSON file at `$DUET_ASSISTANT_CONFIG` (read by
+  `gnome/assistant/config.js`; Nix writes it in `modules/assistant.nix`).
+- API keys: the GNOME Keyring (see Settings); fallback for Mistral the file at
+  `$DUET_ASSISTANT_KEY_FILE` (`sudo duet-assistant-login`), `$DUET_ASSISTANT_LLM_KEY` for development.
 - State: `$STATE_DIRECTORY` (= `~/.local/state/duet-assistant`), file
-  `house.json`. **Keep the Go format byte-compatible**: the household's lists
-  and memories live there.
+  `house.json`. The household's lists and memories live there, in
+  Go's `encoding/json` format (`gojson.js`), kept byte-compatible with the
+  service it replaced.
 - Timezone: `$TZ` (Europe/Bucharest).
 - Volume: `wpctl get-volume/set-volume @DEFAULT_AUDIO_SINK@` (or `pactl`).
 - Home services for the app: `/etc/duet/services.json`, an array of
   `{name, description, icon, url, unit, desktopId}` (`unit` = systemd system
   unit, or `user:<unit>` for a unit of the user session; `desktopId` = the
   GNOME app to launch for it, may be null; `url` may be null).
-- Testing on this box: the Go assistant is the live one; don't stop it. You
-  may run your piece by hand as the household user, e.g.
+- Testing on this box: the assistant is live; a second copy run by hand would
+  also answer "Hey Jarvis", so keep such runs short. You may run your piece by hand as the household user, e.g.
   `sudo -u home env XDG_RUNTIME_DIR=/run/user/1002 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus <cmd>`
-  (passwordless sudo is on for development). Never `nixos-rebuild`; the
-  integrator does that. Tools: `nix shell nixpkgs#gjs nixpkgs#libadwaita ...`.
+  (passwordless sudo is on for development). Tools: `nix shell nixpkgs#gjs nixpkgs#libadwaita ...`.
 - Nixpkgs for packaging: the flake's input, e.g.
   `nix build --impure --expr 'let p = (builtins.getFlake (toString ./.)).inputs.nixpkgs.legacyPackages.x86_64-linux; in p.callPackage ./pkgs/<file>.nix {}'`.
 

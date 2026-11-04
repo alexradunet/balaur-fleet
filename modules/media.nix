@@ -43,7 +43,7 @@ let
   };
 
   # Written only on first start, so changes made in the web UI stick.
-  # The web UI needs no login from the LAN or the tailnet (like the dashboard).
+  # The web UI needs no login from the LAN or the tailnet (convenient on a home LAN; do not port-forward it).
   qbSeed = pkgs.writeText "qBittorrent.conf" ''
     [LegalNotice]
     Accepted=true
@@ -123,7 +123,7 @@ lib.mkIf cfg.media.enable {
   networking.firewall.allowedTCPPorts = [ 8080 torrentPort ];
   networking.firewall.allowedUDPPorts = [ torrentPort ];
 
-  duet.dashboard.services = [
+  duet.services = [
     {
       name = "Jellyfin";
       description = "Movies & shows";

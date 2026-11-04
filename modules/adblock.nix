@@ -56,7 +56,7 @@ lib.mkIf cfg.adblock.enable {
     allowedUDPPorts = [ 53 ];
   };
 
-  duet.dashboard.services = [{
+  duet.services = [{
     name = "AdGuard Home";
     description = "Blocks ads & trackers for the network";
     icon = "🛡️";

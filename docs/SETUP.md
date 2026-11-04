@@ -112,12 +112,12 @@ reboot
 ## Stage 6: What you should see
 
 Boot splash, then GNOME logs in by itself as the household account (`duet.desktop.user`, default `home`):
-the **Duet** app (the dashboard), Firefox and Jellyfin are in the dock. Swipe up for the app switcher.
+the **Duet** app, Firefox, Jellyfin and Gelly are in the dock. Swipe up for the app switcher.
 
 | Problem | Do this |
 |---|---|
-| Black screen / no desktop | Plug in a keyboard, press Ctrl+Alt+F3, log in, then `journalctl -u display-manager -u duet-dashboard -b` |
-| Dashboard tiles all grey | `systemctl status duet-dashboard`; the tile dots are `systemctl is-active` results |
+| Black screen / no desktop | Plug in a keyboard, press Ctrl+Alt+F3, log in, then `journalctl -u display-manager -b` |
+| A service shows "Failed" on the Duet app's Home page | `systemctl status <its unit>`; the page shows `systemctl is-active` live |
 | Can't log in at console | Your old password still works for your old username (`duet.user`) |
 
 ## Stage 7: Tailscale and SSH
@@ -136,11 +136,11 @@ ssh alex@duet      # normal sshd over the tailnet: asks for your password
 
 LAN SSH works too (password): `ssh alex@duet.local` (or use the IP from `ip -br a`).
 
-## Stage 8: Check the dashboard
+## Stage 8: Check the services
 
-From another device: `http://duet.local` (or `http://<the Duet IP>` if `.local` does not
-resolve). It lists the running services; for now that is Tailscale. As we add services each
-one gets a tile.
+On the Duet, open the **Duet** app's **Home** page: it lists the home's services with their
+live state, and **Open** starts each one's app (web UIs such as AdGuard Home and qBittorrent
+are installed as GNOME web apps). As we add services, each one appears there.
 
 
 ## Day to day
@@ -153,7 +153,7 @@ git add -A && git commit -m "..."  # the repo is your system's source of truth
 ```
 
 Optional things you can turn on later (all in `hosts/duet/default.nix`):
-`duet.files.enable` (Syncthing). The repo grows as we add services; each one registers its own dashboard tile.
+`duet.files.enable` (Syncthing). The repo grows as we add services; each one registers itself in `duet.services`.
 
 ## Stage 9: Code on the Duet
 
@@ -195,17 +195,18 @@ toolchains should come from each project's own `nix develop` shell instead of sy
 
 ## Stage 10: Front camera
 
-`duet.camera.enable = true` (already set in `hosts/duet/default.nix`) does three things:
+`duet.camera.enable = true` (already set in `hosts/duet/default.nix`) does four things:
 
 1. Builds three patched kernel modules (`ipu-bridge`, `ov5675`, `intel_skl_int3472_discrete`) from the running kernel's
    source, so the front OVTI5678 sensor is recognised. The patch is `pkgs/camera-yoga-duet-ov5678.patch`; it
    is applied with zero fuzz, so a kernel bump that moves the code fails the build instead of misapplying.
 2. Runs `duet-camera-relay`, which turns raw sensor frames into a v4l2loopback webcam named "Duet Front Camera"
-   (`/dev/video64`), for any other app that wants a webcam.
-3. Streams the same frames as MJPEG on `/run/duet-camera-relay/stream.sock` (only while someone watches), which the
-   dashboard shows on its **Camera** tab: on the built-in screen, to tailnet devices, and to the LAN with
-   `duet.camera.lanView = true`. Tap the picture to stop/start viewing. The view is a stream from the dashboard, so the Duet app needs no camera or
-   microphone access.
+   (`/dev/video64`), for any app that wants a webcam: GNOME's **Snapshot** shows it. The full image pipeline only
+   runs while an app has the webcam open; otherwise the relay looks at 3 frames a second.
+3. Watches those frames for movement and reports it (`/run/duet-camera-relay/motion`); the `duet-presence` service
+   in the household session turns it into activity for GNOME, which keeps the screen on and wakes it
+   (`duet.camera.screenTimeout`).
+4. Puts the camera on the Duet app's Home page, opening Snapshot.
 
 ### Why the picture was yellow-green, and what fixes it
 
@@ -308,12 +309,12 @@ Other knobs, same way (defaults in `camera/config.go`):
 | `ccm` | 3x3 colour matrix (row-major), after white balance. Undoes the crosstalk between the colour filters; without it (identity) the picture looks almost grey. Keep each row summing to 1 or whites get tinted. Default in `camera/config.go`. |
 | `awbGains` | `[r, g, b]` to lock white balance; `null` = automatic. |
 | `saturation` | 1.0 = as is. The quickest knob if colours are still too weak or too strong (try 1.2-1.4); in dim rooms it adds less colour noise than a stronger `ccm`. |
-| `flipH`, `flipV` | Rotate/mirror in software (the built-in screen already mirrors it like a selfie camera). |
+| `flipH`, `flipV` | Rotate/mirror in software (Snapshot already mirrors its preview like a selfie camera). |
 | `aeTarget`, `maxGain`, `maxDigitalGain`, `antiFlicker` | Brightness target (0.18), analogue gain ceiling (8x), software gain once exposure and gain are used up (2x, dim rooms), mains frequency for flicker-free exposure (50 Hz; 60 in the Americas). |
 | `view` | `"color"` (default); `"raw"`: grey picture straight from the sensor, no layout/IR/colour processing; `"noir"`: colour without IR subtraction. |
 
-Then reopen the Duet app (or reboot) and the Camera tab appears. "No camera found" on the preview
-means the relay or the device is missing; the dashboard's **Camera** tile dot shows the relay's state.
+Then open Snapshot. "No camera found" means the relay or the device is missing; the **Camera**
+row on the Duet app's Home page shows the relay's state.
 
 ### If the preview is black
 
@@ -354,29 +355,35 @@ for colour as close to Windows as this pipeline gets. That's a separate step.
 
 ## Stage 11: The voice assistant
 
-`duet.assistant.enable = true;` (on in `hosts/duet/default.nix`) adds a voice assistant. Only the wake word runs on the Duet; the rest is Mistral (EU), with one API key:
+`duet.assistant.enable = true;` (on in `hosts/duet/default.nix`) adds a voice assistant to the household's
+GNOME session. Only the wake word runs on the Duet; speech goes to Mistral (EU), and an agent built on the
+pi SDK does the thinking:
 
 | Piece | Where | Does |
 |---|---|---|
 | openWakeWord | on the Duet, 127.0.0.1:10400 | listens for "Hey Jarvis"; nothing leaves the house before it fires |
+| duet-assistant (`gnome/assistant/`) | on the Duet, a service of the GNOME session | microphone and speaker (PipeWire), timers, reminders, lists, memory, notifications; D-Bus `org.duet.Assistant` |
+| duet-agent (`gnome/agent/`) | on the Duet, its child | the pi SDK agent: the model and its tools, and nothing else (no shell, no files) |
 | Voxtral transcription (`voxtral-mini-transcribe-3-0`) | Mistral | what you said, Romanian or English |
-| Chat model (`mistral-medium-latest`) | Mistral | what to do: answers and calls the tools |
+| Chat model (`mistral-medium-latest`) | Mistral, through pi | what to do: answers and calls the tools |
 | Voxtral TTS (`voxtral-mini-tts-3-0`) | Mistral | the voice |
 | `web_search` tool (`mistral-medium-latest`) | Mistral | current facts |
-| duet-assistant (`assistant/`) | on the Duet, 127.0.0.1:8770 | the pipeline, the tools, the API behind the **Assistant** tab |
 
-Only the sentence after the wake word is sent (as audio for transcription), plus the text of the conversation. Weather comes from Open-Meteo and news from RSS feeds, directly. No port is opened: the dashboard proxies `/api/assistant/`.
+Only the sentence after the wake word is sent (as audio for transcription), plus the text of the conversation.
+Weather comes from Open-Meteo and news from RSS feeds, directly. No port is opened.
 
 ### Turn it on
 
-Make a key at console.mistral.ai, then:
+Make a key at console.mistral.ai, then either:
 
-```bash
-sudo duet-assistant-login     # paste the key (hidden); it is checked, saved to /var/lib/secrets, voices are listed, the service starts
-curl -s localhost/api/assistant/status | head -c 300; echo
-```
+- on the Duet: **Duet** app → Assistant → ⚙ **Assistant settings** → Mistral API key → Apply. The key goes to
+  the GNOME Keyring; the first time, GNOME asks for a keyring password: **leave it empty** (the household account
+  has no password to unlock it with). The same dialog sets the provider, model, server and voices, and has a
+  **Test** button.
+- or from a terminal: `sudo duet-assistant-login` (paste the key, hidden; it is checked, saved to
+  /var/lib/secrets as the fallback, the voices are listed, the assistant restarts).
 
-Until a key exists, `duet-assistant` is skipped (not failed). To pick voices, put ids from the list in `duet.assistant.tts.voices.ro` / `.en` and rebuild.
+The defaults for model, voices and servers come from `duet.assistant.*`; what you change in the app wins.
 
 ### Use it
 
@@ -390,19 +397,30 @@ Say **"Hey Jarvis"**, wait for the rising beep, speak. Examples:
 - "Cum e vremea mâine?" / "Ce știri sunt azi?" / "Who won the match last night?"
 - "Mai încet." / "Stop." / "Gata."
 
-Saying "Hey Jarvis" again interrupts it (speech, a slow answer, or a ringing timer). When it ends with a question, it keeps listening for the answer without the wake word. The **Assistant** tab on any device shows the conversation, the lists (tick, add, clear done), timers, reminders and memory, and has a **mic off** switch (the microphone is closed, not just ignored) and the speaker volume. You can also type to it there; 🔊 makes it say the answer out loud.
+Saying "Hey Jarvis" again interrupts it (speech, a slow answer, or a ringing timer). When it ends with a question,
+it keeps listening for the answer without the wake word. While it listens or speaks, its orb and captions show
+over every app; tap the orb to stop it. Timers and reminders also arrive as GNOME notifications with a **Stop**
+button. The mic toggle is in Quick Settings ("Assistant"; off closes the microphone, and GNOME's mic indicator
+goes away). The **Duet** app shows the conversation (and you can type to it there), the lists, timers,
+reminders and memory.
 
 ### Tuning
 
 - Doesn't hear you from across the room: `duet.assistant.audio.micGain` (default 65; 50 = 0 dB, max 70 = +20 dB).
-- Wakes by itself: raise `duet.assistant.wakeThreshold` (0.5 → 0.6). Misses you: lower it.
-- `journalctl -u duet-assistant -f` logs what it heard, every tool call, and the time to the reply.
+- Wakes by itself: raise `duet.assistant.wakeThreshold`. Misses you: lower it. `sudo duet-wake-test` records a few
+  tries and prints each one's score (`sudo duet-wake-test all` compares the built-in wake words).
+- What it heard, every tool call and the time to the reply:
+  `journalctl _SYSTEMD_USER_UNIT=duet-assistant.service -f` (or, as the household user, `journalctl --user -u duet-assistant -f`).
 - Location for the weather: `duet.assistant.location`. News sources: `duet.assistant.newsFeeds`.
 
 ### Custom wake word
 
-Train one with the openWakeWord synthetic-data notebook (Google Colab, about an hour, no recordings needed; search for "openWakeWord automatic model training"). Copy the resulting `hei_duet.tflite` to `/var/lib/duet-wakewords/`, set `duet.assistant.wakeWord = "hei_duet";`, rebuild.
+Train one with the openWakeWord synthetic-data notebook (Google Colab, about an hour, no recordings needed;
+search for "openWakeWord automatic model training"). Copy the resulting `hei_duet.tflite` to
+`/var/lib/duet-wakewords/`, set `duet.assistant.wakeWord = "hei_duet";`, rebuild.
 
 ### Where things are kept
 
-`/var/lib/private/duet-assistant/` holds `house.json` (lists), `reminders.json` and `memory.json`, as plain JSON. Timers live in memory only (a restart drops them). No audio is stored on the Duet.
+`~home/.local/state/duet-assistant/` holds `house.json` (lists), `reminders.json` and `memory.json`, as plain
+JSON. Timers live in memory only (a restart drops them). Keys are in the GNOME Keyring (and, if you used
+`duet-assistant-login`, `/var/lib/secrets/duet-assistant-llm-key`). No audio is stored on the Duet.

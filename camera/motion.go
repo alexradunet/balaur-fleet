@@ -1,6 +1,9 @@
 package main
 
-import "math"
+import (
+	"math"
+	"time"
+)
 
 // Motion is a cheap movement detector on the processed YUYV frames: the
 // picture is reduced to a coarse grid of cell brightnesses, and a frame counts
@@ -8,7 +11,7 @@ import "math"
 //
 // The whole frame is scaled to the background's mean first, so auto exposure
 // or a lamp switching on doesn't count; only local changes do. Two moving
-// frames in a row are needed, so a single noisy frame can't wake the screen.
+// frames in a row are needed, so a single noisy frame doesn't count as someone there.
 type Motion struct {
 	Threshold float64 // luma levels (of 255) a cell must change by
 	Area      float64 // fraction of cells that must change
@@ -24,6 +27,9 @@ const (
 	motionCols  = 32
 	motionRows  = 18
 	motionAlpha = 0.1 // background memory: ~10 frames, a third of a second
+	// How often movement is reported at most: each report rewrites the motion
+	// file and restarts the session's idle inhibitor, which needs no more.
+	motionReport = 2 * time.Second
 )
 
 func NewMotion(threshold, area float64) *Motion {
@@ -34,10 +40,6 @@ func NewMotion(threshold, area float64) *Motion {
 		bg:  make([]float32, motionCols*motionRows),
 	}
 }
-
-// Reset forgets the background, e.g. right after the screen switched, since
-// its light changes the scene.
-func (m *Motion) Reset() { m.ready, m.hits = false, 0 }
 
 // Peak returns the largest changed fraction seen since the last call (for the log).
 func (m *Motion) Peak() float64 {

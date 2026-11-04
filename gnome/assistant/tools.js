@@ -1,7 +1,7 @@
 // The daemon-side tools: the agent (gnome/agent/) forwards the model's calls
 // to these as tool_call records, because the state lives here (timers,
 // reminders, house lists, memory, the speaker). Same behaviour and results as
-// the matching tools in assistant/tools.go.
+// the matching tools in assistant/tools.go (the former Go service, in git history).
 
 import GLib from 'gi://GLib';
 

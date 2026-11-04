@@ -4,7 +4,7 @@
 //	POST /v1/audio/speech           text to speech (Voxtral TTS)
 //
 // Only audio recorded after the wake word is sent; nothing is stored here.
-// A port of the audio half of assistant/mistral.go.
+// A port of the audio half of assistant/mistral.go (the former Go service, in git history).
 
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup?version=3.0';

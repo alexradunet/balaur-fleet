@@ -1,10 +1,10 @@
 package main
 
 // Who needs full-rate frames? The full ISP costs several CPU cores at 30 fps,
-// so the relay only runs it at full rate while someone watches the live view
-// or has the webcam open. Otherwise it processes a few frames per second:
-// enough for motion wake and to keep exposure and white balance settled, so
-// the picture is right the moment someone looks.
+// so the relay only runs it at full rate while some program (GNOME's Snapshot,
+// a video call) has the webcam open. Otherwise it processes a few frames per
+// second: enough for motion reporting and to keep exposure and white balance
+// settled, so the picture is right the moment someone looks.
 
 import (
 	"os"

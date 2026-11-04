@@ -24,7 +24,7 @@ lib.mkIf cfg.files.enable {
     "d ${root}/files 2775 syncthing media - -"
   ];
 
-  duet.dashboard.services = [
+  duet.services = [
     {
       name = "Syncthing";
       description = "Continuous file sync";

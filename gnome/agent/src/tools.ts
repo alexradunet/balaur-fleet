@@ -1,5 +1,5 @@
 // The tools the model can call, with the names, descriptions and parameters
-// of assistant/tools.go, so the model behaves as it did with the Go service.
+// of assistant/tools.go (the former Go service, in git history), so the model behaves as it did with the Go service.
 //
 //   daemon-side: the GJS daemon owns timers, reminders, the house lists,
 //                memory and the speaker; these are forwarded to it as

@@ -1,5 +1,5 @@
 # Central `duet.*` options. Every feature module reads from here, and
-# registers the services it runs on the dashboard via `duet.dashboard.services`.
+# registers the services it runs in `duet.services` (the Duet app's Home page).
 { lib, ... }:
 let
   inherit (lib) mkOption mkEnableOption types;
@@ -54,59 +54,13 @@ in
       including Samsung smart-TV ads and viewing-data tracking. Point a device's
       (or the router's) DNS at this machine to use it'';
 
-    tv = {
-      enable = mkEnableOption "Samsung (Tizen) TV remote control on the dashboard's TV tab, plus `duet-tv-sideload` for apps";
-
-      host = mkOption {
-        type = types.str;
-        example = "192.168.50.106";
-        description = "The TV's IP address. Reserve it in the router so it stays put.";
-      };
-
-      mac = mkOption {
-        type = types.nullOr types.str;
-        default = null;
-        example = "a0:d7:f3:9f:2d:18";
-        description = ''
-          The TV's MAC address, for Wake-on-LAN (powering on from fully off). Needs
-          "Power On with Mobile" on the TV (Settings → General → Network → Expert Settings).
-        '';
-      };
-
-      name = mkOption {
-        type = types.str;
-        default = "TV";
-        description = "Label on the TV tab.";
-      };
-
-      apps = mkOption {
-        description = "App shortcuts on the TV tab. IDs: http://<tv>:8001/api/v2/applications/<id> answers for installed ones.";
-        default = [ ];
-        type = types.listOf (types.submodule {
-          options = {
-            name = mkOption { type = types.str; };
-            id = mkOption { type = types.str; };
-            icon = mkOption { type = types.str; default = "▶"; };
-          };
-        });
-      };
-
-      dashboardUrl = mkOption {
-        type = types.str;
-        default = "http://duet.local/";
-        example = "http://192.168.50.233/";
-        description = ''
-          Where the "Duet" TV app (tv-app/, installed with `duet-tv-sideload dashboard`)
-          finds this dashboard. Use the server's reserved LAN IP: TVs often can't resolve .local names.
-        '';
-      };
-    };
-
     assistant = {
       enable = mkEnableOption ''
-        the voice assistant: a local wake word, then Mistral for speech-to-text,
-        the model with tools, the voice (Romanian and English) and web search; an
-        Assistant tab on the dashboard. Set the API key with `sudo duet-assistant-login`'';
+        the voice assistant ("Hey Jarvis", Romanian and English): a local wake word,
+        Mistral's Voxtral for speech-to-text and the voice, and a pi SDK agent with
+        tools for the thinking. Runs in the desktop session (needs duet.desktop).
+        Set the API key in the Duet app (Assistant settings) or with
+        `sudo duet-assistant-login`'';
 
       name = mkOption {
         type = types.str;
@@ -140,25 +94,20 @@ in
         baseUrl = mkOption {
           type = types.str;
           example = "https://api.mistral.ai/v1";
-          description = "Mistral API base (OpenAI-compatible: the part before /chat/completions) (the part before /chat/completions). The model must support tool calling.";
+          description = "Mistral API base for speech (Voxtral) and the default for the model. Changeable in the Duet app.";
         };
         model = mkOption {
           type = types.str;
           example = "mistral-small-latest";
-          description = "Model name as the API expects it.";
+          description = "Default model (Mistral, through pi; it must support tool calling). Changeable in the Duet app, with any provider pi supports.";
         };
         apiKeyFile = mkOption {
-          type = types.nullOr types.path;
+          type = types.path;
           default = "/var/lib/secrets/duet-assistant-llm-key";
           description = ''
-            File with the API key, written by `sudo duet-assistant-login`. The service
-            waits until it exists. null for endpoints that need no key (a local server).
+            File with the Mistral API key, written by `sudo duet-assistant-login`: the
+            fallback when the GNOME Keyring has none (keys saved in the Duet app go there).
           '';
-        };
-        temperature = mkOption {
-          type = types.nullOr types.float;
-          default = null;
-          description = "Sampling temperature; null leaves the provider's default.";
         };
       };
 
@@ -193,22 +142,12 @@ in
         input = mkOption {
           type = types.str;
           default = "plughw:0,7";
-          description = "ALSA capture device: the Duet's microphone array, at 16 kHz (`arecord -l`: DMIC16kHz). With the desktop on, it becomes the PipeWire source `duet-mic` (the default microphone) and the assistant records from that.";
-        };
-        output = mkOption {
-          type = types.str;
-          default = "plughw:0,0";
-          description = "ALSA playback device (the built-in speakers), used without the desktop.";
+          description = "ALSA device of the Duet's microphone array at 16 kHz (`arecord -l`: DMIC16kHz). It becomes the PipeWire source `duet-mic`, the default microphone, which the assistant records from.";
         };
         micGain = mkOption {
           type = types.ints.between 0 70;
           default = 65;
           description = "Microphone level (ALSA 'Dmic0', 50 = 0 dB, 70 = +20 dB). The built-in array is quiet: 65 hears a normal voice across the room; lower it if it wakes on noise.";
-        };
-        volume = mkOption {
-          type = types.ints.between 0 100;
-          default = 70;
-          description = "Speaker volume at start (it can be changed by voice and on the dashboard).";
         };
       };
 
@@ -266,7 +205,7 @@ in
     desktop = {
       enable = mkEnableOption ''
         GNOME on the built-in screen as a household tablet: auto-login, no lock,
-        on-screen keyboard, rotation, Firefox, Jellyfin, and the dashboard as the "Duet" app'' // { default = true; };
+        on-screen keyboard, rotation, Firefox, Jellyfin, and the Duet app'' // { default = true; };
 
       user = mkOption {
         type = types.str;
@@ -276,18 +215,7 @@ in
     };
 
     camera = {
-      enable = mkEnableOption "front camera (patched kernel modules + webcam relay) with a live view on the dashboard's Camera tab";
-
-      lanView = mkOption {
-        type = types.bool;
-        default = false;
-        description = ''
-          Also let browsers on the local network watch the live view. By
-          default only the built-in screen and tailnet devices may (the
-          dashboard has no login). Every screen shows a "camera live" badge
-          while anyone is watching. Needs the `rgbir` backend.
-        '';
-      };
+      enable = mkEnableOption "front camera (patched kernel modules + webcam relay): a webcam for GNOME Snapshot and calls, and movement that wakes the screen";
 
       backend = mkOption {
         type = types.enum [ "rgbir" "libcamera" ];
@@ -307,10 +235,9 @@ in
         type = types.ints.unsigned;
         default = 120;
         description = ''
-          Seconds without movement in front of the camera (or a touch or key)
-          before the built-in screen's backlight goes off; it comes back on at
-          the next movement or touch. The tap that wakes the screen is not
-          passed on to the dashboard. 0 = screen always on.
+          Seconds of no activity before GNOME blanks the built-in screen (it never
+          locks). Touch, keys and movement in front of the camera all count as
+          activity: movement keeps the screen on and wakes it. 0 = always on.
           Needs the `rgbir` backend. Sensitivity: `tuning.motionThreshold`
           (luma change per cell, default 12) and `tuning.motionArea` (fraction
           of the picture, default 0.01); the relay logs the peak it saw every 30 s.
@@ -337,41 +264,37 @@ in
       };
     };
 
-    dashboard = {
-      listen = mkOption {
-        type = types.str;
-        default = "0.0.0.0:80";
-        description = "Address the dashboard binds to.";
-      };
-      services = mkOption {
-        default = [ ];
-        description = "Tiles shown on the dashboard. Feature modules append to this.";
-        type = types.listOf (types.submodule {
-          options = {
-            name = mkOption { type = types.str; };
-            description = mkOption { type = types.str; default = ""; };
-            icon = mkOption { type = types.str; default = "•"; };
-            port = mkOption { type = types.nullOr types.port; default = null; };
-            path = mkOption { type = types.str; default = ""; };
-            unit = mkOption {
-              type = types.str;
-              default = "";
-              description = "systemd unit whose state is shown on the tile; `user:<unit>` for a unit of a user session (the desktop's voice assistant).";
-            };
-            group = mkOption { type = types.str; default = "Other"; };
-            appIcon = mkOption {
-              type = types.nullOr types.str;
-              default = null;
-              description = "Icon (name or file) for installing the service's web UI as a GNOME web app on the built-in screen (GNOME Web's application mode); null = no app.";
-            };
-            desktopId = mkOption {
-              type = types.nullOr types.str;
-              default = null;
-              description = "The GNOME app that opens this service (a desktop file id); a web app from appIcon fills it in.";
-            };
+    services = mkOption {
+      default = [ ];
+      description = ''
+        The home's services, as listed on the Duet app's Home page (written to
+        /etc/duet/services.json). Feature modules append to this.
+      '';
+      type = types.listOf (types.submodule {
+        options = {
+          name = mkOption { type = types.str; };
+          description = mkOption { type = types.str; default = ""; };
+          icon = mkOption { type = types.str; default = "•"; description = "An icon name, a file, or an emoji."; };
+          port = mkOption { type = types.nullOr types.port; default = null; description = "Its web UI on this machine, if any."; };
+          path = mkOption { type = types.str; default = ""; };
+          unit = mkOption {
+            type = types.str;
+            default = "";
+            description = "systemd unit whose state the app shows; `user:<unit>` for a unit of the household session (the voice assistant).";
           };
-        });
-      };
+          group = mkOption { type = types.str; default = "Other"; };
+          appIcon = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            description = "Icon (name or file) for installing the service's web UI as a GNOME web app (GNOME Web's application mode); null = no app.";
+          };
+          desktopId = mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            description = "The GNOME app that opens this service (a desktop file id); a web app from appIcon fills it in.";
+          };
+        };
+      });
     };
   };
 }

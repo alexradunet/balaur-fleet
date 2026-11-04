@@ -1,5 +1,5 @@
 // The assistant's configuration: the JSON file Nix writes
-// ($DUET_ASSISTANT_CONFIG, the schema of Config in assistant/assistant.go),
+// ($DUET_ASSISTANT_CONFIG, the schema of Config in assistant/assistant.go (the former Go service, in git history)),
 // decoded over the same defaults as the Go loadConfig.
 
 import GLib from 'gi://GLib';
@@ -45,15 +45,19 @@ export function loadConfig() {
 }
 
 /**
- * The Mistral key from systemd's LoadCredential= (never the store or the
- * environment of other processes); $DUET_ASSISTANT_LLM_KEY for development.
+ * The Mistral key from a file, the fallback when the GNOME Keyring has none:
+ * $DUET_ASSISTANT_KEY_FILE (written by `sudo duet-assistant-login`; missing is
+ * fine), or systemd's LoadCredential=; $DUET_ASSISTANT_LLM_KEY for development.
  */
 export function credentialKey() {
     const dir = GLib.getenv('CREDENTIALS_DIRECTORY');
-    if (dir) {
+    const files = [GLib.getenv('DUET_ASSISTANT_KEY_FILE'), dir && GLib.build_filenamev([dir, 'llm-key'])];
+    for (const f of files.filter(Boolean)) {
         try {
-            const [, b] = GLib.file_get_contents(GLib.build_filenamev([dir, 'llm-key']));
-            return new TextDecoder().decode(b).trim();
+            const [, b] = GLib.file_get_contents(f);
+            const key = new TextDecoder().decode(b).trim();
+            if (key)
+                return key;
         } catch {}
     }
     return GLib.getenv('DUET_ASSISTANT_LLM_KEY') ?? '';

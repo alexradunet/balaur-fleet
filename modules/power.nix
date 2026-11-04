@@ -62,10 +62,5 @@ in
         ExecStart = chargeLimit;
       };
     };
-
-    # Let members of `video` change the backlight (used by the dashboard slider).
-    services.udev.extraRules = ''
-      ACTION=="add", SUBSYSTEM=="backlight", RUN+="${pkgs.coreutils}/bin/chgrp video /sys/class/backlight/%k/brightness", RUN+="${pkgs.coreutils}/bin/chmod g+w /sys/class/backlight/%k/brightness"
-    '';
   };
 }

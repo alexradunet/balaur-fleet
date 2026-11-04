@@ -1,5 +1,5 @@
 // The system prompt, rebuilt for every turn from the context the daemon sends,
-// word for word as systemPrompt() in assistant/assistant.go builds it.
+// word for word as systemPrompt() in assistant/assistant.go (the former Go service, in git history) builds it.
 
 export interface TurnContext {
 	name: string; // "Jarvis"
@@ -30,7 +30,7 @@ export function systemPrompt(c: TurnContext, lang: string): string {
 	else if (lang === "ro") b += "- The user is speaking Romanian now: reply in Romanian.\n";
 	if (c.typed)
 		b +=
-			"- This message was typed on the dashboard, not spoken; the reply is shown as text and may be a little longer, still plain text.\n";
+			"- This message was typed in the Duet app, not spoken; the reply is shown as text and may be a little longer, still plain text.\n";
 	const mems = c.memories ?? [];
 	if (mems.length > 0) {
 		b += "\nWhat you know about this household (id in brackets, for forget):\n";
