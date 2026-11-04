@@ -27,17 +27,15 @@ Services: qBittorrent `:8080`, Jellyfin `:8096`, Syncthing `:8384`, AdGuard `:30
 all on duet, reachable as `duet.local` on the LAN and `duet` over the tailnet.
 No logins on the LAN/tailnet by design — do not port-forward any of them.
 
-## The list, most worth doing first
+The laptop's GNOME is trimmed: fourteen default apps are excluded, in
+`desktop.nix` (the ones no personal desktop here wants) and `laptop.nix` (this
+machine's taste). GNOME Web stays on duet, which needs Epiphany for the service
+web apps. `documentation.nixos.enable = false` on the laptop, so the offline
+manual is not rebuilt on every rebuild.
 
-### 1. Back up `~/.ssh/id_ed25519` on the laptop
+## The list
 
-This one key now does three jobs: SSH to duet, the admin age identity for sops
-(`~/.config/sops/age/keys.txt` is derived from it), and the user key the fleet
-authorises everywhere. Losing it costs you the ability to **edit secrets** —
-both machines keep working, since they decrypt with their own host keys — but
-you would have to re-derive or rotate. There is no backup of it anywhere today.
-
-### 2. Retune the wake word on the laptop
+### 1. Retune the wake word on the laptop
 
 `balaur.assistant.wakeThreshold = 0.35` in `modules/hosts/laptop.nix` was copied
 from duet, where it was measured against the Duet's 16 kHz microphone array. The
@@ -49,43 +47,23 @@ sudo duet-wake-test          # say "Hey Jarvis" a few times; prints each score
 sudo duet-wake-test score 2  # rescore the last recording, amplified
 ```
 
-The assistant does now authenticate (the sops key works — Mistral returns 200),
-so this is about whether it *hears* you, not whether it answers.
+The assistant does authenticate (the sops key works — Mistral returns 200), so
+this is about whether it *hears* you, not whether it answers.
 
-### 3. Turn duet's passwordless sudo back off
+### 2. Turn duet's passwordless sudo back off
 
 `security.sudo.wheelNeedsPassword = false` in `modules/hosts/duet.nix`, added in
 `38d1a38` and marked TEMPORARY. It is what let this session deploy duet
 unattended, and `docs/ROADMAP.md` already lists reverting it under "When
 development is done". Deciding that development *is* done is the only step.
 
-### 4. Remove the laptop's qBittorrent leftovers
-
-The laptop briefly ran the server before we settled on duet-only. Nix does not
-remove state it did not create:
-
-```
-sudo rm -rf /srv/media /var/lib/qBittorrent
-```
-
-Checked before writing this: `/srv/media` holds 0 files and nothing downloaded
-there. Harmless to leave, untidy to keep.
-
-### 5. Pick `balaur-torrent` as Firefox's magnet handler
-
-It is registered as a handler for `magnet:` and `.torrent`, hidden from the app
-grid, but nothing is forced as the system default — that is a preference, so it
-was left to you. Click a magnet once in Firefox and choose "Download with
-Balaur"; it then sends to duet. Verified end to end from the laptop: a Debian
-netinst torrent queued on duet into `/srv/media/downloads`, then removed.
-
-### 6. Watch duet's disk
+### 3. Keep an eye on duet's disk
 
 duet is at **56% used, 194 GiB free**, down from 394 GiB, because the Syncthing
 volume reserves 200 GiB up front — deliberately, so a runaway sync cannot fill
 the root filesystem and take the household screen, the assistant and the media
 server with it. But duet shares what is left with the media library, and
-qBittorrent is actively downloading into it.
+qBittorrent downloads into it.
 
 `balaur.files.sizeGiB` can differ per machine, and raising or lowering it needs
 no manual resize: the backing file is extended and the filesystem grown to match
@@ -93,15 +71,22 @@ on the next activation. Lowering it does nothing, since ext4 cannot shrink in
 place — that means moving the data out, deleting the image and letting it be
 remade.
 
-## Agreed earlier, still unstarted
+## Settled, recorded so nobody redoes it
 
-- **qBittorrent's `filelist.json` is in sops now**, but its own state directory
-  is not: nothing else in `/var/lib/qBittorrent` is managed. That is fine; noted
-  so nobody looks for it.
+- **The admin key is backed up** (Proton, 2026-11-05). `~/.ssh/id_ed25519` is the
+  one secret that matters: SSH to duet, the sops admin age identity, and the user
+  key the fleet authorises. Re-derive the age identity with
+  `ssh-to-age -private-key -i ~/.ssh/id_ed25519 -o ~/.config/sops/age/keys.txt`;
+  there is no second thing to keep.
 - **Nothing irreplaceable in `secrets/balaur.yaml`.** The repo is public, so the
   ciphertext is public forever and a leaked host key would expose every secret
   ever encrypted to it, git history included. Today's three are all rotatable.
   Keep it that way, and rotate the *secret* as well as the key if one ever leaks.
+- **qBittorrent's own state** (`/var/lib/qBittorrent`) is not in sops; only its
+  FileList credentials are. Noted so nobody goes looking.
+- **`magnet:` is pinned** to `balaur-torrent` through `gnome-mimeapps.list`, not
+  home-manager's `xdg.mimeApps` — that option would take over `mimeapps.list`,
+  where Claude Code keeps its own `claude-cli` association.
 
 ## Notes worth keeping, not tasks
 
