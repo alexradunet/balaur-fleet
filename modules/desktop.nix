@@ -37,6 +37,24 @@ let
     categories = [ "Utility" ];
   };
 
+  # Each service with a web UI (and an appIcon) as an app of its own: GNOME Web
+  # (Epiphany) "system web applications". Launched with
+  # --application-mode=<this desktop file>, Epiphany makes the app a separate
+  # profile and window identity (org.gnome.Epiphany.WebApp_<sha1 of the name>),
+  # so it gets its own dock icon and never mixes with browsing.
+  webApps = map (s:
+    let id = "duet-web-" + lib.toLower (lib.replaceStrings [ " " ] [ "-" ] s.name);
+    in pkgs.makeDesktopItem {
+      name = id;
+      desktopName = s.name;
+      comment = s.description;
+      icon = s.appIcon;
+      exec = "${pkgs.epiphany}/bin/epiphany --application-mode=${id}.desktop http://127.0.0.1:${toString s.port}${s.path}";
+      startupWMClass = "org.gnome.Epiphany.WebApp_${builtins.hashString "sha1" s.name}";
+      categories = [ "Network" ];
+    })
+    (lib.filter (s: s.port != null && s.appIcon != null) cfg.dashboard.services);
+
   # Working on the box itself (keyboard attached): a terminal logged in as the
   # admin account, where the repo and Claude Code live. Asks that account's
   # password, since the household session is open to anyone at the screen.
@@ -82,6 +100,8 @@ lib.mkIf cfg.desktop.enable {
   environment.systemPackages = with pkgs; [
     duetApp
     devTerminal
+    epiphany # GNOME Web: runs the web apps below
+  ] ++ webApps ++ [
     ptyxis # terminal (as the household account)
     jellyfin-desktop # Jellyfin client (video, and the target for "play on Duet")
     gelly # Jellyfin music, GNOME-native

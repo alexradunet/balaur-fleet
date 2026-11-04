@@ -1,5 +1,5 @@
 # File sync: Syncthing, storing into ${storage.root}/files.
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 let
   cfg = config.duet;
   root = toString cfg.storage.root;
@@ -31,6 +31,7 @@ lib.mkIf cfg.files.enable {
       icon = "🔄";
       port = 8384;
       unit = "syncthing.service";
+      appIcon = "${pkgs.syncthing}/share/icons/hicolor/scalable/apps/syncthing.svg";
       group = "Media & files";
     }
   ];

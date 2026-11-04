@@ -359,6 +359,11 @@ in
               description = "systemd unit whose state is shown on the tile; `user:<unit>` for a unit of a user session (the desktop's voice assistant).";
             };
             group = mkOption { type = types.str; default = "Other"; };
+            appIcon = mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              description = "Icon (name or file) for installing the service's web UI as a GNOME web app on the built-in screen (GNOME Web's application mode); null = no app.";
+            };
           };
         });
       };

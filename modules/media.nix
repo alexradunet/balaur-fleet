@@ -138,6 +138,7 @@ lib.mkIf cfg.media.enable {
       icon = "🧲";
       port = 8080;
       unit = "qbittorrent.service";
+      appIcon = "${pkgs.qbittorrent-nox.src}/dist/unix/menuicons/scalable/apps/qbittorrent.svg";
       group = "Media & files";
     }
   ];

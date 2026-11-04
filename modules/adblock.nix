@@ -8,7 +8,7 @@
 # Settings below are applied on every start and win over the web UI for the keys
 # they set (upstreams, filter lists, the Samsung rules). Everything else, such as
 # per-client settings, the query log and allow-listing in the UI, is kept.
-{ config, lib, ... }:
+{ config, lib, pkgs, ... }:
 let
   cfg = config.duet;
   webPort = 3000;
@@ -62,6 +62,7 @@ lib.mkIf cfg.adblock.enable {
     icon = "🛡️";
     port = webPort;
     unit = "adguardhome.service";
+    appIcon = "${pkgs.adguardhome.src}/client_v2/public/assets/favicon.svg";
     group = "Network";
   }];
 }
