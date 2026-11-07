@@ -45,6 +45,7 @@ in
         # client, so a magnet clicked here can be sent there.
         torrents-client
         assistant
+        gaming
       ])
       # Its own disk/boot layout, copied from /etc/nixos (see CLAUDE.md, "Adding a
       # machine"). It must be `git add`ed or flakes cannot see it.

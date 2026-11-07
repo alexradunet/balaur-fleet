@@ -48,6 +48,7 @@ modules/
   adblock.nix             AdGuard Home: network-wide ad/tracker blocking on :53, UI on :3000
   files.nix               Syncthing: a 200 GiB volume of its own at /srv/files, paired from the registry
   dev.nix                 Claude Code + pi + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep
+  gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher; laptop only
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages, built by the aspects and exposed as flake packages
 gnome/                    everything GNOME-facing, in GJS; gnome/CONTRACT.md is how the pieces talk
