@@ -189,9 +189,12 @@ Timers and reminders going off are GNOME notifications from
 - Timezone: `$TZ` (Europe/Bucharest).
 - Volume: `wpctl get-volume/set-volume @DEFAULT_AUDIO_SINK@` (or `pactl`).
 - Home services for the app: `/etc/duet/services.json`, an array of
-  `{name, description, icon, url, unit, desktopId}` (`unit` = systemd system
+  `{name, description, icon, url, unit, desktopId, group, host}` (`unit` = systemd system
   unit, or `user:<unit>` for a unit of the user session; `desktopId` = the
-  GNOME app to launch for it, may be null; `url` may be null).
+  GNOME app to launch for it, may be null; `url` may be null; `group` sections
+  the page; `host` = null for this machine's services, else the fleet machine
+  it runs on, whose web UI `url` points at over the tailnet, with `unit` empty).
+  Written on every machine by the `fleet` aspect.
 - Testing on this box: the assistant is live; a second copy run by hand would
   also answer "Hey Jarvis", so keep such runs short. You may run your piece by hand as the household user, e.g.
   `sudo -u home env XDG_RUNTIME_DIR=/run/user/1002 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus <cmd>`

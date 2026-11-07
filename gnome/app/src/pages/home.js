@@ -10,6 +10,7 @@ import Gdk from 'gi://Gdk?version=4.0';
 import Adw from 'gi://Adw?version=1';
 
 import {UnitWatcher} from '../systemd.js';
+import {ReachWatcher} from '../reach.js';
 import {escape} from '../util.js';
 
 const KIND_CLASS = {ok: 'success', busy: 'warning', bad: 'error', off: 'dim-label', unknown: 'dim-label'};
@@ -68,10 +69,13 @@ class HomePage extends Adw.Bin {
         });
         row.add_prefix(this._icon(s));
 
-        if (s.unit) {
+        // A local unit's systemd state, or for another machine's service
+        // whether its address answers.
+        const remote = s.host && s.url;
+        if (s.unit || remote) {
             const pill = new Gtk.Label({valign: Gtk.Align.CENTER, css_classes: ['duet-state']});
             row.add_suffix(pill);
-            const watcher = new UnitWatcher(s.unit);
+            const watcher = s.unit ? new UnitWatcher(s.unit) : new ReachWatcher(s.url, s.host);
             const sync = () => {
                 const st = watcher.status;
                 pill.label = st.label;

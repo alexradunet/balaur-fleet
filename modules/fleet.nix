@@ -14,6 +14,9 @@
 let
   inherit (lib) mkOption types;
   fleet = config.fleet;
+  # Every host's evaluated config, to read the others' `balaur.services`. Lazy, and
+  # services never depend on services.json, so hosts reading each other is no loop.
+  nixosConfigs = config.flake.nixosConfigurations;
   # The account the other machines' root logs in as to build here. It needs no key
   # of its own: each machine's root authenticates with that machine's SSH *host*
   # key, which the registry already carries, so nothing secret is added anywhere.
@@ -116,8 +119,38 @@ in
       # Their root authenticates as their host key, which is what we authorize.
       clientHostKeys = lib.filter (k: k != null) (lib.mapAttrsToList (_: h: h.sshHostKey) others);
       haveBuilders = builders != { };
+
+      # ---- the Balaur app's Home page (gnome/CONTRACT.md) ----
+      # This machine's services, with their live systemd state, then the web UIs of
+      # the other machines, each under "On <host>", reached by MagicDNS name over
+      # the tailnet (which `network` trusts). Their units live on another machine,
+      # so the app shows whether the address answers instead, and opens the web
+      # page: a local GNOME app (or a web app installed for 127.0.0.1) would open
+      # the wrong machine's service.
+      cfg = config.balaur;
+      localUrl = s: if s.port == null then null else "http://127.0.0.1:${toString s.port}${s.path}";
+      # `tablet` installs a GNOME web app for each of these (tablet.nix).
+      hasWebApp = s: cfg ? tablet && s.port != null && s.appIcon != null;
+      localServices = map (s: {
+        inherit (s) name description icon unit group;
+        url = localUrl s;
+        desktopId = if hasWebApp s then "${s.webAppId}.desktop" else s.desktopId;
+        host = null;
+      }) cfg.services;
+      remoteServices = lib.concatLists (lib.mapAttrsToList (host: _:
+        map (s: {
+          inherit (s) name description icon;
+          inherit host;
+          group = "On ${host}";
+          url = "http://${host}:${toString s.port}${s.path}";
+          unit = "";
+          desktopId = null;
+        }) (lib.filter (s: s.port != null) nixosConfigs.${host}.config.balaur.services))
+        (lib.intersectAttrs nixosConfigs others));
     in
     {
+      environment.etc."duet/services.json".text = builtins.toJSON (localServices ++ remoteServices);
+
       programs.ssh.knownHosts = lib.mapAttrs (name: h: {
         hostNames = [ name "${name}.local" ] ++ lib.filter (ip: ip != null) [ h.tailnetIp h.lanIp ];
         publicKey = h.sshHostKey;

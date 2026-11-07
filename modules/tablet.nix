@@ -33,7 +33,8 @@
       # --application-mode=<this desktop file>, Epiphany makes the app a separate
       # profile and window identity (org.gnome.Epiphany.WebApp_<sha1 of the name>),
       # so it gets its own dock icon and never mixes with browsing.
-      webAppId = s: "duet-web-" + lib.toLower (lib.replaceStrings [ " " ] [ "-" ] s.name);
+      # services.json (the `fleet` aspect) points at them through the same s.webAppId.
+      webAppId = s: s.webAppId;
       serviceUrl = s: if s.port == null then null else "http://127.0.0.1:${toString s.port}${s.path}";
       hasWebApp = s: s.port != null && s.appIcon != null;
       webApps = map (s: pkgs.makeDesktopItem {
@@ -46,13 +47,6 @@
           categories = [ "Network" ];
         })
         (lib.filter hasWebApp cfg.services);
-
-      # The home services for the Balaur app's Home page (gnome/CONTRACT.md).
-      servicesJson = builtins.toJSON (map (s: {
-        inherit (s) name description icon unit;
-        url = serviceUrl s;
-        desktopId = if hasWebApp s then "${webAppId s}.desktop" else s.desktopId;
-      }) cfg.services);
 
       # Working on the box itself (keyboard attached): a terminal logged in as the
       # admin account, where the repo and Claude Code live. Asks that account's
@@ -256,7 +250,6 @@
           ];
         }];
 
-        environment.etc."duet/services.json".text = servicesJson;
         environment.etc."duet/ambient.json".text = ambientJson;
       };
     };

@@ -20,6 +20,8 @@ below 720 sp (portrait). Style follows the system dark/light setting.
 - `src/assistant.js`: D-Bus client for `org.balaur.Assistant1`.
 - `src/systemd.js`: unit state from systemd (system bus, or the session bus
   for `user:` units).
+- `src/reach.js`: for another machine's service (`host` set), whether its
+  `url` answers, since its unit is out of reach.
 - `src/services.js`: reads `/etc/duet/services.json` (`$DUET_SERVICES`
   overrides) and opens a service (its `desktopId` app, else its `url`).
 - `src/pages/*.js`, `src/style.css`: the pages.

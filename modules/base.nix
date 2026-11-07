@@ -55,9 +55,10 @@
           default = [ ];
           description = ''
             The home's services, as listed on the Balaur app's Home page (written to
-            /etc/duet/services.json). Feature modules append to this.
+            /etc/duet/services.json by the `fleet` aspect, together with the web UIs
+            of the other machines). Feature modules append to this.
           '';
-          type = lib.types.listOf (lib.types.submodule {
+          type = lib.types.listOf (lib.types.submodule ({ config, ... }: {
             options = {
               name = lib.mkOption { type = lib.types.str; };
               description = lib.mkOption { type = lib.types.str; default = ""; };
@@ -80,8 +81,15 @@
                 default = null;
                 description = "The GNOME app that opens this service (a desktop file id); a web app from appIcon fills it in.";
               };
+              webAppId = lib.mkOption {
+                type = lib.types.str;
+                internal = true;
+                readOnly = true;
+                default = "duet-web-" + lib.toLower (lib.replaceStrings [ " " ] [ "-" ] config.name);
+                description = "Desktop file id (without .desktop) of its web app, where `tablet` installs one.";
+              };
             };
-          });
+          }));
         };
       };
 
