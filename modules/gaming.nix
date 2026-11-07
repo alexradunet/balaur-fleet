@@ -28,10 +28,18 @@
 
       battlenet = pkgs.writeShellApplication {
         name = "battlenet";
-        runtimeInputs = with pkgs; [ umu-launcher curl coreutils libnotify ];
+        runtimeInputs = with pkgs; [ umu-launcher curl coreutils libnotify zenity ];
         runtimeEnv = {
           GAMEID = "umu-default";
           PROTONPATH = "${pkgs.proton-ge-bin.steamcompattool}";
+          # umu fetches the Steam runtime (175 MB) behind a zenity progress dialog
+          # instead of silently. Its silent path also compares the archive with
+          # latest-public-beta/SHA256SUMS, which Valve's CDN served stale for umu's
+          # URL on 2026-11-07 (the 7 Oct build's sum against the 21 Oct archive),
+          # so every first start failed with "Digest mismatched". This path skips
+          # that compare; the download is still TLS, and umu still checks the
+          # unpacked runtime against its own mtree.
+          UMU_ZENITY = "1";
         };
         text = ''
           WINEPREFIX=${prefix}
@@ -40,19 +48,22 @@
 
           if [ ! -f "$launcher" ]; then
             notify-send -a Battle.net -i applications-games "Installing Battle.net" \
-              "The first start downloads the Proton runtime and the installer. This takes a few minutes."
+              "Downloading the Proton runtime and Blizzard's installer. This takes a few minutes."
+            failed() {
+              notify-send -a Battle.net -u critical -i dialog-error "Battle.net" \
+                "$1 See: journalctl --user -t battlenet.desktop"
+              exit 1
+            }
             # Check for a runtime update only while setting up; later starts go straight in.
             export UMU_RUNTIME_UPDATE=1
             mkdir -p "$WINEPREFIX/drive_c"
             installer=$(mktemp --suffix=.exe -p "$WINEPREFIX/drive_c")
             trap 'rm -f "$installer"' EXIT
-            if ! curl -fL -o "$installer" \
-                "https://downloader.battle.net/download/getInstaller?os=win&installer=Battle.net-Setup.exe"; then
-              notify-send -a Battle.net -u critical "Battle.net" "Downloading the installer failed."
-              exit 1
-            fi
+            curl -fsSL -o "$installer" \
+              "https://downloader.battle.net/download/getInstaller?os=win&installer=Battle.net-Setup.exe" \
+              || failed "Downloading the installer failed."
             # Leave the install location at its default: this script looks for it there.
-            umu-run "$installer"
+            umu-run "$installer" || failed "Setting up Proton or running the installer failed."
             # The installer usually starts Battle.net itself when it finishes.
             exit 0
           fi
