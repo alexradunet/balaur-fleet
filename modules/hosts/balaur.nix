@@ -118,5 +118,12 @@ in
     # the laptop's `aminte-prod` reads the same one (modules/aminte.nix).
     sops.secrets."aminte-token".owner = "aminte";
     balaur.aminte.tokenFile = config.sops.secrets."aminte-token".path;
+    # The one number aminte-whatsapp listens to. In sops because the repo is public;
+    # changing it restarts aminte, which aminte-whatsapp needs to pick it up.
+    sops.secrets."aminte-owner-number" = {
+      owner = "aminte";
+      restartUnits = [ "aminte.service" ];
+    };
+    balaur.aminte.ownerNumberFile = config.sops.secrets."aminte-owner-number".path;
   };
 }

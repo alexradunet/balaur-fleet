@@ -89,6 +89,17 @@ in
           type = lib.types.path;
           description = "The server's bearer token: one line, 32 characters or more. Also the browser's login.";
         };
+        ownerNumberFile = lib.mkOption {
+          type = lib.types.nullOr lib.types.path;
+          default = null;
+          description = ''
+            A file holding the owner's phone number (digits with the country code):
+            the one number aminte-whatsapp listens to. Written into the settings
+            (owner_number) before every start, so the Settings page cannot drift
+            from it; the other settings are left as they are. null leaves
+            owner_number to the Settings page.
+          '';
+        };
       };
 
       config = {
@@ -117,6 +128,11 @@ in
           preStart = ''
             install -d -m 0700 ${snapshots}
             [ -e ${db} ] || ${lib.getExe aminte} --db ${db} init
+          '' + lib.optionalString (cfg.aminte.ownerNumberFile != null) ''
+            # A field left out of `settings` stays as it is, so this sets the number alone.
+            # A value that is not digits fails here, and the service stays down.
+            ${lib.getExe aminte} --db ${db} do settings \
+              owner_number="$(tr -d ' \n' < ${toString cfg.aminte.ownerNumberFile})" > /dev/null
           '';
           serviceConfig = {
             User = "aminte";
