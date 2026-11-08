@@ -67,7 +67,7 @@ skipped). The **dendritic pattern** works like this:
    household account where `tablet` is present and the admin account otherwise, so it
    works on a personal desktop too. Set `balaur.assistant.audio.input` only on a machine
    whose default microphone is too quiet for the wake word (the Duet's array); null means
-   PipeWire's default source. Retune `wakeThreshold` per machine with `sudo duet-wake-test`.
+   PipeWire's default source. Retune `wakeThreshold` per machine with `sudo balaur-wake-test`.
 6. `nixos-rebuild build --flake .#<hostname>`. Then `sudo nixos-rebuild boot --flake .#<hostname>`
    and reboot. The first switch to a new layout is safer at boot, and older generations
    stay in the boot menu.

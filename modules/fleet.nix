@@ -149,7 +149,7 @@ in
         (lib.intersectAttrs nixosConfigs others));
     in
     {
-      environment.etc."duet/services.json".text = builtins.toJSON (localServices ++ remoteServices);
+      environment.etc."balaur/services.json".text = builtins.toJSON (localServices ++ remoteServices);
 
       programs.ssh.knownHosts = lib.mapAttrs (name: h: {
         hostNames = [ name "${name}.local" ] ++ lib.filter (ip: ip != null) [ h.tailnetIp h.lanIp ];

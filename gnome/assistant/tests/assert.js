@@ -31,7 +31,7 @@ export async function rejects(p, re, msg = 'expected a failure') {
 
 /** A fresh temporary directory. */
 export function tempDir() {
-    return GLib.dir_make_tmp('duet-assistant-test-XXXXXX');
+    return GLib.dir_make_tmp('balaur-assistant-test-XXXXXX');
 }
 
 /** Waits until cond() is true (polling the main loop), or fails after ms. */

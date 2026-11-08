@@ -53,7 +53,7 @@ class HomePage extends Adw.Bin {
             if (!groups.has(title)) {
                 const group = new Adw.PreferencesGroup({title: escape(title)});
                 const box = new Gtk.ListBox({selection_mode: Gtk.SelectionMode.NONE,
-                    css_classes: ['boxed-list', 'duet-touch-list']});
+                    css_classes: ['boxed-list', 'balaur-touch-list']});
                 group.add(box);
                 this._page.add(group);
                 groups.set(title, box);
@@ -73,14 +73,14 @@ class HomePage extends Adw.Bin {
         // whether its address answers.
         const remote = s.host && s.url;
         if (s.unit || remote) {
-            const pill = new Gtk.Label({valign: Gtk.Align.CENTER, css_classes: ['duet-state']});
+            const pill = new Gtk.Label({valign: Gtk.Align.CENTER, css_classes: ['balaur-state']});
             row.add_suffix(pill);
             const watcher = s.unit ? new UnitWatcher(s.unit) : new ReachWatcher(s.url, s.host);
             const sync = () => {
                 const st = watcher.status;
                 pill.label = st.label;
                 pill.tooltip_text = st.detail;
-                pill.css_classes = ['duet-state', KIND_CLASS[st.kind]];
+                pill.css_classes = ['balaur-state', KIND_CLASS[st.kind]];
             };
             watcher.connect('changed', sync);
             sync();
@@ -118,7 +118,7 @@ class HomePage extends Adw.Bin {
         if (appIcon)
             return new Gtk.Image({gicon: appIcon, pixel_size: size});
         if (icon)
-            return new Gtk.Label({label: icon, css_classes: ['duet-emoji'], width_request: size});
+            return new Gtk.Label({label: icon, css_classes: ['balaur-emoji'], width_request: size});
         return new Gtk.Image({icon_name: 'application-x-executable-symbolic', pixel_size: size});
     }
 });

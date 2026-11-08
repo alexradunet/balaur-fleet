@@ -60,7 +60,7 @@ class FixedResources implements ResourceLoader {
 	async reload() {}
 }
 
-export interface DuetSessionOptions {
+export interface BalaurSessionOptions {
 	modelRuntime: ModelRuntime;
 	model: Model<any>;
 	tools: ToolDefinition[];
@@ -83,15 +83,15 @@ function messageText(m: any): string {
 		.join("");
 }
 
-export class DuetAgent {
+export class BalaurAgent {
 	private session: AgentSession | null = null;
 	private resources = new FixedResources();
 	private lastTurn = 0;
 	readonly toolNames: string[];
 
-	private opts: DuetSessionOptions;
+	private opts: BalaurSessionOptions;
 
-	constructor(opts: DuetSessionOptions) {
+	constructor(opts: BalaurSessionOptions) {
 		this.opts = opts;
 		this.toolNames = opts.tools.map((t) => t.name);
 	}

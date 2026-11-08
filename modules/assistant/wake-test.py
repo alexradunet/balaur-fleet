@@ -22,7 +22,7 @@ def load(n):
     try:
         return OpenWakeWord.from_builtin(Model(n))
     except ValueError:
-        return OpenWakeWord.from_model(f"/var/lib/duet-wakewords/{n}.tflite")
+        return OpenWakeWord.from_model(f"/var/lib/balaur-wakewords/{n}.tflite")
 
 def score(n):
     oww, features = load(n), OpenWakeWordFeatures.from_builtin()

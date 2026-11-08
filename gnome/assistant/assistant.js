@@ -163,21 +163,21 @@ export class Assistant {
         this.mistral.base = this.settings.speechBaseUrl.replace(/\/+$/, '');
         this.mistral.key = await this.settings.apiKey('mistral');
         if (!this.mistral.key)
-            log('no Mistral API key (set one in the app, or `sudo duet-assistant-login`); speech will fail');
+            log('no Mistral API key (set one in the app, or `sudo balaur-assistant-login`); speech will fail');
     }
 
     async _agentEnv() {
         const s = this.settings;
         const provider = s.llmProvider;
         return {
-            DUET_ASSISTANT_CONFIG: GLib.getenv('DUET_ASSISTANT_CONFIG') ?? '',
-            DUET_LLM_PROVIDER: provider,
-            DUET_LLM_MODEL: s.llmModel,
-            DUET_LLM_BASE_URL: s.llmBaseUrl,
-            DUET_LLM_KEY: await s.apiKey(provider),
+            BALAUR_ASSISTANT_CONFIG: GLib.getenv('BALAUR_ASSISTANT_CONFIG') ?? '',
+            BALAUR_LLM_PROVIDER: provider,
+            BALAUR_LLM_MODEL: s.llmModel,
+            BALAUR_LLM_BASE_URL: s.llmBaseUrl,
+            BALAUR_LLM_KEY: await s.apiKey(provider),
             MISTRAL_API_KEY: await s.apiKey('mistral'),
-            DUET_SPEECH_BASE_URL: s.speechBaseUrl,
-            DUET_AGENT_DIR: GLib.build_filenamev([GLib.getenv('XDG_RUNTIME_DIR') || GLib.get_tmp_dir(), 'duet-agent']),
+            BALAUR_SPEECH_BASE_URL: s.speechBaseUrl,
+            BALAUR_AGENT_DIR: GLib.build_filenamev([GLib.getenv('XDG_RUNTIME_DIR') || GLib.get_tmp_dir(), 'balaur-agent']),
         };
     }
 

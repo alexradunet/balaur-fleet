@@ -15,7 +15,7 @@
 # installed on every start and reads its credentials from a JSON file named by
 # `balaur.torrents.filelistCredentialsFile`. Point that at a sops template to
 # have it come from the repo (see modules/hosts/*.nix); the default is local
-# state written by `sudo duet-filelist-login`.
+# state written by `sudo balaur-filelist-login`.
 #
 # The web UI is reachable on the LAN and over the tailnet, and authenticates
 # both by subnet, so there is no password to carry. Do not port-forward it.
@@ -36,7 +36,7 @@ in
       credentials = toString cfg.torrents.filelistCredentialsFile;
 
       filelistLogin = pkgs.writeShellApplication {
-        name = "duet-filelist-login";
+        name = "balaur-filelist-login";
         runtimeInputs = [ pkgs.coreutils pkgs.python3 pkgs.util-linux ];
         text = ''
           if [ "$(id -u)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
@@ -116,7 +116,7 @@ in
           description = ''
             JSON file holding `{"username": ..., "passkey": ...}` for the FileList
             search plugin. By default this machine's own state, written by
-            `sudo duet-filelist-login`; point it at a sops template to have it
+            `sudo balaur-filelist-login`; point it at a sops template to have it
             rendered from the repo instead.
           '';
         };
@@ -124,7 +124,7 @@ in
           type = lib.types.bool;
           default = true;
           description = ''
-            Whether `duet-filelist-login` writes `filelistCredentialsFile`. Set
+            Whether `balaur-filelist-login` writes `filelistCredentialsFile`. Set
             false when sops renders it: the command then still runs a test search
             with the deployed credentials, but says where the real ones belong.
           '';

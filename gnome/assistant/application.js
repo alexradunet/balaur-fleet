@@ -14,12 +14,12 @@ import {Settings} from './settings.js';
 import {Store} from './store.js';
 import {errText, log} from './util.js';
 
-export const DuetAssistantApp = GObject.registerClass(
-class DuetAssistantApp extends Gio.Application {
+export const BalaurAssistantApp = GObject.registerClass(
+class BalaurAssistantApp extends Gio.Application {
     _init() {
         super._init({application_id: 'org.balaur.Assistant', flags: Gio.ApplicationFlags.DEFAULT_FLAGS});
         this.cfg = loadConfig();
-        const dir = GLib.getenv('STATE_DIRECTORY') || GLib.build_filenamev([GLib.get_tmp_dir(), 'duet-assistant']);
+        const dir = GLib.getenv('STATE_DIRECTORY') || GLib.build_filenamev([GLib.get_tmp_dir(), 'balaur-assistant']);
         // A broken state file stops us, as in Go: better than overwriting the household's lists.
         this.store = new Store(dir.split(':')[0]);
         this.settings = new Settings(this.cfg, keys => this.assistant?.settingsChanged(keys).catch(e => log(`settings: ${errText(e)}`)));
@@ -68,7 +68,7 @@ class DuetAssistantApp extends Gio.Application {
             });
         }
         const c = this.cfg;
-        log(`duet-assistant "${c.name}" on the session bus as org.balaur.Assistant ` +
+        log(`balaur-assistant "${c.name}" on the session bus as org.balaur.Assistant ` +
             `(model ${this.settings.llmProvider}/${this.settings.llmModel}, wake word ${c.wake.words.join(', ')})`);
         this.assistant.start().catch(e => {
             logError(e, 'start');

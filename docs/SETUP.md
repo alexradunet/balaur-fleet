@@ -49,8 +49,8 @@ Choose **GitHub.com**, then **HTTPS**, answer **Yes** to "authenticate Git with 
 ## Stage 2: Fetch the config and add *your* hardware file
 
 ```bash
-gh repo clone alexradunet/yoda-duet-7-home-server
-cd yoda-duet-7-home-server
+gh repo clone alexradunet/balaur-fleet
+cd balaur-fleet
 cp /etc/nixos/hardware-configuration.nix hosts/balaur/
 git add hosts/balaur/hardware-configuration.nix
 ```
@@ -146,7 +146,7 @@ are installed as GNOME web apps). As we add services, each one appears there.
 ## Day to day
 
 ```bash
-cd ~/yoda-duet-7-home-server
+cd ~/balaur-fleet
 nano modules/hosts/balaur.nix        # or any module
 nixos-rebuild switch --flake .#balaur --sudo
 git add -A && git commit -m "..."  # the repo is your system's source of truth
@@ -165,7 +165,7 @@ the Duet. The flake declares the cache, but Nix asks you to accept flake-provide
 once:
 
 ```bash
-cd ~/yoda-duet-7-home-server && git pull
+cd ~/balaur-fleet && git pull
 nixos-rebuild switch --flake .#balaur --sudo --accept-flake-config
 ```
 
@@ -175,7 +175,7 @@ Then, over SSH, start `herdr` ([herdr.dev](https://herdr.dev)), the terminal wor
 
 ```bash
 herdr
-cd ~/yoda-duet-7-home-server
+cd ~/balaur-fleet
 claude                  # first run: follow the login prompt (open the URL on another device)
 pi                      # first run: log in or set your provider's API key; see `pi --help`
 ```
@@ -183,7 +183,7 @@ pi                      # first run: log in or set your provider's API key; see 
 **Updating the agents** (they move fast):
 
 ```bash
-cd ~/yoda-duet-7-home-server
+cd ~/balaur-fleet
 nix flake update llm-agents
 nixos-rebuild switch --flake .#balaur --sudo
 git add flake.lock && git commit -m "Bump agents"
@@ -233,7 +233,7 @@ subtracts the infrared that leaks into the colour pixels, then runs auto exposur
 This compiles the three modules (a minute or two). **Reboot** so the new modules load:
 
 ```bash
-cd ~/yoda-duet-7-home-server && git pull
+cd ~/balaur-fleet && git pull
 ```
 
 ```bash
@@ -361,8 +361,8 @@ pi SDK does the thinking:
 | Piece | Where | Does |
 |---|---|---|
 | openWakeWord | on the Duet, 127.0.0.1:10400 | listens for "Hey Jarvis"; nothing leaves the house before it fires |
-| duet-assistant (`gnome/assistant/`) | on the Duet, a service of the GNOME session | microphone and speaker (PipeWire), timers, reminders, lists, memory, notifications; D-Bus `org.balaur.Assistant` |
-| duet-agent (`gnome/agent/`) | on the Duet, its child | the pi SDK agent: the model and its tools, and nothing else (no shell, no files) |
+| balaur-assistant (`gnome/assistant/`) | on the Duet, a service of the GNOME session | microphone and speaker (PipeWire), timers, reminders, lists, memory, notifications; D-Bus `org.balaur.Assistant` |
+| balaur-agent (`gnome/agent/`) | on the Duet, its child | the pi SDK agent: the model and its tools, and nothing else (no shell, no files) |
 | Voxtral transcription (`voxtral-mini-transcribe-3-0`) | Mistral | what you said, Romanian or English |
 | Chat model (`mistral-medium-latest`) | Mistral, through pi | what to do: answers and calls the tools |
 | Voxtral TTS (`voxtral-mini-tts-3-0`) | Mistral | the voice |
@@ -379,7 +379,7 @@ Make a key at console.mistral.ai, then either:
   the GNOME Keyring; the first time, GNOME asks for a keyring password: **leave it empty** (the household account
   has no password to unlock it with). The same dialog sets the provider, model, server and voices, and has a
   **Test** button.
-- or from a terminal: `sudo duet-assistant-login` (paste the key, hidden; it is checked, saved to
+- or from a terminal: `sudo balaur-assistant-login` (paste the key, hidden; it is checked, saved to
   /var/lib/secrets as the fallback, the voices are listed, the assistant restarts).
 
 The defaults for model, voices and servers come from `balaur.assistant.*`; what you change in the app wins.
@@ -406,23 +406,23 @@ reminders and memory.
 ### Tuning
 
 - Doesn't hear you from across the room: `balaur.assistant.audio.micGain` (default 65; 50 = 0 dB, max 70 = +20 dB).
-- Wakes by itself: raise `balaur.assistant.wakeThreshold`. Misses you: lower it. `sudo duet-wake-test` records a few
-  tries and prints each one's score (`sudo duet-wake-test all` compares the built-in wake words).
+- Wakes by itself: raise `balaur.assistant.wakeThreshold`. Misses you: lower it. `sudo balaur-wake-test` records a few
+  tries and prints each one's score (`sudo balaur-wake-test all` compares the built-in wake words).
 - What it heard, every tool call and the time to the reply:
-  `journalctl _SYSTEMD_USER_UNIT=duet-assistant.service -f` (or, as the household user, `journalctl --user -u duet-assistant -f`).
+  `journalctl _SYSTEMD_USER_UNIT=balaur-assistant.service -f` (or, as the household user, `journalctl --user -u balaur-assistant -f`).
 - Location for the weather: `balaur.location` (also used by the ambient screen). News sources: `balaur.assistant.newsFeeds`.
 
 ### Custom wake word
 
 Train one with the openWakeWord synthetic-data notebook (Google Colab, about an hour, no recordings needed;
-search for "openWakeWord automatic model training"). Copy the resulting `hei_duet.tflite` to
-`/var/lib/duet-wakewords/`, set `balaur.assistant.wakeWord = "hei_duet";`, rebuild.
+search for "openWakeWord automatic model training"). Copy the resulting `hei_balaur.tflite` to
+`/var/lib/balaur-wakewords/`, set `balaur.assistant.wakeWord = "hei_balaur";`, rebuild.
 
 ### Where things are kept
 
-`~home/.local/state/duet-assistant/` holds `house.json` (lists), `reminders.json` and `memory.json`, as plain
+`~home/.local/state/balaur-assistant/` holds `house.json` (lists), `reminders.json` and `memory.json`, as plain
 JSON. Timers live in memory only (a restart drops them). Keys are in the GNOME Keyring (and, if you used
-`duet-assistant-login`, `/var/lib/secrets/duet-assistant-llm-key`). No audio is stored on the Duet.
+`balaur-assistant-login`, `/var/lib/secrets/balaur-assistant-llm-key`). No audio is stored on the Duet.
 
 ## Stage 12: The ambient screen
 
@@ -443,11 +443,11 @@ A touch, click or key brings back what was there. The tap that does it doesn't r
 ### Photos
 
 1. On the Jellyfin web UI (`http://balaur:8096`): Dashboard → API Keys → **+**, name it `Balaur`, and copy the key.
-2. `sudo duet-photos-login` and paste the key. It is checked and saved to `/var/lib/secrets/duet-photos-key`,
+2. `sudo balaur-photos-login` and paste the key. It is checked and saved to `/var/lib/secrets/balaur-photos-key`,
    readable by the household account only. If there is no library for `/srv/media/photos` yet, it adds one
    called **Photos**.
 3. Put pictures in `/srv/media/photos`, in any folders (over SSH, or Nautilus as `alex`). Jellyfin picks them up
-   on its library scan. Run `sudo duet-photos-login` again to see the count.
+   on its library scan. Run `sudo balaur-photos-login` again to see the count.
 
 Every photo library in Jellyfin is used, in a random order. Jellyfin scales each photo to the screen size, so
 the Duet decodes only small images. Without a key, the background stays dark.
@@ -455,7 +455,7 @@ the Duet decodes only small images. Without a key, the background stays dark.
 ### Tuning
 
 - `balaur.tablet.ambient.idleSeconds` (default 60; 0 = off), `balaur.tablet.ambient.photos.intervalSeconds`
-  (default 30). The extension reads `/etc/duet/ambient.json` when the session starts, so after a change log
+  (default 30). The extension reads `/etc/balaur/ambient.json` when the session starts, so after a change log
   the household account out and in again (or reboot).
 - What it does: `journalctl --user -b | grep "balaur ambient"`, as the household user (weather, photo and
   inhibitor errors).

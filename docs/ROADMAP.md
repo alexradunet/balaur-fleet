@@ -13,7 +13,7 @@ GNOME-facing is GJS (`gnome/`, see [gnome/CONTRACT.md](../gnome/CONTRACT.md)).
 - Web dashboard, Samsung TV integration and the Go assistant removed.
 - Ambient screen (2026-11-04, Shell extension): after 1 min untouched, a clock, date, weather, the running
   timers and the next reminder over a Jellyfin photo slideshow; a touch ends it, camera movement keeps it up.
-  Photos need a Jellyfin API key: `sudo duet-photos-login` (docs/SETUP.md, Stage 12).
+  Photos need a Jellyfin API key: `sudo balaur-photos-login` (docs/SETUP.md, Stage 12).
 
 ## Next
 
@@ -33,7 +33,7 @@ GNOME-facing is GJS (`gnome/`, see [gnome/CONTRACT.md](../gnome/CONTRACT.md)).
   rewrote its state. It has run normally since, reboot included; the cause was not found (a stale
   lockfile was ruled out). If it happens again, look at it before restarting anything: its log
   (`/var/lib/qBittorrent/qBittorrent/data/logs/qbittorrent.log`) and config files as they are then.
-- "Hey Jarvis" scores 0.2-0.9 for our voices; the threshold is 0.35 (`duet-wake-test` to retune).
+- "Hey Jarvis" scores 0.2-0.9 for our voices; the threshold is 0.35 (`balaur-wake-test` to retune).
 
 ## When development is done
 

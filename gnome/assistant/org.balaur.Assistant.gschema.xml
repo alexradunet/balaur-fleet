@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The assistant's settings the app can change (gnome/CONTRACT.md, "Settings").
-     NixOS sets the defaults from duet.assistant.* with a gschema override; an
+     NixOS sets the defaults from balaur.assistant.* with a gschema override; an
      empty string falls back to the config file. -->
 <schemalist>
   <schema id="org.balaur.Assistant" path="/org/balaur/assistant/">

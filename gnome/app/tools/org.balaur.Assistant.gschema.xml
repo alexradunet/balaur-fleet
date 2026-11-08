@@ -2,7 +2,7 @@
 <!-- TEST COPY for trying the app's settings dialog without the daemon
      package, which ships the real schema (see gnome/CONTRACT.md, "Settings").
      Compile it into a temp dir and point GSETTINGS_SCHEMA_DIR there:
-       glib-compile-schemas --targetdir=/tmp/duet-schemas gnome/app/tools
+       glib-compile-schemas --targetdir=/tmp/balaur-schemas gnome/app/tools
      The defaults here are placeholders; NixOS sets the real ones. -->
 <schemalist>
   <schema id="org.balaur.Assistant" path="/org/balaur/assistant/">

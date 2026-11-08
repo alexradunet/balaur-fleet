@@ -202,7 +202,7 @@ export class News {
 	}
 
 	private async fetchFeed(f: Feed, signal: AbortSignal): Promise<Headline[]> {
-		const res = await fetch(f.url, { headers: { "User-Agent": "duet-assistant/0.1 (+home)" }, signal });
+		const res = await fetch(f.url, { headers: { "User-Agent": "balaur-assistant/0.1 (+home)" }, signal });
 		if (!res.ok) throw new Error(`${f.url}: ${res.status} ${res.statusText}`);
 		return parseFeed(await res.text(), f);
 	}

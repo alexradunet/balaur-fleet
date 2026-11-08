@@ -1,5 +1,5 @@
 // The daemon's side of the agent protocol (gnome/CONTRACT.md, "The agent"):
-// spawns `duet-agent` (path in $DUET_AGENT) with Gio.Subprocess and speaks
+// spawns `balaur-agent` (path in $BALAUR_AGENT) with Gio.Subprocess and speaks
 // JSON lines on its stdin/stdout; its stderr goes to our journal.
 //
 //   ready        {tools, models, error?}            once, after start-up
@@ -19,13 +19,13 @@ const dec = new TextDecoder();
 
 export class Agent {
     /**
-     * argv: the command (default [$DUET_AGENT or "duet-agent"]).
+     * argv: the command (default [$BALAUR_AGENT or "balaur-agent"]).
      * env(): resolves to the environment variables to add (model, keys).
      * onToolCall(name, args, promptId): resolves to the result JSON text, or throws.
      * onReady(ready): the ready record (catalog for the Models property).
      */
     constructor({argv = null, env = async () => ({}), onToolCall, onReady = () => {}}) {
-        this.argv = argv ?? [GLib.getenv('DUET_AGENT') || 'duet-agent'];
+        this.argv = argv ?? [GLib.getenv('BALAUR_AGENT') || 'balaur-agent'];
         this.env = env;
         this.onToolCall = onToolCall;
         this.onReady = onReady;

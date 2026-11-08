@@ -1,4 +1,4 @@
-// org.balaur.Balaur: the household's companion app for the Duet home server.
+// org.balaur.Balaur: the household's companion app for the Balaur home server.
 //
 // Every user action goes through an application action (app.list-add,
 // app.stop, ...). Buttons bind to them directly, they are disabled while the
@@ -15,11 +15,11 @@ import Adw from 'gi://Adw?version=1';
 
 import {Assistant} from './assistant.js';
 import {Services} from './services.js';
-import {DuetWindow} from './window.js';
+import {BalaurWindow} from './window.js';
 import {AssistantSettingsDialog} from './settings-dialog.js';
 
-export const DuetApplication = GObject.registerClass(
-class DuetApplication extends Adw.Application {
+export const BalaurApplication = GObject.registerClass(
+class BalaurApplication extends Adw.Application {
     constructor() {
         super({
             application_id: 'org.balaur.Balaur',
@@ -47,7 +47,7 @@ class DuetApplication extends Adw.Application {
     vfunc_activate() {
         let win = this.active_window;
         if (!win) {
-            win = new DuetWindow(this);
+            win = new BalaurWindow(this);
             // A household tablet: fill the screen.
             win.maximize();
         }

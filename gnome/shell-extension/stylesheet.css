@@ -3,26 +3,26 @@
    Colours follow the old web dashboard (accent #7aa2ff, ok #4ade80,
    warn #fbbf24, thinking violet #c084fc). */
 
-.duet-overlay {
+.balaur-overlay {
   background-color: rgba(5, 7, 12, 0.6);
 }
 
-.duet-card {
+.balaur-card {
   padding: 36px 48px 28px;
   border-radius: 36px;
   background-color: rgba(18, 22, 32, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
 }
-.duet-card:hover { background-color: rgba(24, 29, 42, 0.94); }
-.duet-card:active { background-color: rgba(32, 38, 54, 0.96); }
+.balaur-card:hover { background-color: rgba(24, 29, 42, 0.94); }
+.balaur-card:active { background-color: rgba(32, 38, 54, 0.96); }
 
-.duet-card-box { spacing: 18px; }
+.balaur-card-box { spacing: 18px; }
 
 /* Room for the halo to swell (1.6 x 176px) without being clipped. */
-.duet-orb-stage { width: 290px; height: 290px; }
+.balaur-orb-stage { width: 290px; height: 290px; }
 
-.duet-orb {
+.balaur-orb {
   width: 160px;
   height: 160px;
   border-radius: 80px;
@@ -31,61 +31,61 @@
   background-gradient-end: #3b4f8f;
   box-shadow: 0 0 48px 6px rgba(122, 162, 255, 0.55);
 }
-.duet-orb.thinking {
+.balaur-orb.thinking {
   background-gradient-start: #e2c6ff;
   background-gradient-end: #5b3f9a;
   box-shadow: 0 0 48px 6px rgba(192, 132, 252, 0.55);
 }
-.duet-orb.speaking {
+.balaur-orb.speaking {
   background-gradient-start: #c8f9da;
   background-gradient-end: #1f7a45;
   box-shadow: 0 0 56px 8px rgba(74, 222, 128, 0.55);
 }
-.duet-orb.ringing {
+.balaur-orb.ringing {
   background-gradient-start: #ffe9b8;
   background-gradient-end: #a8670a;
   box-shadow: 0 0 64px 10px rgba(251, 191, 36, 0.7);
 }
 
-.duet-orb-halo {
+.balaur-orb-halo {
   width: 176px;
   height: 176px;
   border-radius: 88px;
   border: 4px solid rgba(122, 162, 255, 0.9);
 }
-.duet-orb-halo.speaking { border-color: rgba(74, 222, 128, 0.9); }
-.duet-orb-halo.ringing { border-color: rgba(251, 191, 36, 1); border-width: 6px; }
+.balaur-orb-halo.speaking { border-color: rgba(74, 222, 128, 0.9); }
+.balaur-orb-halo.ringing { border-color: rgba(251, 191, 36, 1); border-width: 6px; }
 
 /* Thinking: two dots circling just outside the orb. */
-.duet-orb-spinner { width: 212px; height: 212px; }
-.duet-dot {
+.balaur-orb-spinner { width: 212px; height: 212px; }
+.balaur-dot {
   width: 22px;
   height: 22px;
   border-radius: 11px;
   background-color: #c084fc;
   box-shadow: 0 0 12px rgba(192, 132, 252, 0.8);
 }
-.duet-dot.small {
+.balaur-dot.small {
   width: 14px;
   height: 14px;
   border-radius: 7px;
   background-color: #7aa2ff;
 }
 
-.duet-title {
+.balaur-title {
   font-size: 30pt;
   font-weight: 700;
   color: #e6eaf2;
 }
 
-.duet-caption {
+.balaur-caption {
   font-size: 24pt;
   color: #e6eaf2;
   text-align: center;
 }
-.duet-caption.long { font-size: 18pt; }
+.balaur-caption.long { font-size: 18pt; }
 
-.duet-hint {
+.balaur-hint {
   font-size: 13pt;
   color: rgba(230, 234, 242, 0.55);
 }

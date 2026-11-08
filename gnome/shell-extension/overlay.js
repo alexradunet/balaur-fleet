@@ -40,8 +40,8 @@ export class AssistantOverlay {
 
         // Full-monitor dim layer; also the chrome root. Not reactive.
         this._root = new St.Widget({
-            name: 'duetAssistantOverlay',
-            style_class: 'duet-overlay',
+            name: 'balaurAssistantOverlay',
+            style_class: 'balaur-overlay',
             reactive: false,
             visible: false,
             opacity: 0,
@@ -52,7 +52,7 @@ export class AssistantOverlay {
         // clicks and touch taps; can_focus stays false so it never takes
         // keyboard focus from the app underneath.
         this._card = new St.Button({
-            style_class: 'duet-card',
+            style_class: 'balaur-card',
             can_focus: false,
             reactive: true,
             x_align: Clutter.ActorAlign.CENTER,
@@ -63,7 +63,7 @@ export class AssistantOverlay {
         this._root.add_child(this._card);
 
         const box = new St.BoxLayout({
-            style_class: 'duet-card-box',
+            style_class: 'balaur-card-box',
             orientation: Clutter.Orientation.VERTICAL,
             x_expand: true,
         });
@@ -72,7 +72,7 @@ export class AssistantOverlay {
         // Orb stage: halo, dots and orb stacked and centred. Sizes live in
         // the stylesheet so St applies the monitor scale for us.
         const stage = new St.Widget({
-            style_class: 'duet-orb-stage',
+            style_class: 'balaur-orb-stage',
             layout_manager: new Clutter.BinLayout(),
             x_align: Clutter.ActorAlign.CENTER,
         });
@@ -83,32 +83,32 @@ export class AssistantOverlay {
             y_align: Clutter.ActorAlign.CENTER,
             pivot_point: new Graphene.Point({x: 0.5, y: 0.5}),
         };
-        this._halo = new St.Widget({style_class: 'duet-orb-halo', ...centred});
+        this._halo = new St.Widget({style_class: 'balaur-orb-halo', ...centred});
         this._spinner = new St.Widget({
-            style_class: 'duet-orb-spinner',
+            style_class: 'balaur-orb-spinner',
             layout_manager: new Clutter.BinLayout(),
             ...centred,
         });
         for (const [x, y, cls] of [
-            [Clutter.ActorAlign.CENTER, Clutter.ActorAlign.START, 'duet-dot'],
-            [Clutter.ActorAlign.CENTER, Clutter.ActorAlign.END, 'duet-dot small'],
+            [Clutter.ActorAlign.CENTER, Clutter.ActorAlign.START, 'balaur-dot'],
+            [Clutter.ActorAlign.CENTER, Clutter.ActorAlign.END, 'balaur-dot small'],
         ]) {
             this._spinner.add_child(new St.Widget({
                 // BinLayout only honours x/y_align on expanding children.
                 style_class: cls, x_align: x, y_align: y, x_expand: true, y_expand: true,
             }));
         }
-        this._orb = new St.Widget({style_class: 'duet-orb', ...centred});
+        this._orb = new St.Widget({style_class: 'balaur-orb', ...centred});
         stage.add_child(this._halo);
         stage.add_child(this._spinner);
         stage.add_child(this._orb);
 
         this._title = new St.Label({
-            style_class: 'duet-title',
+            style_class: 'balaur-title',
             x_align: Clutter.ActorAlign.CENTER,
         });
         this._caption = new St.Label({
-            style_class: 'duet-caption',
+            style_class: 'balaur-caption',
             x_align: Clutter.ActorAlign.CENTER,
             x_expand: true,
         });
@@ -118,7 +118,7 @@ export class AssistantOverlay {
         ct.ellipsize = Pango.EllipsizeMode.NONE;
         ct.line_alignment = Pango.Alignment.CENTER;
         this._hint = new St.Label({
-            style_class: 'duet-hint',
+            style_class: 'balaur-hint',
             text: 'Tap to stop',
             x_align: Clutter.ActorAlign.CENTER,
         });
@@ -164,13 +164,13 @@ export class AssistantOverlay {
         const caption = trimCaption(status.caption);
         this._caption.text = caption;
         this._caption.visible = caption !== '';
-        this._caption.style_class = caption.length > 120 ? 'duet-caption long' : 'duet-caption';
+        this._caption.style_class = caption.length > 120 ? 'balaur-caption long' : 'balaur-caption';
         this._fitCaption();
 
         if (state !== this._state) {
             this._state = state;
-            this._orb.style_class = `duet-orb ${state}`;
-            this._halo.style_class = `duet-orb-halo ${state}`;
+            this._orb.style_class = `balaur-orb ${state}`;
+            this._halo.style_class = `balaur-orb-halo ${state}`;
             this._startMotion(state);
         }
         this._show();

@@ -14,7 +14,7 @@ export const tests = {
         const calls = [];
         const agent = new Agent({
             argv: fakeAgentArgv(),
-            env: async () => ({DUET_LLM_PROVIDER: 'faux', DUET_LLM_MODEL: 'm1', DUET_LLM_KEY: 'sekret'}),
+            env: async () => ({BALAUR_LLM_PROVIDER: 'faux', BALAUR_LLM_MODEL: 'm1', BALAUR_LLM_KEY: 'sekret'}),
             onToolCall: async (name, args, prompt) => {
                 calls.push({name, args, prompt});
                 return '{"added":["lapte"]}';

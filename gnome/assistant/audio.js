@@ -1,6 +1,6 @@
 // Microphone capture and speaker playback through GStreamer, and the speaker
 // volume. With the desktop (the normal case) everything goes through the
-// session's PipeWire: capture from the `duet-mic` node, playback to the
+// session's PipeWire: capture from the `balaur-mic` node, playback to the
 // default sink as media.role=Assistant (so WirePlumber can duck or route it),
 // volume with wpctl. An ALSA device name in the config ("hw:0,7", no "pulse"
 // prefix) uses alsasrc/alsasink and amixer instead, as the Go code did.

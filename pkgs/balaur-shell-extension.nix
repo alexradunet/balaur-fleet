@@ -3,12 +3,12 @@
 # GNOME Shell extension balaur@balaur.local (gnome/shell-extension/): the voice
 # assistant's orb overlay, the Quick Settings microphone toggle and the ambient
 # screen. Plain GJS and CSS, no settings schema (the ambient screen reads
-# /etc/duet/ambient.json), so installing is just copying the files.
+# /etc/balaur/ambient.json), so installing is just copying the files.
 let
   dir = ../gnome/shell-extension;
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
-  pname = "gnome-shell-extension-duet";
+  pname = "gnome-shell-extension-balaur";
   version = "2";
 
   # What GNOME Shell loads, plus the tests; tools/ and the README stay in the repo.
@@ -40,11 +40,11 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
   passthru = {
     extensionUuid = "balaur@balaur.local";
-    extensionPortalSlug = "duet";
+    extensionPortalSlug = "balaur";
   };
 
   meta = {
-    description = "Duet household screen in GNOME Shell: assistant orb overlay, microphone toggle, ambient screen";
+    description = "Balaur household screen in GNOME Shell: assistant orb overlay, microphone toggle, ambient screen";
     platforms = lib.platforms.linux;
   };
 })

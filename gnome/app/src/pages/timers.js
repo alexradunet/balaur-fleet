@@ -26,11 +26,11 @@ class TimersPage extends Adw.Bin {
         this._page = new Adw.PreferencesPage();
         this._timers = new Adw.PreferencesGroup({title: 'Timers'});
         this._timerBox = new Gtk.ListBox({selection_mode: Gtk.SelectionMode.NONE,
-            css_classes: ['boxed-list', 'duet-touch-list']});
+            css_classes: ['boxed-list', 'balaur-touch-list']});
         this._timers.add(this._timerBox);
         this._reminders = new Adw.PreferencesGroup({title: 'Reminders'});
         this._reminderBox = new Gtk.ListBox({selection_mode: Gtk.SelectionMode.NONE,
-            css_classes: ['boxed-list', 'duet-touch-list']});
+            css_classes: ['boxed-list', 'balaur-touch-list']});
         this._reminders.add(this._reminderBox);
         this._page.add(this._timers);
         this._page.add(this._reminders);

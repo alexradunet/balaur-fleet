@@ -21,8 +21,8 @@
     { pkgs, ... }:
     {
       environment.systemPackages = [
-        (pkgs.callPackage ../pkgs/duet-app.nix { })
-        (pkgs.callPackage ../pkgs/duet-shell-extension.nix { })
+        (pkgs.callPackage ../pkgs/balaur-app.nix { })
+        (pkgs.callPackage ../pkgs/balaur-shell-extension.nix { })
       ];
 
       # GNOME ships these; a personal desktop here has no use for any of them.
@@ -45,7 +45,7 @@
     { pkgs, ... }:
     {
       dconf.settings."org/gnome/shell".enabled-extensions = [
-        (pkgs.callPackage ../pkgs/duet-shell-extension.nix { }).passthru.extensionUuid
+        (pkgs.callPackage ../pkgs/balaur-shell-extension.nix { }).passthru.extensionUuid
       ];
     };
 }

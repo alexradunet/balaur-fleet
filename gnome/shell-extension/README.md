@@ -14,7 +14,7 @@ GNOME Shell 50 extension for the Duet's built-in screen. It follows the
 - **Ambient screen**: after `idleSeconds` without input (Mutter's idle monitor), a full-screen
   clock, date, weather, the running timers and the next reminder over a Jellyfin photo slideshow,
   between the windows and the notification banners. Any input ends it. Held back while a window
-  is full screen or another app inhibits idle. Config: `/etc/duet/ambient.json` (`modules/tablet.nix`;
+  is full screen or another app inhibits idle. Config: `/etc/balaur/ambient.json` (`modules/tablet.nix`;
   `BALAUR_AMBIENT_CONFIG` overrides the path for testing).
 
 | File | What |
@@ -23,12 +23,12 @@ GNOME Shell 50 extension for the Duet's built-in screen. It follows the
 | `overlay.js`, `stylesheet.css` | The orb overlay (St widgets + Clutter transitions, no per-frame JS). |
 | `toggle.js` | Quick Settings toggle and top-bar indicator. |
 | `ambient.js` | The ambient screen: idle watch, full-screen clock, weather, timers, reminders, photo crossfade. |
-| `ambient-data.js`, `tests/test-ambient.js` | Its Shell-free side: `/etc/duet/ambient.json`, Open-Meteo, Jellyfin photos, time and layout helpers; tested in the package build. |
+| `ambient-data.js`, `tests/test-ambient.js` | Its Shell-free side: `/etc/balaur/ambient.json`, Open-Meteo, Jellyfin photos, time and layout helpers; tested in the package build. |
 | `extension.js` | Glue: `enable()` / `disable()`. |
 | `tools/mock-assistant.js` | Fake daemon: owns the name, cycles idle → listening → thinking → speaking → idle (an alarm every fourth round), honours `Muted`, `Stop`, `Ask`, lists, etc. Refuses to start if the name is taken. |
 | `tools/watch-assistant.js` | Prints what the extension would show, using `AssistantClient`. |
 
-Packaged by `pkgs/duet-shell-extension.nix`. No GSettings.
+Packaged by `pkgs/balaur-shell-extension.nix`. No GSettings.
 
 ## Try it
 

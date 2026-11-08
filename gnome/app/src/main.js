@@ -2,7 +2,7 @@
 
 import {exit, programArgs, programInvocationName} from 'system';
 
-import {DuetApplication} from './application.js';
+import {BalaurApplication} from './application.js';
 
-const status = await new DuetApplication().runAsync([programInvocationName, ...programArgs]);
+const status = await new BalaurApplication().runAsync([programInvocationName, ...programArgs]);
 exit(status);

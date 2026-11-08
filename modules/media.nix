@@ -2,7 +2,7 @@
 #
 #   ${storage.root}/media/movies      Jellyfin "Movies" library
 #   ${storage.root}/media/shows       Jellyfin "Shows" library
-#   ${storage.root}/media/photos      Jellyfin "Photos" (`sudo duet-photos-login` adds it)
+#   ${storage.root}/media/photos      Jellyfin "Photos" (`sudo balaur-photos-login` adds it)
 #
 # Serving is a separate job from downloading, so it is a separate aspect: the
 # Duet does both, a laptop that only fetches things gets `torrents` alone.

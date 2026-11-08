@@ -16,7 +16,7 @@ import {
 	InMemoryModelsStore,
 } from "@earendil-works/pi-ai";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
-import { BUILTIN_TOOLS, DuetAgent, MAX_TOOL_ROUNDS } from "../src/agent.ts";
+import { BUILTIN_TOOLS, BalaurAgent, MAX_TOOL_ROUNDS } from "../src/agent.ts";
 import { systemPrompt } from "../src/prompt.ts";
 import { Server } from "../src/protocol.ts";
 import { buildTools, DAEMON_TOOLS } from "../src/tools.ts";
@@ -62,11 +62,11 @@ async function setup(opts: { tokensPerSecond?: number } = {}) {
 		},
 		(name, args, signal) => server.forward(name, args, signal),
 	);
-	const agent = new DuetAgent({
+	const agent = new BalaurAgent({
 		modelRuntime,
 		model: faux.getModel(),
 		tools,
-		cwd: mkdtempSync(join(tmpdir(), "duet-agent-test-")),
+		cwd: mkdtempSync(join(tmpdir(), "balaur-agent-test-")),
 	});
 	await agent.start();
 	const waiters: Array<(m: any) => boolean> = [];

@@ -13,8 +13,8 @@ import {TimersPage} from './pages/timers.js';
 import {MemoryPage} from './pages/memory.js';
 import {HomePage} from './pages/home.js';
 
-export const DuetWindow = GObject.registerClass(
-class DuetWindow extends Adw.ApplicationWindow {
+export const BalaurWindow = GObject.registerClass(
+class BalaurWindow extends Adw.ApplicationWindow {
     constructor(app) {
         super({
             application: app,

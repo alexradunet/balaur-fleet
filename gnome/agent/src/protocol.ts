@@ -12,7 +12,7 @@
 // model cannot be used, "error" (the agent then answers every prompt with it).
 
 import type { Readable, Writable } from "node:stream";
-import { DuetAgent } from "./agent.ts";
+import { BalaurAgent } from "./agent.ts";
 import { systemPrompt, type TurnContext } from "./prompt.ts";
 
 export type Send = (msg: Record<string, unknown>) => void;
@@ -52,11 +52,11 @@ export class Server {
 	private current: string | null = null; // id of the prompt being answered
 	private queue: Promise<void> = Promise.resolve();
 
-	private agent: DuetAgent;
+	private agent: BalaurAgent;
 	private send: Send;
 	private test: () => Promise<string>;
 
-	constructor(agent: DuetAgent, send: Send, test: () => Promise<string> = async () => "") {
+	constructor(agent: BalaurAgent, send: Send, test: () => Promise<string> = async () => "") {
 		this.agent = agent;
 		this.send = send;
 		this.test = test;
@@ -91,7 +91,7 @@ export class Server {
 		try {
 			msg = JSON.parse(line);
 		} catch (e) {
-			console.error(`duet-agent: bad line from the daemon: ${(e as Error).message}`);
+			console.error(`balaur-agent: bad line from the daemon: ${(e as Error).message}`);
 			return;
 		}
 		switch (msg.type) {
@@ -121,10 +121,10 @@ export class Server {
 				void this.test().then((error) => this.send({ type: "test_result", id: msg.id, error }));
 				break;
 			case "reset":
-				this.queue = this.queue.then(() => this.agent.reset()).catch((e) => console.error(`duet-agent: reset: ${e.message}`));
+				this.queue = this.queue.then(() => this.agent.reset()).catch((e) => console.error(`balaur-agent: reset: ${e.message}`));
 				break;
 			default:
-				console.error(`duet-agent: unknown message type ${JSON.stringify(msg.type)}`);
+				console.error(`balaur-agent: unknown message type ${JSON.stringify(msg.type)}`);
 		}
 	}
 
@@ -143,7 +143,7 @@ export class Server {
 			this.send({ type: "error", id, message: (e as Error).message });
 		} finally {
 			this.current = null;
-			console.error(`duet-agent: prompt ${id}: ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+			console.error(`balaur-agent: prompt ${id}: ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 		}
 	}
 }

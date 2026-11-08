@@ -9,7 +9,7 @@
       options.balaur = {
         user = lib.mkOption {
           type = lib.types.str;
-          default = "duet";
+          default = "balaur";
           description = "Admin account (SSH + sudo).";
         };
 
@@ -57,7 +57,7 @@
           default = [ ];
           description = ''
             The home's services, as listed on the Balaur app's Home page (written to
-            /etc/duet/services.json by the `fleet` aspect, together with the web UIs
+            /etc/balaur/services.json by the `fleet` aspect, together with the web UIs
             of the other machines). Feature modules append to this.
           '';
           type = lib.types.listOf (lib.types.submodule ({ config, ... }: {
@@ -87,7 +87,7 @@
                 type = lib.types.str;
                 internal = true;
                 readOnly = true;
-                default = "duet-web-" + lib.toLower (lib.replaceStrings [ " " ] [ "-" ] config.name);
+                default = "balaur-web-" + lib.toLower (lib.replaceStrings [ " " ] [ "-" ] config.name);
                 description = "Desktop file id (without .desktop) of its web app, where `tablet` installs one.";
               };
             };

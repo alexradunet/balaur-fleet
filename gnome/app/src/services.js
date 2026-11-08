@@ -1,6 +1,6 @@
-// The household's home services, from /etc/duet/services.json (written by
+// The household's home services, from /etc/balaur/services.json (written by
 // NixOS from balaur.services of this machine and the rest of the fleet;
-// $DUET_SERVICES overrides the path for testing). An array of
+// $BALAUR_SERVICES overrides the path for testing). An array of
 // {name, description, icon, url, unit, desktopId}, plus an optional `group` to
 // section the Home page and `host` for a service on another machine.
 
@@ -12,14 +12,14 @@ import Gtk from 'gi://Gtk?version=4.0';
 
 Gio._promisify(Gtk.UriLauncher.prototype, 'launch', 'launch_finish');
 
-const DEFAULT_PATH = '/etc/duet/services.json';
+const DEFAULT_PATH = '/etc/balaur/services.json';
 
 export const Services = GObject.registerClass({
     Signals: {'changed': {}},
 }, class Services extends GObject.Object {
     constructor() {
         super();
-        this.path = GLib.getenv('DUET_SERVICES') || DEFAULT_PATH;
+        this.path = GLib.getenv('BALAUR_SERVICES') || DEFAULT_PATH;
         this.list = [];
         this.problem = null; // why the list is empty, for the Home page
         this._file = Gio.File.new_for_path(this.path);

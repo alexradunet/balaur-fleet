@@ -8,7 +8,7 @@ import GLib from 'gi://GLib';
 import Soup from 'gi://Soup?version=3.0';
 
 // Written by the tablet aspect (modules/tablet.nix); BALAUR_AMBIENT_CONFIG for testing.
-export const CONFIG_PATH = GLib.getenv('BALAUR_AMBIENT_CONFIG') ?? '/etc/duet/ambient.json';
+export const CONFIG_PATH = GLib.getenv('BALAUR_AMBIENT_CONFIG') ?? '/etc/balaur/ambient.json';
 
 const DEFAULTS = {
     idleSeconds: 60,
@@ -149,7 +149,7 @@ export class Http {
 
 /**
  * Random photos from the Jellyfin libraries on this machine. The API key
- * (`sudo duet-photos-login`) is read on every refresh, so it can be added
+ * (`sudo balaur-photos-login`) is read on every refresh, so it can be added
  * or replaced without restarting anything.
  */
 export class JellyfinPhotos {

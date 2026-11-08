@@ -68,7 +68,7 @@ class ListsPage extends Adw.Bin {
         const group = new Adw.PreferencesGroup({title});
         const clear = new Gtk.Button({
             label: 'Clear done',
-            css_classes: ['flat', 'duet-touch-button'],
+            css_classes: ['flat', 'balaur-touch-button'],
             valign: Gtk.Align.CENTER,
             action_name: 'app.list-clear-done',
             action_target: new GLib.Variant('s', name),
@@ -76,7 +76,7 @@ class ListsPage extends Adw.Bin {
         group.header_suffix = clear;
 
         const box = new Gtk.ListBox({selection_mode: Gtk.SelectionMode.NONE,
-            css_classes: ['boxed-list', 'duet-touch-list']});
+            css_classes: ['boxed-list', 'balaur-touch-list']});
         const entry = new Adw.EntryRow({title: `Add to ${title}`, show_apply_button: true});
         const submit = () => {
             const text = entry.text.trim();

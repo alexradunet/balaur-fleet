@@ -76,7 +76,7 @@ export class AssistantClient {
                 Gio.DBusProxyFlags.DO_NOT_AUTO_START);
         } catch (e) {
             if (!e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
-                console.error(`duet: cannot create the ${BUS_NAME} proxy: ${e.message}`);
+                console.error(`balaur: cannot create the ${BUS_NAME} proxy: ${e.message}`);
             return;
         }
         if (this._cancellable.is_cancelled())
@@ -138,7 +138,7 @@ export class AssistantClient {
                 proxy.call_finish(res);
             } catch (e) {
                 if (!e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
-                    console.warn(`duet: ${method} failed: ${e.message}`);
+                    console.warn(`balaur: ${method} failed: ${e.message}`);
             }
         });
     }

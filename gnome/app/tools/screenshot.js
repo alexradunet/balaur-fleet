@@ -13,14 +13,14 @@ import Gsk from 'gi://Gsk?version=4.0';
 import Graphene from 'gi://Graphene';
 import {programArgs} from 'system';
 
-import {DuetApplication} from '../src/application.js';
+import {BalaurApplication} from '../src/application.js';
 
 const outDir = programArgs[0] ?? '.';
 GLib.mkdir_with_parents(outDir, 0o755);
 const PAGES = ['assistant', 'lists', 'timers', 'memory', 'home'];
 const SIZES = {landscape: [1080, 675], portrait: [675, 1080]};
-// Optional style: DUET_SHOT_STYLE=dark
-const style = GLib.getenv('DUET_SHOT_STYLE');
+// Optional style: BALAUR_SHOT_STYLE=dark
+const style = GLib.getenv('BALAUR_SHOT_STYLE');
 
 const wait = ms => new Promise(r => GLib.timeout_add(GLib.PRIORITY_DEFAULT, ms, () => {
     r();
@@ -55,7 +55,7 @@ async function capture(win, path) {
     }
 }
 
-const app = new DuetApplication();
+const app = new BalaurApplication();
 app.connect_after('activate', async () => {
     if (style === 'dark')
         app.style_manager.color_scheme = 4; // Adw.ColorScheme.FORCE_DARK
@@ -76,4 +76,4 @@ app.connect_after('activate', async () => {
     }
     app.quit();
 });
-await app.runAsync(['duet-screenshot']);
+await app.runAsync(['balaur-screenshot']);

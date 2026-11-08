@@ -1,5 +1,5 @@
-# Duet: the household's GJS/libadwaita app (gnome/app/). No build step: the
-# ES modules are copied as they are and bin/duet-app runs them with gjs;
+# Balaur: the household's GJS/libadwaita app (gnome/app/). No build step: the
+# ES modules are copied as they are and bin/balaur-app runs them with gjs;
 # wrapGAppsHook4 wraps that launcher so the GTK 4 / libadwaita typelibs (and
 # their data) resolve regardless of the session's environment.
 {
@@ -16,7 +16,7 @@
 }:
 
 stdenv.mkDerivation {
-  pname = "duet-app";
+  pname = "balaur-app";
   version = "0.1.0";
 
   src = lib.fileset.toSource {
@@ -44,18 +44,18 @@ stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
 
-    mkdir -p $out/share/duet-app $out/bin
-    cp -r src/. $out/share/duet-app/
+    mkdir -p $out/share/balaur-app $out/bin
+    cp -r src/. $out/share/balaur-app/
 
-    cat > $out/bin/duet-app <<EOF
+    cat > $out/bin/balaur-app <<EOF
     #!${runtimeShell}
-    exec ${lib.getExe' gjs "gjs"} -m $out/share/duet-app/main.js "\$@"
+    exec ${lib.getExe' gjs "gjs"} -m $out/share/balaur-app/main.js "\$@"
     EOF
-    chmod +x $out/bin/duet-app
+    chmod +x $out/bin/balaur-app
 
     install -Dm644 data/org.balaur.Balaur.desktop -t $out/share/applications
     substituteInPlace $out/share/applications/org.balaur.Balaur.desktop \
-      --replace-fail "Exec=duet-app" "Exec=$out/bin/duet-app"
+      --replace-fail "Exec=balaur-app" "Exec=$out/bin/balaur-app"
     desktop-file-validate $out/share/applications/org.balaur.Balaur.desktop
     install -Dm644 data/org.balaur.Balaur.svg -t $out/share/icons/hicolor/scalable/apps
 
@@ -63,8 +63,8 @@ stdenv.mkDerivation {
   '';
 
   meta = {
-    description = "The Duet home server's household app: assistant, lists, timers, memory, services";
-    mainProgram = "duet-app";
+    description = "The Balaur home server's household app: assistant, lists, timers, memory, services";
+    mainProgram = "balaur-app";
     platforms = lib.platforms.linux;
   };
 }

@@ -25,8 +25,8 @@
 
       # Ours, GNOME-native (gnome/): the Balaur app (assistant, lists, timers, memory,
       # home services) and the Shell extension (assistant orb over every app, mic toggle).
-      duetApp = pkgs.callPackage ../pkgs/duet-app.nix { };
-      duetExtension = pkgs.callPackage ../pkgs/duet-shell-extension.nix { };
+      balaurApp = pkgs.callPackage ../pkgs/balaur-app.nix { };
+      balaurExtension = pkgs.callPackage ../pkgs/balaur-shell-extension.nix { };
 
       # Each service with a web UI (and an appIcon) as an app of its own: GNOME Web
       # (Epiphany) "system web applications". Launched with
@@ -52,7 +52,7 @@
       # admin account, where the repo and Claude Code live. Asks that account's
       # password, since the household session is open to anyone at the screen.
       devTerminal = pkgs.makeDesktopItem {
-        name = "duet-dev-terminal";
+        name = "balaur-dev-terminal";
         desktopName = "Developer terminal";
         comment = "A shell as ${cfg.user}: the repo, Claude Code, nixos-rebuild";
         icon = "org.gnome.Ptyxis";
@@ -64,7 +64,7 @@
       # reminders, and photos from Jellyfin when this machine runs it (media aspect).
       ambient = cfg.tablet.ambient;
       jellyfin = config.services.jellyfin.enable;
-      photosKey = "/var/lib/secrets/duet-photos-key";
+      photosKey = "/var/lib/secrets/balaur-photos-key";
       photosDir = "${toString cfg.storage.root}/media/photos";
       ambientJson = builtins.toJSON {
         inherit (ambient) idleSeconds;
@@ -79,7 +79,7 @@
       # A Jellyfin API key for the photos, from a terminal (state only, never in the
       # repo or the store; read from stdin). Also adds the Photos library if missing.
       photosLogin = pkgs.writeShellApplication {
-        name = "duet-photos-login";
+        name = "balaur-photos-login";
         runtimeInputs = [ pkgs.coreutils pkgs.curl pkgs.jq ];
         text = ''
           if [ "$(id -u)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
@@ -137,7 +137,7 @@
             photos.intervalSeconds = lib.mkOption {
               type = lib.types.ints.positive;
               default = 30;
-              description = "Seconds each photo stays (Jellyfin's photo libraries; key: `sudo duet-photos-login`).";
+              description = "Seconds each photo stays (Jellyfin's photo libraries; key: `sudo balaur-photos-login`).";
             };
           };
         };
@@ -167,8 +167,8 @@
         environment.gnome.excludePackages = with pkgs; [ gnome-tour gnome-user-docs yelp orca ];
 
         environment.systemPackages = with pkgs; [
-          duetApp
-          duetExtension
+          balaurApp
+          balaurExtension
           devTerminal
           epiphany # GNOME Web: runs the web apps below
         ] ++ lib.optional jellyfin photosLogin ++ webApps ++ [
@@ -223,7 +223,7 @@
             "org/gnome/shell" = {
               favorite-apps = favorites;
               welcome-dialog-last-shown-version = "999";
-              enabled-extensions = [ duetExtension.passthru.extensionUuid ];
+              enabled-extensions = [ balaurExtension.passthru.extensionUuid ];
             };
             "org/gnome/mutter".dynamic-workspaces = true;
             # Tools for whoever administers the box, out of the household's way.
@@ -235,7 +235,7 @@
                 "gtk3-demo.desktop" "gtk3-icon-browser.desktop" "gtk3-widget-factory.desktop"
                 "qv4l2.desktop" "qvidcap.desktop" "org.freedesktop.IBus.Setup.desktop"
                 "org.gnome.Extensions.desktop" "org.gnome.ColorProfileViewer.desktop"
-                "duet-dev-terminal.desktop" "org.gnome.Ptyxis.desktop"
+                "balaur-dev-terminal.desktop" "org.gnome.Ptyxis.desktop"
               ];
             };
           };
@@ -250,7 +250,7 @@
           ];
         }];
 
-        environment.etc."duet/ambient.json".text = ambientJson;
+        environment.etc."balaur/ambient.json".text = ambientJson;
       };
     };
 }

@@ -51,7 +51,7 @@ export function actionIconButton(iconName, tooltip, actionName, target) {
         icon_name: iconName,
         tooltip_text: tooltip,
         valign: Gtk.Align.CENTER,
-        css_classes: ['flat', 'circular', 'duet-touch-button'],
+        css_classes: ['flat', 'circular', 'balaur-touch-button'],
         action_name: actionName,
         action_target: target,
     });

@@ -1,4 +1,4 @@
-// A stand-in for duet-agent in the tests: speaks the same JSON lines.
+// A stand-in for balaur-agent in the tests: speaks the same JSON lines.
 //   prompt "add <item>"  -> tool_call house_list_add, then reply with its result
 //   prompt "slow"        -> waits for abort, then {"type":"error","aborted":true}
 //   prompt "fail"        -> {"type":"error","message":"boom"}
@@ -16,7 +16,7 @@ const waiting = new Map(); // tool call id -> prompt
 let slow = null;
 
 send({type: 'ready', tools: ['house_list_add'], models: {providers: [{id: 'faux', name: 'Faux', models: [{id: 'm1', name: 'M1'}]}]},
-    env: {provider: GLib.getenv('DUET_LLM_PROVIDER'), model: GLib.getenv('DUET_LLM_MODEL'), key: GLib.getenv('DUET_LLM_KEY')}});
+    env: {provider: GLib.getenv('BALAUR_LLM_PROVIDER'), model: GLib.getenv('BALAUR_LLM_MODEL'), key: GLib.getenv('BALAUR_LLM_KEY')}});
 
 const loop = new GLib.MainLoop(null, false);
 function next() {

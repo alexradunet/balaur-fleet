@@ -1,4 +1,4 @@
-# Duet (org.balaur.Balaur)
+# Balaur (org.balaur.Balaur)
 
 The household's libadwaita app on the built-in screen, written in GJS (no
 build step). Pages: **Assistant** (conversation, type to ask, Stop, mic
@@ -22,14 +22,14 @@ below 720 sp (portrait). Style follows the system dark/light setting.
   for `user:` units).
 - `src/reach.js`: for another machine's service (`host` set), whether its
   `url` answers, since its unit is out of reach.
-- `src/services.js`: reads `/etc/duet/services.json` (`$DUET_SERVICES`
+- `src/services.js`: reads `/etc/balaur/services.json` (`$BALAUR_SERVICES`
   overrides) and opens a service (its `desktopId` app, else its `url`).
 - `src/pages/*.js`, `src/style.css`: the pages.
 - `src/settings-dialog.js`: "Assistant Settings" (gear on the Assistant page,
   or the main menu): chat provider/model/server and Mistral speech settings
   bound to GSettings `org.balaur.Assistant`, API keys via the daemon's
   `SetApiKey` (never shown or read back), and a Test button (`TestModel`).
-- `data/`: desktop file and icon. Packaged by `pkgs/duet-app.nix`.
+- `data/`: desktop file and icon. Packaged by `pkgs/balaur-app.nix`.
 
 `icon` in services.json may be an icon name, an absolute file path or an
 emoji; with an emoji, the `desktopId` app's own icon is preferred when there
@@ -38,9 +38,9 @@ is one.
 ## Trying it
 
 ```sh
-nix build --impure --expr 'let p = (builtins.getFlake (toString ./.)).inputs.nixpkgs.legacyPackages.x86_64-linux; in p.callPackage ./pkgs/duet-app.nix {}'
+nix build --impure --expr 'let p = (builtins.getFlake (toString ./.)).inputs.nixpkgs.legacyPackages.x86_64-linux; in p.callPackage ./pkgs/balaur-app.nix {}'
 gjs -m gnome/app/tools/mock-assistant.js &      # fake daemon; logs "CALL ..." per method
-DUET_SERVICES=gnome/app/tools/services.example.json ./result/bin/duet-app
+BALAUR_SERVICES=gnome/app/tools/services.example.json ./result/bin/balaur-app
 ```
 
 The app's actions are on the bus, so they can be poked without touching the
@@ -55,8 +55,8 @@ The GSettings schema ships with the daemon. To try the settings dialog
 without it, compile the test copy and point GLib at it:
 
 ```sh
-glib-compile-schemas --targetdir=/tmp/duet-schemas gnome/app/tools
-GSETTINGS_SCHEMA_DIR=/tmp/duet-schemas GSETTINGS_BACKEND=memory ./result/bin/duet-app
+glib-compile-schemas --targetdir=/tmp/balaur-schemas gnome/app/tools
+GSETTINGS_SCHEMA_DIR=/tmp/balaur-schemas GSETTINGS_BACKEND=memory ./result/bin/balaur-app
 ```
 
 Without the schema the dialog says so and only the API key rows work.

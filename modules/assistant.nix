@@ -1,10 +1,10 @@
 # The voice assistant, an app of a GNOME session (gnome/):
 #
 #   openWakeWord    127.0.0.1:10400   listens for "Hey Jarvis" (tiny, local, nothing leaves)
-#   duet-assistant  session service   the GJS daemon: microphone and speaker through
+#   balaur-assistant  session service   the GJS daemon: microphone and speaker through
 #                                     PipeWire, Voxtral speech, timers, lists, memory,
 #                                     notifications; D-Bus org.balaur.Assistant
-#   duet-agent      its child         the brain, on the pi SDK: the model and its tools
+#   balaur-agent      its child         the brain, on the pi SDK: the model and its tools
 #
 # After the wake word, Mistral (EU) does the rest: Voxtral transcription (what
 # you said), the model with tools (what to do; any provider pi supports, set in
@@ -23,12 +23,12 @@
       cfg = config.balaur;
       as = cfg.assistant;
       user = as.user;
-      package = pkgs.callPackage ../pkgs/duet-assistant-gjs.nix { };
+      package = pkgs.callPackage ../pkgs/balaur-assistant-gjs.nix { };
       # With the `secrets` aspect, the key is the fleet's sops secret; without it,
-      # this machine's own state, written by `sudo duet-assistant-login`.
+      # this machine's own state, written by `sudo balaur-assistant-login`.
       useSops = options ? sops;
       keySecret = "assistant-llm-key";
-      wakewordDir = "/var/lib/duet-wakewords";
+      wakewordDir = "/var/lib/balaur-wakewords";
       wakePort = 10400;
 
       # A dedicated ALSA capture device as its own PipeWire source, for machines
@@ -38,16 +38,16 @@
       # too quiet. Where `audio.input` is null we just use the server's default
       # source, which is what an ordinary laptop microphone wants.
       customMic = as.audio.input != null;
-      micNode = "duet-mic";
+      micNode = "balaur-mic";
       micHw = lib.removePrefix "plug" (toString as.audio.input);
       # What the daemon records from: "pulse" is the sound server's default source.
       inputDevice = if customMic then "pulse:${micNode}" else "pulse";
-      # ... and what `parec` needs to read that same source in duet-wake-test.
+      # ... and what `parec` needs to read that same source in balaur-wake-test.
       parecDevice = lib.optionalString customMic "--device=${micNode} ";
 
       # Defaults for the daemon; the model, server and voices can be changed in the
       # Balaur app (GSettings org.balaur.Assistant), which then take precedence.
-      configFile = pkgs.writeText "duet-assistant.json" (builtins.toJSON {
+      configFile = pkgs.writeText "balaur-assistant.json" (builtins.toJSON {
         inherit (as) name defaultLanguage;
         audio = { input = inputDevice; output = "pulse"; card = "0"; };
         wake = { uri = "127.0.0.1:${toString wakePort}"; words = [ as.wakeWord ]; };
@@ -69,7 +69,7 @@
       # which also lists the voices to choose from. The Balaur app's Assistant settings
       # do the same from the screen (they keep keys in the GNOME Keyring instead).
       login = pkgs.writeShellApplication {
-        name = "duet-assistant-login";
+        name = "balaur-assistant-login";
         runtimeInputs = [ pkgs.coreutils pkgs.curl pkgs.jq pkgs.systemd pkgs.util-linux ];
         text = ''
           if [ "$(id -u)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
@@ -81,7 +81,7 @@
               key_file=${lib.escapeShellArg (toString as.llm.apiKeyFile)}
               install -d -m 711 "$(dirname "$key_file")"
               # Readable by the assistant's group, which the household account is in.
-              install -m 640 -g duet-assistant /dev/null "$key_file"
+              install -m 640 -g balaur-assistant /dev/null "$key_file"
               printf '%s' "$key" > "$key_file"
               saved="Saved."
             '' else ''
@@ -102,25 +102,25 @@
             echo "$saved But $base/models did not accept it: check the key and balaur.assistant.llm.baseUrl."
           fi
           ${lib.optionalString as.llm.manageApiKeyFile ''
-            ${inSession "systemctl --user restart duet-assistant.service"} \
-              && echo "duet-assistant restarted." || echo "Log in to the desktop to start the assistant."
+            ${inSession "systemctl --user restart balaur-assistant.service"} \
+              && echo "balaur-assistant restarted." || echo "Log in to the desktop to start the assistant."
           ''}
         '';
       };
 
-      # `sudo duet-wake-test`: say the wake word a few times; prints its score each
+      # `sudo balaur-wake-test`: say the wake word a few times; prints its score each
       # time, to tune balaur.assistant.wakeThreshold and audio.micGain with real voices.
       wakeTest = pkgs.writeShellApplication {
-        name = "duet-wake-test";
+        name = "balaur-wake-test";
         runtimeInputs = [ pkgs.coreutils pkgs.util-linux pkgs.glib.bin pkgs.pulseaudio ];
         text = ''
           if [ "$(id -u)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
           py=${pkgs.python3.withPackages (ps: [ ps.pyopen-wakeword ])}/bin/python3
           # The recording is kept (root only) for a second look:
-          #   sudo duet-wake-test [seconds]           say the wake word a few times
-          #   sudo duet-wake-test all [seconds]       compare every built-in wake word
-          #   sudo duet-wake-test score [gain] [all]  rescore the last recording, optionally amplified
-          rec=/var/tmp/duet-wake-test.raw
+          #   sudo balaur-wake-test [seconds]           say the wake word a few times
+          #   sudo balaur-wake-test all [seconds]       compare every built-in wake word
+          #   sudo balaur-wake-test score [gain] [all]  rescore the last recording, optionally amplified
+          rec=/var/tmp/balaur-wake-test.raw
           if [ "''${1:-}" = score ]; then
             exec "$py" ${./assistant/wake-test.py} "''${3:-${as.wakeWord}}" "$rec" ${toString as.wakeThreshold} "''${2:-1}"
           fi
@@ -178,7 +178,7 @@
             description = ''
               openWakeWord model to listen for. Built in: hey_jarvis, alexa, hey_mycroft,
               hey_rhasspy, okay_nabu. A custom one: put `<name>.tflite` in
-              /var/lib/duet-wakewords and set its name here (docs/SETUP.md, "Custom wake word").
+              /var/lib/balaur-wakewords and set its name here (docs/SETUP.md, "Custom wake word").
             '';
           };
 
@@ -201,13 +201,13 @@
             };
             apiKeyFile = lib.mkOption {
               type = lib.types.path;
-              default = if useSops then config.sops.secrets.${keySecret}.path else "/var/lib/secrets/duet-assistant-llm-key";
-              defaultText = lib.literalMD "the `assistant-llm-key` sops secret with the `secrets` aspect, else `/var/lib/secrets/duet-assistant-llm-key`";
+              default = if useSops then config.sops.secrets.${keySecret}.path else "/var/lib/secrets/balaur-assistant-llm-key";
+              defaultText = lib.literalMD "the `assistant-llm-key` sops secret with the `secrets` aspect, else `/var/lib/secrets/balaur-assistant-llm-key`";
               description = ''
                 File with the Mistral API key: the fallback when the GNOME Keyring
                 has none (keys saved in the Balaur app go there). By default it is
                 the fleet's `assistant-llm-key` sops secret where the `secrets` aspect
-                is present, else this machine's own state (`sudo duet-assistant-login`).
+                is present, else this machine's own state (`sudo balaur-assistant-login`).
               '';
             };
             manageApiKeyFile = lib.mkOption {
@@ -216,11 +216,11 @@
               defaultText = lib.literalMD "false with the `secrets` aspect, else true";
               description = ''
                 Whether this aspect owns `apiKeyFile`: creates its directory, and
-                lets `duet-assistant-login` write it.
+                lets `balaur-assistant-login` write it.
 
                 Set false when something else provides the file — the `secrets`
                 aspect does, at a path under /run/secrets, and both would
-                otherwise try to own that directory. `duet-assistant-login` then
+                otherwise try to own that directory. `balaur-assistant-login` then
                 still checks a key and lists the voices, but says where the real
                 one belongs instead of writing it.
               '';
@@ -244,7 +244,7 @@
               ro = lib.mkOption {
                 type = lib.types.nullOr lib.types.str;
                 default = "01a155a0-3dbb-7274-ab31-7fa1ebf35a3e"; # Irina
-                description = "Voice id for Romanian replies (`sudo duet-assistant-login` lists them); null = the API's default voice.";
+                description = "Voice id for Romanian replies (`sudo balaur-assistant-login` lists them); null = the API's default voice.";
               };
               en = lib.mkOption {
                 type = lib.types.nullOr lib.types.str;
@@ -262,7 +262,7 @@
               description = ''
                 ALSA device to record from, when the machine's default microphone is
                 not good enough for the wake word. It becomes the PipeWire source
-                `duet-mic`, the default microphone, which the assistant records from.
+                `balaur-mic`, the default microphone, which the assistant records from.
                 The Duet sets it to its array's 16 kHz device (`arecord -l`: DMIC16kHz).
                 null = record from whatever PipeWire's default source is, which is what
                 an ordinary laptop microphone wants.
@@ -334,31 +334,40 @@
           # when something else provides it — claiming /run/secrets here would
           # fight sops-nix for the directory.
           "d ${dirOf (toString as.llm.apiKeyFile)} 0711 root root -"
-          "z ${toString as.llm.apiKeyFile} 0640 root duet-assistant -"
+          "z ${toString as.llm.apiKeyFile} 0640 root balaur-assistant -"
         ];
-        users.groups.duet-assistant = { };
-        users.users.${user}.extraGroups = [ "duet-assistant" ];
+        users.groups.balaur-assistant = { };
+        users.users.${user}.extraGroups = [ "balaur-assistant" ];
 
         # ---- the assistant: a service of the household session ----
-        systemd.user.services.duet-assistant = {
-          description = "Duet voice assistant";
+        systemd.user.services.balaur-assistant = {
+          description = "Balaur voice assistant";
           wantedBy = [ "graphical-session.target" ];
           partOf = [ "graphical-session.target" ];
           after = [ "graphical-session.target" "pipewire-pulse.service" "wireplumber.service" ];
           environment = {
-            DUET_ASSISTANT_CONFIG = configFile;
-            # The Mistral key when the GNOME Keyring has none (`sudo duet-assistant-login`).
-            DUET_ASSISTANT_KEY_FILE = toString as.llm.apiKeyFile;
+            BALAUR_ASSISTANT_CONFIG = configFile;
+            # The Mistral key when the GNOME Keyring has none (`sudo balaur-assistant-login`).
+            BALAUR_ASSISTANT_KEY_FILE = toString as.llm.apiKeyFile;
             # Timers, reminders and "what time is it" use local time.
             TZ = config.time.timeZone;
           };
           unitConfig.ConditionUser = user;
           serviceConfig = {
+            # Lists, reminders and memory lived in duet-assistant before the rename
+            # (2026-11-08). Carried over once, while the new directory is still
+            # empty; delete this line once every machine has run it.
+            ExecStartPre = pkgs.writeShellScript "balaur-assistant-migrate-state" ''
+              old="''${XDG_STATE_HOME:-$HOME/.local/state}/duet-assistant"
+              if [ -d "$old" ] && [ -z "$(ls -A "$STATE_DIRECTORY")" ]; then
+                rmdir "$STATE_DIRECTORY" && mv "$old" "$STATE_DIRECTORY"
+              fi
+            '';
             ExecStart = lib.getExe package;
             Restart = "always";
             RestartSec = 3;
             CPUWeight = 1000;
-            StateDirectory = "duet-assistant";
+            StateDirectory = "balaur-assistant";
             NoNewPrivileges = true;
             RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" ];
             LockPersonality = true;
@@ -370,7 +379,7 @@
         };
 
         services.pipewire.extraConfig.pipewire = lib.mkIf customMic {
-          "60-duet-mic"."context.objects" = [{
+          "60-balaur-mic"."context.objects" = [{
             factory = "adapter";
             args = {
               "factory.name" = "api.alsa.pcm.source";
@@ -393,11 +402,11 @@
         # volume of its own, so set audio.micGain on the card at each login, once
         # WirePlumber has set the card up (it restores the mixer as it does). Nothing
         # else opens the 48 kHz "Digital Microphone", whose volume would move it.
-        systemd.user.services.duet-mic-gain = lib.mkIf customMic {
+        systemd.user.services.balaur-mic-gain = lib.mkIf customMic {
           description = "Microphone array gain";
           wantedBy = [ "pipewire-pulse.service" ];
           after = [ "pipewire-pulse.service" "wireplumber.service" ];
-          before = [ "duet-assistant.service" ];
+          before = [ "balaur-assistant.service" ];
           unitConfig.ConditionUser = user;
           serviceConfig.Type = "oneshot";
           path = [ pkgs.pulseaudio pkgs.alsa-utils pkgs.gnugrep pkgs.coreutils ];
@@ -415,7 +424,7 @@
           name = "Assistant";
           description = "Voice assistant · say “${lib.concatMapStringsSep " " (w: lib.toUpper (lib.substring 0 1 w) + lib.substring 1 (-1) w) (lib.splitString "_" as.wakeWord)}”";
           icon = "🎙";
-          unit = "user:duet-assistant.service";
+          unit = "user:balaur-assistant.service";
           desktopId = "org.balaur.Balaur.desktop";
           group = "Home";
         }];
@@ -426,7 +435,7 @@
       (lib.optionalAttrs useSops {
         sops.secrets.${keySecret} = {
           owner = "root";
-          group = "duet-assistant";
+          group = "balaur-assistant";
           mode = "0640";
         };
       })

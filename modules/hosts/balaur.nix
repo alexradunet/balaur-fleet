@@ -73,7 +73,7 @@ in
         # it PipeWire picks the 48 kHz DMIC, whose processing leaves a voice far too
         # quiet for the wake word. A laptop with an ordinary mic leaves this null.
         audio.input = "plughw:0,7";
-        # "Hey Jarvis" in our voices scores 0.2-0.9 (`sudo duet-wake-test`); room noise
+        # "Hey Jarvis" in our voices scores 0.2-0.9 (`sudo balaur-wake-test`); room noise
         # never passed 0.05. 0.35 catches most attempts; raise it if the TV wakes it.
         wakeThreshold = 0.35;
       };

@@ -43,8 +43,8 @@ laptop has an ordinary HD-Audio mic and `audio.input = null` (PipeWire's default
 source), so the number is a guess. Measure it:
 
 ```
-sudo duet-wake-test          # say "Hey Jarvis" a few times; prints each score
-sudo duet-wake-test score 2  # rescore the last recording, amplified
+sudo balaur-wake-test          # say "Hey Jarvis" a few times; prints each score
+sudo balaur-wake-test score 2  # rescore the last recording, amplified
 ```
 
 The assistant does authenticate (the sops key works — Mistral returns 200), so

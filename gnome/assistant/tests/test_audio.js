@@ -58,7 +58,7 @@ export const tests = {
 
     async micDeliversFramesAndMutes() {
         const frames = [];
-        const mic = new Mic('pulse:duet-mic', f => frames.push(f), {source: 'audiotestsrc is-live=true wave=sine'});
+        const mic = new Mic('pulse:balaur-mic', f => frames.push(f), {source: 'audiotestsrc is-live=true wave=sine'});
         mic.start();
         await until(() => frames.length >= 5, 3000, 'mic frames');
         ok(frames.every(f => f.length === 2560), 'frames are 80 ms of 16 kHz mono S16LE');
@@ -92,14 +92,14 @@ export const tests = {
         eq(parseWpctlVolume('Volume: 0.45\n'), 45);
         eq(parseWpctlVolume('Volume: 0.70 [MUTED]\n'), 0);
         eq(parseWpctlVolume('Volume: 1.20\n'), 100);
-        eq(pulseDevice('pulse:duet-mic')[0], 'duet-mic');
+        eq(pulseDevice('pulse:balaur-mic')[0], 'balaur-mic');
         eq(pulseDevice('hw:0,7')[1], false);
     },
 };
 
-// On the real session (DUET_TEST_PIPEWIRE=1, run as the household user):
+// On the real session (BALAUR_TEST_PIPEWIRE=1, run as the household user):
 // the actual PipeWire elements, playing silence only.
-if (GLib.getenv('DUET_TEST_PIPEWIRE') === '1') {
+if (GLib.getenv('BALAUR_TEST_PIPEWIRE') === '1') {
     tests.pipewireSinkPlaysSilenceToTheEnd = async () => {
         const p = new Player('pulse');
         const t0 = monoMs();
@@ -107,11 +107,11 @@ if (GLib.getenv('DUET_TEST_PIPEWIRE') === '1') {
         const took = monoMs() - t0;
         ok(took >= 400 && took < 3000, `500 ms of silence took ${took.toFixed(0)} ms`);
     };
-    tests.pipewireSrcDuetMicDeliversFrames = async () => {
+    tests.pipewireSrcBalaurMicDeliversFrames = async () => {
         const frames = [];
-        const mic = new Mic('pulse:duet-mic', f => frames.push(f));
+        const mic = new Mic('pulse:balaur-mic', f => frames.push(f));
         mic.start();
-        await until(() => frames.length >= 10, 5000, 'frames from duet-mic');
+        await until(() => frames.length >= 10, 5000, 'frames from balaur-mic');
         mic.stop();
     };
 }

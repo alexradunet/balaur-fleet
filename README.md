@@ -97,8 +97,8 @@ The config imports `hosts/balaur/hardware-configuration.nix` (your installer-gen
 nix develop                                   # Go, GJS, Node 22, libadwaita
 cd camera && go test ./...                    # the RGB-IR pipeline (Go standard library only)
 cd gnome/agent && npm test                    # the pi SDK agent
-nix build .#duet-assistant && ./result/libexec/duet-assistant-tests
-nix build .#duet-app && ./result/bin/duet-app # the app; see gnome/app/README.md for a mock assistant
+nix build .#balaur-assistant && ./result/libexec/balaur-assistant-tests
+nix build .#balaur-app && ./result/bin/balaur-app # the app; see gnome/app/README.md for a mock assistant
 ```
 How the GNOME pieces talk to each other is in [gnome/CONTRACT.md](gnome/CONTRACT.md); each
 directory under `gnome/` has a short README.

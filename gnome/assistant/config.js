@@ -1,5 +1,5 @@
 // The assistant's configuration: the JSON file Nix writes
-// ($DUET_ASSISTANT_CONFIG, the schema of Config in assistant/assistant.go (the former Go service, in git history)),
+// ($BALAUR_ASSISTANT_CONFIG, the schema of Config in assistant/assistant.go (the former Go service, in git history)),
 // decoded over the same defaults as the Go loadConfig.
 
 import GLib from 'gi://GLib';
@@ -37,7 +37,7 @@ export function parseConfig(text) {
 }
 
 export function loadConfig() {
-    const path = GLib.getenv('DUET_ASSISTANT_CONFIG');
+    const path = GLib.getenv('BALAUR_ASSISTANT_CONFIG');
     if (!path)
         return defaultConfig();
     const [, bytes] = GLib.file_get_contents(path);
@@ -46,12 +46,12 @@ export function loadConfig() {
 
 /**
  * The Mistral key from a file, the fallback when the GNOME Keyring has none:
- * $DUET_ASSISTANT_KEY_FILE (written by `sudo duet-assistant-login`; missing is
- * fine), or systemd's LoadCredential=; $DUET_ASSISTANT_LLM_KEY for development.
+ * $BALAUR_ASSISTANT_KEY_FILE (written by `sudo balaur-assistant-login`; missing is
+ * fine), or systemd's LoadCredential=; $BALAUR_ASSISTANT_LLM_KEY for development.
  */
 export function credentialKey() {
     const dir = GLib.getenv('CREDENTIALS_DIRECTORY');
-    const files = [GLib.getenv('DUET_ASSISTANT_KEY_FILE'), dir && GLib.build_filenamev([dir, 'llm-key'])];
+    const files = [GLib.getenv('BALAUR_ASSISTANT_KEY_FILE'), dir && GLib.build_filenamev([dir, 'llm-key'])];
     for (const f of files.filter(Boolean)) {
         try {
             const [, b] = GLib.file_get_contents(f);
@@ -60,5 +60,5 @@ export function credentialKey() {
                 return key;
         } catch {}
     }
-    return GLib.getenv('DUET_ASSISTANT_LLM_KEY') ?? '';
+    return GLib.getenv('BALAUR_ASSISTANT_LLM_KEY') ?? '';
 }

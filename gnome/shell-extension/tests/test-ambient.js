@@ -1,5 +1,5 @@
 // Tests for ambient-data.js (no Shell, no network): `gjs -m tests/test-ambient.js`.
-// Run by the package build (pkgs/duet-shell-extension.nix).
+// Run by the package build (pkgs/balaur-shell-extension.nix).
 
 import GLib from 'gi://GLib';
 import System from 'system';

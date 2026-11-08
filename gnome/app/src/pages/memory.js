@@ -22,7 +22,7 @@ class MemoryPage extends Adw.Bin {
         // Adding sits on top: the list can get long.
         const addGroup = new Adw.PreferencesGroup();
         const addBox = new Gtk.ListBox({selection_mode: Gtk.SelectionMode.NONE,
-            css_classes: ['boxed-list', 'duet-touch-list']});
+            css_classes: ['boxed-list', 'balaur-touch-list']});
         this._entry = new Adw.EntryRow({title: 'Add a fact, e.g. “Ana is allergic to nuts”',
             show_apply_button: true});
         const submit = () => {
@@ -40,7 +40,7 @@ class MemoryPage extends Adw.Bin {
 
         this._group = new Adw.PreferencesGroup();
         this._box = new Gtk.ListBox({selection_mode: Gtk.SelectionMode.NONE,
-            css_classes: ['boxed-list', 'duet-touch-list']});
+            css_classes: ['boxed-list', 'balaur-touch-list']});
         this._group.add(this._box);
         page.add(this._group);
 

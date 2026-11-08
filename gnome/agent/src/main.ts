@@ -1,25 +1,25 @@
 #!/usr/bin/env node
-// duet-agent: the brain of the Duet voice assistant, a pi SDK session started
+// balaur-agent: the brain of the Balaur voice assistant, a pi SDK session started
 // by the GJS daemon (gnome/assistant/agent.js), speaking JSON lines on
 // stdin/stdout (see protocol.ts). The daemon restarts it when the model
 // settings change.
 //
 // Environment (set by the daemon):
-//   DUET_ASSISTANT_CONFIG  the assistant's config JSON (location, newsFeeds, search.model; llm.* as fallback)
-//   DUET_LLM_PROVIDER, DUET_LLM_MODEL, DUET_LLM_BASE_URL, DUET_LLM_KEY   the chat model (GSettings + keyring)
-//   MISTRAL_API_KEY, DUET_SPEECH_BASE_URL   Mistral, for the web_search tool
-//   DUET_AGENT_DIR         an empty private directory (pi's nominal cwd/agentDir)
+//   BALAUR_ASSISTANT_CONFIG  the assistant's config JSON (location, newsFeeds, search.model; llm.* as fallback)
+//   BALAUR_LLM_PROVIDER, BALAUR_LLM_MODEL, BALAUR_LLM_BASE_URL, BALAUR_LLM_KEY   the chat model (GSettings + keyring)
+//   MISTRAL_API_KEY, BALAUR_SPEECH_BASE_URL   Mistral, for the web_search tool
+//   BALAUR_AGENT_DIR         an empty private directory (pi's nominal cwd/agentDir)
 
 import { mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DuetAgent } from "./agent.ts";
+import { BalaurAgent } from "./agent.ts";
 import { catalog, createRuntime, selectModel, testModel } from "./models.ts";
 import { lines, Server, writer } from "./protocol.ts";
 import { buildTools } from "./tools.ts";
 
 function loadConfig(): any {
-	const path = process.env.DUET_ASSISTANT_CONFIG;
+	const path = process.env.BALAUR_ASSISTANT_CONFIG;
 	return path ? JSON.parse(readFileSync(path, "utf8")) : {};
 }
 
@@ -29,15 +29,15 @@ async function main() {
 	console.info = console.error;
 	const env = process.env;
 	const cfg = loadConfig();
-	const dir = env.DUET_AGENT_DIR || join(tmpdir(), `duet-agent-${process.getuid?.() ?? 0}`);
+	const dir = env.BALAUR_AGENT_DIR || join(tmpdir(), `balaur-agent-${process.getuid?.() ?? 0}`);
 	mkdirSync(dir, { recursive: true, mode: 0o700 });
 	const mistralKey = env.MISTRAL_API_KEY ?? "";
-	const provider = env.DUET_LLM_PROVIDER || "mistral";
+	const provider = env.BALAUR_LLM_PROVIDER || "mistral";
 	const settings = {
 		provider,
-		model: env.DUET_LLM_MODEL || cfg.llm?.model || "",
-		baseUrl: env.DUET_LLM_BASE_URL ?? "",
-		key: env.DUET_LLM_KEY || (provider === "mistral" ? mistralKey : ""),
+		model: env.BALAUR_LLM_MODEL || cfg.llm?.model || "",
+		baseUrl: env.BALAUR_LLM_BASE_URL ?? "",
+		key: env.BALAUR_LLM_KEY || (provider === "mistral" ? mistralKey : ""),
 	};
 
 	const send = writer(process.stdout);
@@ -49,7 +49,7 @@ async function main() {
 	} catch (e) {
 		// Stay up without a model: the app still needs the catalog to fix the settings.
 		const message = (e as Error).message;
-		console.error(`duet-agent: ${message}`);
+		console.error(`balaur-agent: ${message}`);
 		send({ type: "ready", tools: [], models, error: message });
 		for await (const line of lines(process.stdin)) {
 			let msg: any;
@@ -70,15 +70,15 @@ async function main() {
 			location: cfg.location ?? { name: "", latitude: 0, longitude: 0 },
 			newsFeeds: cfg.newsFeeds ?? [],
 			searchModel: cfg.search?.model ?? "",
-			mistralBaseURL: env.DUET_SPEECH_BASE_URL || "https://api.mistral.ai/v1",
+			mistralBaseURL: env.BALAUR_SPEECH_BASE_URL || "https://api.mistral.ai/v1",
 			mistralKey,
 		},
 		(name, args, signal) => server!.forward(name, args, signal),
 	);
-	const agent = new DuetAgent({ modelRuntime: rt, model, tools, cwd: dir });
+	const agent = new BalaurAgent({ modelRuntime: rt, model, tools, cwd: dir });
 	await agent.start(); // throws (exit 1) if any tool but ours is present
 	server = new Server(agent, send, () => testModel(rt, model));
-	console.error(`duet-agent: ready (model ${settings.provider}/${settings.model}; tools ${agent.activeToolNames.join(", ")})`);
+	console.error(`balaur-agent: ready (model ${settings.provider}/${settings.model}; tools ${agent.activeToolNames.join(", ")})`);
 	send({ type: "ready", tools: agent.activeToolNames, models });
 
 	for await (const line of lines(process.stdin)) server.handle(line);
@@ -88,6 +88,6 @@ async function main() {
 }
 
 main().catch((e) => {
-	console.error(`duet-agent: ${e?.stack ?? e}`);
+	console.error(`balaur-agent: ${e?.stack ?? e}`);
 	process.exit(1);
 });

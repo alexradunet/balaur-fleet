@@ -82,7 +82,7 @@ class AssistantPage extends Adw.Bin {
             icon_name: 'emblem-system-symbolic',
             tooltip_text: 'Assistant settings',
             valign: Gtk.Align.CENTER,
-            css_classes: ['flat', 'circular', 'duet-touch-button'],
+            css_classes: ['flat', 'circular', 'balaur-touch-button'],
             action_name: 'app.assistant-settings',
         }));
         return new Adw.Clamp({maximum_size: 900, child: box});
@@ -120,12 +120,12 @@ class AssistantPage extends Adw.Bin {
             margin_top: 6, margin_bottom: 12, margin_start: 12, margin_end: 12});
 
         const ask = new Gtk.Box({spacing: 8});
-        this._entry = new Gtk.Entry({hexpand: true, css_classes: ['duet-ask'],
+        this._entry = new Gtk.Entry({hexpand: true, css_classes: ['balaur-ask'],
             input_hints: Gtk.InputHints.SPELLCHECK | Gtk.InputHints.UPPERCASE_SENTENCES});
         this._entry.connect('activate', () => this._submit());
         this._entry.connect('changed', () => this._syncSend());
         this._sendButton = new Gtk.Button({icon_name: 'go-up-symbolic', tooltip_text: 'Ask',
-            css_classes: ['suggested-action', 'circular', 'duet-touch-button'],
+            css_classes: ['suggested-action', 'circular', 'balaur-touch-button'],
             valign: Gtk.Align.CENTER});
         this._sendButton.connect('clicked', () => this._submit());
         ask.append(this._entry);
@@ -272,7 +272,7 @@ function bubble(text, who) {
     });
     const box = new Gtk.Box({
         halign: who === 'you' ? Gtk.Align.END : Gtk.Align.START,
-        css_classes: ['duet-bubble', who],
+        css_classes: ['balaur-bubble', who],
         margin_start: who === 'you' ? 48 : 0,
         margin_end: who === 'you' ? 0 : 48,
     });
