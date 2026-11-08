@@ -47,6 +47,7 @@
           description = "Movies & shows";
           icon = "🎬";
           port = 8096;
+          subdomain = "jellyfin";
           unit = "jellyfin.service";
           desktopId = "org.jellyfin.JellyfinDesktop.desktop";
           group = "Media & files";

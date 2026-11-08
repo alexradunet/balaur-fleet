@@ -33,7 +33,8 @@ export const ReachWatcher = GObject.registerClass({
             return;
         this._busy = true;
         try {
-            const conn = await this._client.connect_to_uri_async(this.url, 80, this._cancellable);
+            const port = this.url.startsWith('https:') ? 443 : 80; // when the URL names none
+            const conn = await this._client.connect_to_uri_async(this.url, port, this._cancellable);
             conn.close(null);
             this._state = {ok: true, detail: `${this.url} answers`};
         } catch (e) {

@@ -63,6 +63,7 @@
         description = "Blocks ads & trackers for the network";
         icon = "🛡️";
         port = webPort;
+        subdomain = "adguard";
         unit = "adguardhome.service";
         appIcon = "${pkgs.adguardhome.src}/client_v2/public/assets/favicon.svg";
         group = "Network";

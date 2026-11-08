@@ -67,6 +67,12 @@
               icon = lib.mkOption { type = lib.types.str; default = "•"; description = "An icon name, a file, or an emoji."; };
               port = lib.mkOption { type = lib.types.nullOr lib.types.port; default = null; description = "Its web UI on this machine, if any."; };
               path = lib.mkOption { type = lib.types.str; default = ""; };
+              subdomain = lib.mkOption {
+                type = lib.types.nullOr lib.types.str;
+                default = null;
+                example = "jellyfin";
+                description = "Where the `web` aspect, on a machine that has it, serves this web UI: https://<subdomain>.<balaur.web.domain>.";
+              };
               unit = lib.mkOption {
                 type = lib.types.str;
                 default = "";

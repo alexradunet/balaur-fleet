@@ -147,12 +147,17 @@ in
         desktopId = if hasWebApp s then "${s.webAppId}.desktop" else s.desktopId;
         host = null;
       }) cfg.services;
+      # Where that machine runs the `web` aspect, its subdomain over HTTPS (web.nix).
+      remoteUrl = host: s:
+        let theirs = nixosConfigs.${host}.config.balaur; in
+        if theirs ? web && s.subdomain != null then "https://${s.subdomain}.${theirs.web.domain}${s.path}"
+        else "http://${fleet.${host}.address}:${toString s.port}${s.path}";
       remoteServices = lib.concatLists (lib.mapAttrsToList (host: _:
         map (s: {
           inherit (s) name description icon;
           inherit host;
           group = "On ${host}";
-          url = "http://${fleet.${host}.address}:${toString s.port}${s.path}";
+          url = remoteUrl host s;
           unit = "";
           desktopId = null;
         }) (lib.filter (s: s.port != null) nixosConfigs.${host}.config.balaur.services))

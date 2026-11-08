@@ -260,6 +260,7 @@ in
             description = "Continuous file sync";
             icon = "🔄";
             port = 8384;
+            subdomain = "sync";
             unit = "syncthing.service";
             appIcon = "${pkgs.syncthing}/share/icons/hicolor/scalable/apps/syncthing.svg";
             group = "Media & files";

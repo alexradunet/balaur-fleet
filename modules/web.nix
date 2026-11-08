@@ -1,17 +1,20 @@
-# Web: the Balaur home page at https://<domain>, for every device on the tailnet.
+# Web: the Balaur home page at https://<domain>, for every device on the tailnet,
+# and this machine's web UIs at https://<subdomain>.<domain>.
 #
-# The page lists each machine's web UIs (their `balaur.services` with a port),
-# linking to them at the machine's fleet `address`, and installs as an app
-# (web manifest). Caddy serves it; the certificate comes from Let's Encrypt by
-# DNS challenge (NixOS's `security.acme`, lego), so nothing has to be reachable
-# from the internet.
+# The page lists each machine's web UIs (their `balaur.services` with a port)
+# and installs as an app (web manifest). A service of this machine with a
+# `subdomain` gets its own HTTPS address, proxied by Caddy to 127.0.0.1:<port>;
+# the others link to their machine's fleet `address`. One wildcard certificate
+# from Let's Encrypt covers all of it, by DNS challenge (NixOS's `security.acme`,
+# lego), so nothing has to be reachable from the internet.
 #
 # Private by design: the domain's A record points at this machine's *tailnet*
 # address, which only answers devices on the tailnet. The services have no
 # logins, so never point it at a public address or forward ports to it.
 #
 # Set up once:
-#   - DNS: an A record <domain> -> this machine's tailnetIp, at the registrar.
+#   - DNS: A records <domain> and *.<domain> -> this machine's tailnetIp, at the
+#     registrar (and no AAAA: IPv6 would win and go somewhere else).
 #   - A DNS API token that lego can use (the host file wires it from sops):
 #     `dnsProvider` names lego's provider, the credentials file its variables.
 { config, ... }:
@@ -34,10 +37,16 @@ in
         else nixosConfigs.${host}.config.balaur.services;
       hosts = [ me ] ++ lib.filter (h: h != me && fleet ? ${h}) (lib.attrNames nixosConfigs);
       address = host: fleet.${host}.address or host;
+      # This machine's web UIs with a subdomain get https://<subdomain>.<domain>
+      # through Caddy; the other machines' keep their plain address.
+      proxied = lib.filter (s: s.port != null && s.subdomain != null) config.balaur.services;
+      url = host: s:
+        if host == me && s.subdomain != null then "https://${s.subdomain}.${cfg.domain}${s.path}"
+        else "http://${address host}:${toString s.port}${s.path}";
       # Emoji show as they are; icon names and files mean nothing to a browser.
       icon = s: if builtins.match "[[:alnum:]/._-]+" s.icon != null then "•" else s.icon;
       card = host: s: ''
-        <a class="card" href="${esc "http://${address host}:${toString s.port}${s.path}"}">
+        <a class="card" href="${esc (url host s)}">
           <span class="icon">${esc (icon s)}</span>
           <span class="text"><span class="name">${esc s.name}</span>
           <span class="desc">${esc s.description}</span></span>
@@ -147,19 +156,27 @@ in
           certs.${cfg.domain} = {
             inherit (cfg) dnsProvider;
             environmentFile = cfg.dnsCredentialsFile;
+            # One wildcard for every subdomain: new services need no new
+            # certificate, and their names stay out of the public CT logs.
+            extraDomainNames = [ "*.${cfg.domain}" ];
           };
         };
 
         services.caddy = {
           enable = true;
-          virtualHosts.${cfg.domain} = {
+          virtualHosts = {
+            ${cfg.domain} = {
+              useACMEHost = cfg.domain;
+              extraConfig = ''
+                root * ${site}
+                file_server
+                header Cache-Control "no-cache"
+              '';
+            };
+          } // lib.listToAttrs (map (s: lib.nameValuePair "${s.subdomain}.${cfg.domain}" {
             useACMEHost = cfg.domain;
-            extraConfig = ''
-              root * ${site}
-              file_server
-              header Cache-Control "no-cache"
-            '';
-          };
+            extraConfig = "reverse_proxy 127.0.0.1:${toString s.port}";
+          }) proxied);
         };
         # No firewall change: 443 is reached over tailscale0, which `network` trusts.
 

@@ -97,7 +97,9 @@ in
       # so they also reach a profile that already exists.
       me = config.networking.hostName;
       serverDomains = lib.concatStringsSep ";" ([ me "${me}.local" "localhost" "127.0.0.1" ]
-        ++ lib.filter (a: a != null) [ (fleet.${me}.lanIp or null) (fleet.${me}.tailnetIp or null) ]);
+        ++ lib.filter (a: a != null) [ (fleet.${me}.lanIp or null) (fleet.${me}.tailnetIp or null) ]
+        # Behind the `web` aspect's Caddy, which passes the browser's Host through.
+        ++ lib.optional (cfg ? web) "torrents.${cfg.web.domain}");
       enforced = {
         "WebUI\\CSRFProtection" = "true";
         "WebUI\\HostHeaderValidation" = "true";
@@ -181,6 +183,7 @@ in
             description = "Search & download torrents";
             icon = "🧲";
             port = webuiPort;
+            subdomain = "torrents";
             unit = "qbittorrent.service";
             appIcon = "${pkgs.qbittorrent-nox.src}/dist/unix/menuicons/scalable/apps/qbittorrent.svg";
             group = "Media & files";
