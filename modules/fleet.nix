@@ -9,7 +9,12 @@
 #   - Remote builds: a machine with a `builder` entry offers itself to the others,
 #     which get it in `nix.buildMachines`.
 #
-# Names resolve over the tailnet (MagicDNS: `balaur`) and on the LAN (mDNS: `balaur.local`).
+# Machines reach each other at one address, `address`: the tailnet (MagicDNS) name,
+# e.g. `balaur`. Every machine runs Tailscale (the `network` aspect), and Tailscale
+# connects directly over the LAN when both are at home, so home and away are one
+# route, one browser origin, one login. A machine reaches itself at 127.0.0.1.
+# LAN addresses (`lanIp`, mDNS `<name>.local`) are for devices outside the tailnet,
+# such as the TV using AdGuard: the fleet accepts them, but never dials them.
 { lib, config, ... }:
 let
   inherit (lib) mkOption types;
@@ -26,9 +31,14 @@ in
   options.fleet = mkOption {
     description = "Every machine in the fleet, by hostname.";
     default = { };
-    type = types.attrsOf (types.submodule {
+    type = types.attrsOf (types.submodule ({ name, ... }: {
       options = {
         description = mkOption { type = types.str; default = ""; description = "What this machine is for."; };
+        address = mkOption {
+          type = types.str;
+          default = name;
+          description = "How the other machines reach it: its tailnet (MagicDNS) name. The only address they dial.";
+        };
         tailnetIp = mkOption {
           type = types.nullOr types.str;
           default = null;
@@ -104,7 +114,7 @@ in
           });
         };
       };
-    });
+    }));
   };
 
   config.flake.modules.nixos.fleet =
@@ -122,7 +132,7 @@ in
 
       # ---- the Balaur app's Home page (gnome/CONTRACT.md) ----
       # This machine's services, with their live systemd state, then the web UIs of
-      # the other machines, each under "On <host>", reached by MagicDNS name over
+      # the other machines, each under "On <host>", reached at its `address` over
       # the tailnet (which `network` trusts). Their units live on another machine,
       # so the app shows whether the address answers instead, and opens the web
       # page: a local GNOME app (or a web app installed for 127.0.0.1) would open
@@ -142,7 +152,7 @@ in
           inherit (s) name description icon;
           inherit host;
           group = "On ${host}";
-          url = "http://${host}:${toString s.port}${s.path}";
+          url = "http://${fleet.${host}.address}:${toString s.port}${s.path}";
           unit = "";
           desktopId = null;
         }) (lib.filter (s: s.port != null) nixosConfigs.${host}.config.balaur.services))

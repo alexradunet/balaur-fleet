@@ -17,6 +17,10 @@ skipped). The **dendritic pattern** works like this:
   it must still work without that aspect: `cfg.camera.screenTimeout or 0`, `cfg ? tablet`.
 - Machine-generated files (`hardware-configuration.nix`) live in `hosts/<hostname>/`,
   outside `modules/`, so import-tree doesn't load them.
+- Machines reach each other at `fleet.<host>.address`, the tailnet name (`balaur`), and
+  themselves at `127.0.0.1`. Never dial `lanIp` or `<name>.local`: those are for devices
+  outside the tailnet (the TV). Accepting every address (known_hosts, qBittorrent's
+  ServerDomains) is fine.
 
 ## Checking a change
 

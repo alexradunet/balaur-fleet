@@ -19,12 +19,12 @@ do.
 | LAN | DHCP, was `192.168.50.43` | `192.168.50.233` (reserved) |
 | Nix builds | builder for the fleet (8 jobs, speedFactor 2) | farms its builds out to the laptop |
 | Syncthing | 200 GiB volume, `/srv/files/shared` | same, paired declaratively |
-| qBittorrent | client only (`balaur-torrent`) | the server, `http://balaur.local:8080` |
+| qBittorrent | client only (`balaur-torrent`) | the server, `http://balaur:8080` |
 | Assistant | runs as `alex`, default mic | runs as `home`, 16 kHz array |
 | Secrets | `assistant-llm-key` | all three |
 
 Services: qBittorrent `:8080`, Jellyfin `:8096`, Syncthing `:8384`, AdGuard `:3000`,
-all on balaur, reachable as `balaur.local` on the LAN and `balaur` over the tailnet.
+all on balaur. The fleet reaches them at `balaur` (tailnet); `balaur.local` is for devices outside it.
 No logins on the LAN/tailnet by design — do not port-forward any of them.
 
 The laptop's GNOME is trimmed: fourteen default apps are excluded, in

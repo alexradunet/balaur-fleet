@@ -197,14 +197,9 @@ in
       targets = lib.filterAttrs (_: h: h.torrentsPort != null) fleet;
       targetNames = lib.attrNames targets;
 
-      # Several ways to reach each machine, tried in order, so this works on the
-      # LAN and over the tailnet without being told which one you are on:
-      # MagicDNS (also the tailnet when away), the reserved LAN address, mDNS,
-      # then the raw tailnet address if DNS is broken entirely. Ourselves: no
-      # network at all.
-      addrs = name: h:
-        if name == me then [ "127.0.0.1" ]
-        else lib.filter (a: a != null) [ name h.lanIp "${name}.local" h.tailnetIp ];
+      # The machine's fleet `address` (its tailnet name), the same route at home
+      # and away (fleet.nix). Ourselves: no network at all.
+      addrs = name: h: if name == me then [ "127.0.0.1" ] else [ h.address ];
       targetSpecs = lib.mapAttrsToList
         (name: h: "${name}|${lib.concatStringsSep "," (addrs name h)}|${toString h.torrentsPort}")
         targets;
