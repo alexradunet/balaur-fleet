@@ -35,9 +35,10 @@
       };
 
       systemd.tmpfiles.rules = [
-        # The download directories belong to `torrents`; these are Jellyfin's own.
-        "d ${media}         2775 qbittorrent media - -"
-        "d ${media}/photos  2775 qbittorrent media - -"
+        # Jellyfin's own. ${media} itself and the download directories belong to
+        # `torrents` (declaring it twice makes tmpfiles complain); without it,
+        # tmpfiles makes the parent as a plain root directory.
+        "d ${media}/photos  2775 jellyfin media - -"
       ];
 
       balaur.services = [

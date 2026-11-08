@@ -14,7 +14,7 @@ in
     sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKgXcAskVb3sHgL8Z0VlVpSYHB2yDirUQ3GV5xfDvKQo";
     syncthingId = "MEDQJ5M-PGUYPER-IEGEHM4-NZMCWBM-LKCJVXL-W72PFVP-5OJUMTG-4X3CQAS";
     torrentsPort = 8080;
-    # userKeys: none yet (you reach it with Tailscale SSH)
+    # userKeys: none; the admin works from laptop, whose key every machine trusts.
   };
 
   flake.nixosConfigurations.duet = inputs.nixpkgs.lib.nixosSystem {
@@ -43,13 +43,8 @@ in
       gnome
       tablet
     ]
-    # Your machine's own disk/boot layout, copied from /etc/nixos on the Duet
-    # (see docs/SETUP.md). It must be `git add`ed or flakes cannot see it.
-    ++ (
-      if builtins.pathExists ../../hosts/duet/hardware-configuration.nix
-      then [ ../../hosts/duet/hardware-configuration.nix ]
-      else [ ../../hosts/duet/fallback-filesystems.nix ]
-    );
+    # Its own disk/boot layout, copied from /etc/nixos (see docs/SETUP.md).
+    ++ [ ../../hosts/duet/hardware-configuration.nix ];
 
     networking.hostName = "duet";
     time.timeZone = "Europe/Bucharest";
@@ -59,9 +54,9 @@ in
     # Claude Code can rebuild and tune the camera. Delete this line when development is done.
     security.sudo.wheelNeedsPassword = false;
 
-    # Keep the same value your first install put in /etc/nixos/configuration.nix.
-    # system.stateVersion = "26.05";
-    # boot.loader.efi.efiSysMountPoint = "/boot/efi";   # only if your EFI partition is mounted there
+    # The value this machine's first install wrote (/etc/nixos/configuration.nix).
+    # Never "upgrade" it by hand.
+    system.stateVersion = "26.05";
 
     balaur = {
       # An EXISTING login on the Duet (its password is kept as is). If this differed from `whoami`, NixOS would
@@ -72,26 +67,12 @@ in
       # 192.168.50.233 (both reserved in the router); AdGuard (the adblock aspect) blocks its ads.
 
       # Voice assistant: "Hey Jarvis", Romanian + English; Mistral for speech, a pi SDK agent for the rest.
-      # Key: the Balaur app's Assistant settings (GNOME Keyring), else the sops
-      # secret below. `sudo duet-assistant-login` checks a key and lists voices.
+      # Mistral, the voices and the sops key are the aspect's defaults (assistant.nix).
       assistant = {
-        # The Mistral key comes from the repo now, decrypted at activation.
-        llm.apiKeyFile = config.sops.secrets."assistant-llm-key".path;
-        llm.manageApiKeyFile = false;
         # This machine's microphone array at 16 kHz (`arecord -l`: DMIC16kHz). Without
         # it PipeWire picks the 48 kHz DMIC, whose processing leaves a voice far too
         # quiet for the wake word. A laptop with an ordinary mic leaves this null.
         audio.input = "plughw:0,7";
-        # Mistral (EU, Paris): OpenAI-compatible, tool calling. Key from console.mistral.ai.
-        llm = {
-          baseUrl = "https://api.mistral.ai/v1";
-          model = "mistral-medium-latest"; # small was faster but answered English in Romanian
-        };
-        # Mistral preset voices (`sudo duet-assistant-login` lists them all).
-        tts.voices = {
-          ro = "01a155a0-3dbb-7274-ab31-7fa1ebf35a3e"; # Irina
-          en = "82c99ee6-f932-423f-a4a3-d403c8914b8d"; # Jane - Neutral (British)
-        };
         # "Hey Jarvis" in our voices scores 0.2-0.9 (`sudo duet-wake-test`); room noise
         # never passed 0.05. 0.35 catches most attempts; raise it if the TV wakes it.
         wakeThreshold = 0.35;
@@ -99,17 +80,6 @@ in
 
       # The colour-filter layout was measured on this laptop (docs/SETUP.md, Stage 10).
       # camera.tuning.cfa = "GIGI/BGRG/GIGI/RGBG"; # only if red and blue come out swapped (default: GIGI/RGBG/GIGI/BGRG)
-      # SSH uses your account password for now. Later: add sshKeys, set ssh.passwordAuth = false.
-      # sshKeys = [ "ssh-ed25519 AAAA... you@laptop" ];
-      # network.tailscale.authKeyFile = "/var/lib/secrets/tailscale-authkey";
-      # storage.root = "/srv";
-    };
-
-    # Readable by the assistant's group, which the household account is in.
-    sops.secrets."assistant-llm-key" = {
-      owner = "root";
-      group = "duet-assistant";
-      mode = "0640";
     };
 
     # FileList's username and passkey are two readable entries in the sops file;

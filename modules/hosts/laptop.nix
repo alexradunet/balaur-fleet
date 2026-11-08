@@ -104,31 +104,17 @@ in
         # The existing login on this machine; its password is kept as is.
         user = "alex";
 
+        # It roams onto networks nobody here owns: SSH and the Syncthing UI only
+        # over the tailnet (tailscale0 is trusted), never on whatever Wi-Fi this is.
+        ssh.lan = false;
+        files.guiOnLan = false;
+
         assistant = {
-          # No microphone array here: record from PipeWire's default source.
-          audio.input = null;
-          # Mistral (EU, Paris), the same as the Duet. The key is the fleet's one
-          # sops secret, so this machine has it without anyone typing it in.
-          llm = {
-            baseUrl = "https://api.mistral.ai/v1";
-            model = "mistral-medium-latest";
-            apiKeyFile = config.sops.secrets."assistant-llm-key".path;
-            manageApiKeyFile = false;
-          };
-          tts.voices = {
-            ro = "01a155a0-3dbb-7274-ab31-7fa1ebf35a3e"; # Irina
-            en = "82c99ee6-f932-423f-a4a3-d403c8914b8d"; # Jane - Neutral (British)
-          };
+          # Mistral, the voices and the sops key are the aspect's defaults, and the
+          # default source is this machine's ordinary microphone (audio.input = null).
           # Retune for this machine's microphone with `sudo duet-wake-test`.
           wakeThreshold = 0.35;
         };
-      };
-
-      # Readable by the assistant's group, which the admin account is in.
-      sops.secrets."assistant-llm-key" = {
-        owner = "root";
-        group = "duet-assistant";
-        mode = "0640";
       };
 
       # No FileList credentials here: searching happens in qBittorrent, which

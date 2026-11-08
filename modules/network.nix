@@ -34,7 +34,9 @@
         services.tailscale = {
           enable = true;
           openFirewall = true;
-          useRoutingFeatures = "server"; # can be an exit node / subnet router
+          # No useRoutingFeatures: nothing here is an exit node or subnet router,
+          # and "server" turns on IP forwarding on every machine. Set it on the
+          # host that becomes one.
           authKeyFile = net.tailscale.authKeyFile;
           # Tailscale SSH: login via tailnet identity, no authorized_keys needed, so it
           # still works as a recovery path if the key setup is broken.

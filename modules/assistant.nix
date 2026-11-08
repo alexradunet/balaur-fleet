@@ -18,12 +18,16 @@
 # extension's orb and mic toggle).
 {
   flake.modules.nixos.assistant =
-    { config, lib, pkgs, ... }:
+    { config, options, lib, pkgs, ... }:
     let
       cfg = config.balaur;
       as = cfg.assistant;
       user = as.user;
       package = pkgs.callPackage ../pkgs/duet-assistant-gjs.nix { };
+      # With the `secrets` aspect, the key is the fleet's sops secret; without it,
+      # this machine's own state, written by `sudo duet-assistant-login`.
+      useSops = options ? sops;
+      keySecret = "assistant-llm-key";
       wakewordDir = "/var/lib/duet-wakewords";
       wakePort = 10400;
 
@@ -187,27 +191,29 @@
           llm = {
             baseUrl = lib.mkOption {
               type = lib.types.str;
-              example = "https://api.mistral.ai/v1";
+              default = "https://api.mistral.ai/v1"; # Mistral: EU (Paris), OpenAI-compatible, tool calling
               description = "Mistral API base for speech (Voxtral) and the default for the model. Changeable in the Balaur app.";
             };
             model = lib.mkOption {
               type = lib.types.str;
-              example = "mistral-small-latest";
+              default = "mistral-medium-latest"; # small was faster but answered English in Romanian
               description = "Default model (Mistral, through pi; it must support tool calling). Changeable in the Balaur app, with any provider pi supports.";
             };
             apiKeyFile = lib.mkOption {
               type = lib.types.path;
-              default = "/var/lib/secrets/duet-assistant-llm-key";
+              default = if useSops then config.sops.secrets.${keySecret}.path else "/var/lib/secrets/duet-assistant-llm-key";
+              defaultText = lib.literalMD "the `assistant-llm-key` sops secret with the `secrets` aspect, else `/var/lib/secrets/duet-assistant-llm-key`";
               description = ''
                 File with the Mistral API key: the fallback when the GNOME Keyring
                 has none (keys saved in the Balaur app go there). By default it is
-                this machine's own state, written by `sudo duet-assistant-login`;
-                point it at a sops secret to have it come from the repo instead.
+                the fleet's `assistant-llm-key` sops secret where the `secrets` aspect
+                is present, else this machine's own state (`sudo duet-assistant-login`).
               '';
             };
             manageApiKeyFile = lib.mkOption {
               type = lib.types.bool;
-              default = true;
+              default = !useSops;
+              defaultText = lib.literalMD "false with the `secrets` aspect, else true";
               description = ''
                 Whether this aspect owns `apiKeyFile`: creates its directory, and
                 lets `duet-assistant-login` write it.
@@ -237,12 +243,12 @@
             voices = {
               ro = lib.mkOption {
                 type = lib.types.nullOr lib.types.str;
-                default = null;
+                default = "01a155a0-3dbb-7274-ab31-7fa1ebf35a3e"; # Irina
                 description = "Voice id for Romanian replies (`sudo duet-assistant-login` lists them); null = the API's default voice.";
               };
               en = lib.mkOption {
                 type = lib.types.nullOr lib.types.str;
-                default = null;
+                default = "82c99ee6-f932-423f-a4a3-d403c8914b8d"; # Jane - Neutral (British)
                 description = "Voice id for English replies; null = the API's default voice.";
               };
             };
@@ -304,7 +310,7 @@
         };
       };
 
-      config = {
+      config = lib.mkMerge [ {
         # The daemon's desktop file (GNOME only shows notifications from known apps)
         # and its GSettings schema (model, server, voices; edited in the Balaur app).
         environment.systemPackages = [ package login wakeTest ];
@@ -413,6 +419,17 @@
           desktopId = "org.balaur.Balaur.desktop";
           group = "Home";
         }];
-      };
+      }
+
+      # The key from the repo: root's, readable by the assistant's group, which the
+      # assistant's account is in. Declared only when sops-nix is there to read it.
+      (lib.optionalAttrs useSops {
+        sops.secrets.${keySecret} = {
+          owner = "root";
+          group = "duet-assistant";
+          mode = "0640";
+        };
+      })
+      ];
     };
 }
