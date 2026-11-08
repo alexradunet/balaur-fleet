@@ -140,6 +140,17 @@
       # ships 32-bit helpers, which need the 32-bit Mesa/Vulkan NixOS leaves out.
       hardware.graphics.enable32Bit = true;
 
+      # Xbox Wireless Controllers on Bluetooth LE (firmware 5.x) don't propose usable
+      # connection parameters, so with BlueZ's defaults they connect and drop again
+      # every second or two. The controller polls at 100 Hz: ask for 8.75-11.25 ms
+      # intervals (1.25 ms ticks) with no latency instead. This is xpadneo's
+      # documented workaround; it applies to every LE device, which here is fine.
+      hardware.bluetooth.settings.LE = {
+        MinConnectionInterval = 7;
+        MaxConnectionInterval = 9;
+        ConnectionLatency = 0;
+      };
+
       environment.systemPackages = [
         battlenet
         (pkgs.makeDesktopItem {
