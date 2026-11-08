@@ -6,13 +6,28 @@
 # Either way, reserve this machine's IP in the router first.
 #
 # Settings below are applied on every start and win over the web UI for the keys
-# they set (upstreams, filter lists, the Samsung rules). Everything else, such as
+# they set (upstreams, filter lists, the Samsung rules, the `web` rewrites). Everything else, such as
 # per-client settings, the query log and allow-listing in the UI, is kept.
+{ config, ... }:
+let
+  fleet = config.fleet;
+  nixosConfigs = config.flake.nixosConfigurations;
+in
 {
   flake.modules.nixos.adblock =
     { config, lib, pkgs, ... }:
     let
       cfg = config.balaur;
+      # The `web` aspect's domains (web.nix), answered here with that machine's
+      # tailnet address: at home they resolve even with the internet down, without
+      # a router filtering private answers, and without waiting out a cached
+      # "no such name". The public A records at the registrar say the same.
+      webHosts = lib.filterAttrs (host: h: h.tailnetIp != null && nixosConfigs ? ${host}
+        && nixosConfigs.${host}.config.balaur ? web) fleet;
+      rewrites = lib.concatLists (lib.mapAttrsToList (host: h:
+        let domain = nixosConfigs.${host}.config.balaur.web.domain; in
+        map (d: { domain = d; answer = h.tailnetIp; enabled = true; }) [ domain "*.${domain}" ])
+        webHosts);
       webPort = 3000;
     in
     {
@@ -35,6 +50,7 @@
           filtering = {
             protection_enabled = true;
             filtering_enabled = true;
+            inherit rewrites;
           };
           filters = [
             { enabled = true; id = 1; name = "AdGuard DNS filter"; url = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt"; }
