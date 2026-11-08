@@ -87,9 +87,22 @@ in
         WebUI\AuthSubnetWhitelistEnabled=true
         WebUI\AuthSubnetWhitelist=127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, fd7a:115c:a1e0::/48
         WebUI\LocalHostAuth=false
-        WebUI\HostHeaderValidation=false
-        WebUI\CSRFProtection=false
       '';
+      # No password does not have to mean no protection. Without CSRF protection
+      # any web page opened on any LAN device could POST to the API blind (e.g.
+      # turn on "run external program on completion"), and without host-header
+      # validation DNS rebinding could read it. Neither gets in the way of
+      # anything here: browsers send a matching Origin, and `balaur-torrent`
+      # (curl) sends none. Unlike the seed above, these are set on every start,
+      # so they also reach a profile that already exists.
+      me = config.networking.hostName;
+      serverDomains = lib.concatStringsSep ";" ([ me "${me}.local" "localhost" "127.0.0.1" ]
+        ++ lib.filter (a: a != null) [ (fleet.${me}.lanIp or null) (fleet.${me}.tailnetIp or null) ]);
+      enforced = {
+        "WebUI\\CSRFProtection" = "true";
+        "WebUI\\HostHeaderValidation" = "true";
+        "WebUI\\ServerDomains" = serverDomains;
+      };
       qbCategories = pkgs.writeText "categories.json" (builtins.toJSON {
         movies = { save_path = "${media}/movies"; };
         shows = { save_path = "${media}/shows"; };
@@ -135,6 +148,13 @@ in
               conf=${qbProfile}/qBittorrent/config
               [ -e $conf/qBittorrent.conf ] || ${pkgs.coreutils}/bin/install -Dm600 ${qbSeed} $conf/qBittorrent.conf
               [ -e $conf/categories.json ] || ${pkgs.coreutils}/bin/install -Dm644 ${qbCategories} $conf/categories.json
+              # The web UI's protections, whatever the file said before.
+              ${pkgs.gnused}/bin/sed -i \
+                ${lib.concatMapStringsSep " " (k: "-e '/^${lib.replaceStrings [ "\\" ] [ "\\\\" ] k}=/d'") (lib.attrNames enforced)} \
+                $conf/qBittorrent.conf
+              ${pkgs.gnugrep}/bin/grep -q '^\[Preferences\]$' $conf/qBittorrent.conf || printf '\n[Preferences]\n' >> $conf/qBittorrent.conf
+              ${pkgs.gnused}/bin/sed -i '/^\[Preferences\]$/a ${lib.concatStringsSep "\\n" (lib.mapAttrsToList (k: v: "${lib.replaceStrings [ "\\" ] [ "\\\\" ] k}=${v}") enforced)}' \
+                $conf/qBittorrent.conf
               # Always the current version of our search plugin.
               ${pkgs.coreutils}/bin/install -Dm644 ${./media-search/filelist.py} ${nova3}/engines/filelist.py
             '';
