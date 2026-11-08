@@ -37,6 +37,7 @@ in
       torrents-client
       media
       adblock
+      web
       assistant
       dev
       camera
@@ -97,6 +98,19 @@ in
     balaur.torrents = {
       filelistCredentialsFile = config.sops.templates."filelist.json".path;
       manageFilelistCredentials = false;
+    };
+
+    # https://balaur.space: its A record at Gandi points at this machine's tailnet
+    # address. The certificate's DNS challenge uses a Gandi personal access token
+    # (Domain > "Manage domain technical configurations", balaur.space only).
+    sops.secrets."gandi-token" = { };
+    sops.templates."gandi.env".content = ''
+      GANDIV5_PERSONAL_ACCESS_TOKEN=${config.sops.placeholder."gandi-token"}
+    '';
+    balaur.web = {
+      domain = "balaur.space";
+      dnsProvider = "gandiv5";
+      dnsCredentialsFile = config.sops.templates."gandi.env".path;
     };
   };
 }
