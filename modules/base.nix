@@ -21,10 +21,12 @@
 
         ssh.passwordAuth = lib.mkOption {
           type = lib.types.bool;
-          default = true;
+          default = false;
           description = ''
-            Allow SSH logins with the account password (LAN and tailnet). Convenient
-            to start with; once you have keys in `balaur.sshKeys`, set this to false.
+            Allow SSH logins with the account password (LAN and tailnet). Off: the
+            fleet registry's `userKeys` are authorized everywhere, and Tailscale SSH
+            is the way back in if keys ever break. Turn it on only to bootstrap a
+            machine that has neither.
           '';
         };
 
@@ -136,8 +138,10 @@
         nix.settings = {
           experimental-features = [ "nix-command" "flakes" ];
           trusted-users = [ "root" "@wheel" ];
-          auto-optimise-store = true;
         };
+        # Deduplicate the store once a week, not by hashing every build's outputs
+        # as they land (auto-optimise-store): same result, less CPU while building.
+        nix.optimise.automatic = true;
         nix.gc = {
           automatic = true;
           dates = "weekly";
@@ -156,8 +160,7 @@
           pciutils
           usbutils
         ];
-
-        system.stateVersion = lib.mkDefault "26.05"; # match what your first install used
+        # No system.stateVersion here: each host states the one its install wrote.
       };
     };
 }

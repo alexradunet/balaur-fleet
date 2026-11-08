@@ -97,6 +97,16 @@ in
             machines.
           '';
         };
+        guiOnLan = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = ''
+            Open the Syncthing web UI (8384, no login) to the local network as
+            well as the tailnet. Set false on a machine that joins networks it
+            does not own, such as a laptop on café Wi-Fi: anyone there could
+            otherwise add a device and share the folder with it.
+          '';
+        };
         image = lib.mkOption {
           type = lib.types.path;
           default = "/var/lib/balaur/files.img";
@@ -240,8 +250,9 @@ in
           requires = [ mountUnit ];
         };
 
-        # Syncthing's GUI is not opened by openDefaultPorts; allow it (LAN/tailnet).
-        networking.firewall.allowedTCPPorts = [ 8384 ];
+        # Syncthing's GUI is not opened by openDefaultPorts. tailscale0 is trusted
+        # (network.nix), so the tailnet always reaches it; the LAN only if asked.
+        networking.firewall.allowedTCPPorts = lib.mkIf cfg.files.guiOnLan [ 8384 ];
 
         balaur.services = [
           {

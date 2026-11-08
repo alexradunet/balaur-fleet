@@ -71,14 +71,14 @@ Set, using what you learned in stage 0:
 
 ```nix
   time.timeZone = "Europe/Bucharest";     # yours
-  # system.stateVersion = "26.05";        # uncomment and match your install if it differs
+  system.stateVersion = "26.05";          # required: exactly what your install wrote
 
   duet = {
     user = "alex";                        # from `whoami`
   };
 ```
 
-- **SSH keys are skipped for now**: SSH logs in with your account password (the one you use at the console). Later: put keys in `balaur.sshKeys` and set `balaur.ssh.passwordAuth = false`.
+- **SSH is key-only** (`balaur.ssh.passwordAuth` defaults to false). Add the machine's `userKeys` to its `fleet.<host>` entry, or keep `sudo tailscale up` working first: Tailscale SSH is the way in until a key is there. To bootstrap with a password instead, set `balaur.ssh.passwordAuth = true` for the first rebuild.
 - If stage 0 showed the EFI partition at `/boot/efi`, also add at the top level of the file:
   `boot.loader.efi.efiSysMountPoint = "/boot/efi";`
 
