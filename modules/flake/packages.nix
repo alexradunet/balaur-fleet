@@ -1,5 +1,5 @@
 # Our own packages (pkgs/), their checks, and the development shell.
-{ self, ... }:
+{ self, inputs, ... }:
 {
   perSystem =
     { pkgs, ... }:
@@ -9,10 +9,12 @@
       balaur-assistant = pkgs.callPackage ../../pkgs/balaur-assistant-gjs.nix { inherit balaur-agent; };
       balaur-app = pkgs.callPackage ../../pkgs/balaur-app.nix { };
       balaur-shell-extension = pkgs.callPackage ../../pkgs/balaur-shell-extension.nix { };
+      # aminte (github.com/alexradunet/aminte), served by modules/aminte.nix.
+      aminte = pkgs.callPackage ../../pkgs/aminte.nix { src = inputs.aminte; };
     in
     {
       packages = {
-        inherit duet-camera balaur-agent balaur-assistant balaur-app balaur-shell-extension;
+        inherit duet-camera balaur-agent balaur-assistant balaur-app balaur-shell-extension aminte;
         # The patched camera modules for the kernel the Duet actually boots (`nix build .#camera-modules` checks the patch still applies).
         camera-modules = self.nixosConfigurations.balaur.config.boot.kernelPackages.callPackage ../../pkgs/camera-modules.nix { };
         default = balaur-app;

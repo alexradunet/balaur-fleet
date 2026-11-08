@@ -23,6 +23,11 @@
     # with each machine's own SSH host key (modules/secrets.nix).
     sops-nix.url = "github:Mic92/sops-nix";
     sops-nix.inputs.nixpkgs.follows = "nixpkgs";
+
+    # aminte, the life log (modules/aminte.nix). Not a flake: pkgs/aminte.nix
+    # builds it. To ship a change: push aminte, `nix flake update aminte`, deploy.
+    aminte.url = "github:alexradunet/aminte";
+    aminte.flake = false;
   };
 
   # Binary cache for llm-agents. Also set in modules/dev.nix for after the first

@@ -38,6 +38,7 @@ in
       media
       adblock
       web
+      aminte
       assistant
       dev
       camera
@@ -112,5 +113,10 @@ in
       dnsProvider = "gandiv5";
       dnsCredentialsFile = config.sops.templates."gandi.env".path;
     };
+
+    # aminte's bearer token: the browser's login at https://aminte.balaur.space, and
+    # the laptop's `aminte-prod` reads the same one (modules/aminte.nix).
+    sops.secrets."aminte-token".owner = "aminte";
+    balaur.aminte.tokenFile = config.sops.secrets."aminte-token".path;
   };
 }

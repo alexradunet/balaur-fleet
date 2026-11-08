@@ -65,7 +65,8 @@ skipped). The **dendritic pattern** works like this:
    - `tablet`: the household kiosk account with auto-login and no lock.
    - `camera`: patched modules for the Duet's sensor.
 
-   `media` and `adblock` are services, normally on one machine only.
+   `media`, `adblock` and `aminte` are services, normally on one machine only
+   (`aminte-dev` is the other side of `aminte`, for the machine you develop on).
 
    `assistant` runs in the session of `balaur.assistant.user`, which defaults to the
    household account where `tablet` is present and the admin account otherwise, so it

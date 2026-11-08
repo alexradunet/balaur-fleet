@@ -44,6 +44,8 @@ in
         # torrents (the qBittorrent server) stays on balaur; this is just the
         # client, so a magnet clicked here can be sent there.
         torrents-client
+        # aminte runs on balaur; this is the dev side (aminte-prod, the binaries).
+        aminte-dev
         assistant
         gaming
       ])
@@ -99,6 +101,10 @@ in
 
       # The admin's own GNOME bits on top of the shared shell/git (modules/home.nix).
       home-manager.users.${config.balaur.user}.imports = [ hm.desktop hm.torrents-client ];
+
+      # The same token as balaur's aminte, for `aminte-prod` (modules/aminte.nix).
+      sops.secrets."aminte-token".owner = config.balaur.user;
+      balaur.aminte-dev.tokenFile = config.sops.secrets."aminte-token".path;
 
       balaur = {
         # The existing login on this machine; its password is kept as is.
