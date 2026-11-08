@@ -52,10 +52,6 @@ in
     time.timeZone = "Europe/Bucharest";
     i18n.defaultLocale = "en_US.UTF-8";
 
-    # TEMPORARY, development only: wheel users (alex) get sudo without a password so
-    # Claude Code can rebuild and tune the camera. Delete this line when development is done.
-    security.sudo.wheelNeedsPassword = false;
-
     # The value this machine's first install wrote (/etc/nixos/configuration.nix).
     # Never "upgrade" it by hand.
     system.stateVersion = "26.05";

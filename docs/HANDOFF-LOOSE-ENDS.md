@@ -50,14 +50,7 @@ sudo balaur-wake-test score 2  # rescore the last recording, amplified
 The assistant does authenticate (the sops key works — Mistral returns 200), so
 this is about whether it *hears* you, not whether it answers.
 
-### 2. Turn balaur's passwordless sudo back off
-
-`security.sudo.wheelNeedsPassword = false` in `modules/hosts/balaur.nix`, added in
-`38d1a38` and marked TEMPORARY. It is what let this session deploy balaur
-unattended, and `docs/ROADMAP.md` already lists reverting it under "When
-development is done". Deciding that development *is* done is the only step.
-
-### 3. Keep an eye on balaur's disk
+### 2. Keep an eye on balaur's disk
 
 balaur is at **56% used, 194 GiB free**, down from 394 GiB, because the Syncthing
 volume reserves 200 GiB up front — deliberately, so a runaway sync cannot fill

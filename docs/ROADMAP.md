@@ -34,8 +34,3 @@ GNOME-facing is GJS (`gnome/`, see [gnome/CONTRACT.md](../gnome/CONTRACT.md)).
   lockfile was ruled out). If it happens again, look at it before restarting anything: its log
   (`/var/lib/qBittorrent/qBittorrent/data/logs/qbittorrent.log`) and config files as they are then.
 - "Hey Jarvis" scores 0.2-0.9 for our voices; the threshold is 0.35 (`balaur-wake-test` to retune).
-
-## When development is done
-
-- Turn passwordless sudo back off: `security.sudo.wheelNeedsPassword = false` in
-  `modules/hosts/balaur.nix` (added in `38d1a38`).

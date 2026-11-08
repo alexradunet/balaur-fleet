@@ -31,7 +31,7 @@ skipped). The **dendritic pattern** works like this:
 - `nixos-rebuild build --flake .#<host>`, then `nix store diff-closures /run/current-system ./result`.
 - A change to a shared aspect (base, fleet, home, network, dev) affects every host:
   evaluate them all.
-- Deploying to another machine over the tailnet: `nixos-rebuild switch --flake .#<host> --target-host <host> --sudo`.
+- Deploying to another machine over the tailnet: `nixos-rebuild switch --flake .#<host> --target-host <host> --sudo --ask-sudo-password`.
   This builds locally and copies the closure over, so do fleet work on **laptop**, the
   cockpit: it is much the stronger machine, and balaur is also the household screen, where a
   long build competes with the people using it. balaur is a deploy target, not a workstation.
@@ -77,7 +77,7 @@ skipped). The **dendritic pattern** works like this:
    and reboot. The first switch to a new layout is safer at boot, and older generations
    stay in the boot menu.
 7. Commit and push. Then rebuild the other machines so they learn the new host
-   (SSH known_hosts, authorized keys): `nixos-rebuild switch --flake .#balaur --target-host balaur --sudo`.
+   (SSH known_hosts, authorized keys): `nixos-rebuild switch --flake .#balaur --target-host balaur --sudo --ask-sudo-password`.
 
 ## The user
 
