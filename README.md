@@ -4,7 +4,7 @@
 is the body: one flake that configures every machine at home, each one a head with its
 own purpose. They share a common base and know about each other.
 
-The first head is **duet**, a **Lenovo Yoga Duet 7 (13ITL6)** turned into an opinionated,
+The first head is **balaur**, a **Lenovo Yoga Duet 7 (13ITL6)** turned into an opinionated,
 fully declarative NixOS home server. The detachable-tablet laptop becomes an appliance:
 the built-in touchscreen is a household tablet running stock GNOME, everything on it is
 GNOME-native, and the battery is the UPS.
@@ -27,7 +27,7 @@ adding its name to that host's list. Adding a machine: [CLAUDE.md](CLAUDE.md), "
 flake.nix                 inputs; outputs = every file under modules/
 modules/
   flake/                  flake wiring: packages, checks, dev shell
-  hosts/duet.nix          duet = these aspects + its own settings (account, voices, ...)
+  hosts/balaur.nix        balaur = these aspects + its own settings (account, voices, ...)
   hosts/laptop.nix        laptop = its aspects + its own settings (locales, printing, ...)
   hardware/yoga-duet-7.nix  the Duet's firmware and CPU bits (Intel)
   hardware/yoga-pro-7.nix   the laptop's firmware and CPU bits (AMD)
@@ -43,7 +43,7 @@ modules/
   assistant.nix           the voice assistant, a service of a GNOME session
   camera.nix              the Duet's front camera: patched kernel modules + RGB-IR relay, movement wakes the screen
   media.nix               Jellyfin: watches what `torrents` downloaded, /srv/media
-  torrents.nix            qBittorrent + FileList search (aspect `torrents`, duet only), and
+  torrents.nix            qBittorrent + FileList search (aspect `torrents`, balaur only), and
                           `balaur-torrent` + the magnet handler (aspect `torrents-client`, anywhere)
   adblock.nix             AdGuard Home: network-wide ad/tracker blocking on :53, UI on :3000
   files.nix               Syncthing: a 200 GiB volume of its own at /srv/files, paired from the registry
@@ -76,12 +76,12 @@ page with its live systemd state, and an `appIcon` installs its web UI as a GNOM
 
 On a Duet that already runs NixOS (graphical installer, "erase disk"): follow **[docs/SETUP.md](docs/SETUP.md)**. It is the piece-by-piece guide: inspect, clone, copy your `hardware-configuration.nix`, set your user/SSH key, `nixos-rebuild build`, then `nixos-rebuild boot` and reboot.
 
-The config imports `hosts/duet/hardware-configuration.nix` (your installer-generated file) when it exists, so no disk layout is assumed.
+The config imports `hosts/balaur/hardware-configuration.nix` (your installer-generated file) when it exists, so no disk layout is assumed.
 
 ## First-boot checklist
 
-- **Tailscale + SSH**: run `sudo tailscale up` once (or set `balaur.network.tailscale.authKeyFile`). Tailscale SSH is always on, so `ssh duet` works from any tailnet device using your tailnet identity (allow it in your tailnet ACL); regular sshd is reachable over the tailnet too. SSH is also open on the LAN. Password login is off (`balaur.ssh.passwordAuth`): the `userKeys` in the fleet registry are authorized on every machine. Set `balaur.ssh.lan = false` to make Tailscale the only way in.
-- **Local recovery** (Tailscale or network down): attach a keyboard to the Duet and press Ctrl+Alt+F3 for a login console (`duet` user, `sudo` available), or pick an older generation in the boot menu (last 10 kept). From there you can fix the config and rebuild.
+- **Tailscale + SSH**: run `sudo tailscale up` once (or set `balaur.network.tailscale.authKeyFile`). Tailscale SSH is always on, so `ssh balaur` works from any tailnet device using your tailnet identity (allow it in your tailnet ACL); regular sshd is reachable over the tailnet too. SSH is also open on the LAN. Password login is off (`balaur.ssh.passwordAuth`): the `userKeys` in the fleet registry are authorized on every machine. Set `balaur.ssh.lan = false` to make Tailscale the only way in.
+- **Local recovery** (Tailscale or network down): attach a keyboard to the Duet and press Ctrl+Alt+F3 for a login console (`balaur` user, `sudo` available), or pick an older generation in the boot menu (last 10 kept). From there you can fix the config and rebuild.
 - Service ports are open on the LAN and fully open on `tailscale0`. This is a home-LAN design; do not port-forward it.
 
 ## Opinions you may want to change

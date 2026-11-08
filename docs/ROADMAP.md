@@ -38,4 +38,4 @@ GNOME-facing is GJS (`gnome/`, see [gnome/CONTRACT.md](../gnome/CONTRACT.md)).
 ## When development is done
 
 - Turn passwordless sudo back off: `security.sudo.wheelNeedsPassword = false` in
-  `modules/hosts/duet.nix` (added in `38d1a38`).
+  `modules/hosts/balaur.nix` (added in `38d1a38`).

@@ -1,7 +1,7 @@
 # Code directly on the box: agent harnesses plus the small tools they lean on.
 # The agents come from numtide/llm-agents.nix (updated daily, binary-cached),
 # not nixpkgs, which lags upstream by months. Bump them with:
-#   nix flake update llm-agents && nixos-rebuild switch --flake .#duet --sudo
+#   nix flake update llm-agents && nixos-rebuild switch --flake .#balaur --sudo
 # Per-project toolchains come from `nix develop` (see each repo's flake).
 { inputs, ... }: {
   flake.modules.nixos.dev =

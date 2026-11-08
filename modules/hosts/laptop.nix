@@ -41,7 +41,7 @@ in
         desktop
         dev
         files
-        # torrents (the qBittorrent server) stays on duet; this is just the
+        # torrents (the qBittorrent server) stays on balaur; this is just the
         # client, so a magnet clicked here can be sent there.
         torrents-client
         assistant
@@ -74,7 +74,7 @@ in
       # drops the ones no personal desktop needs; these are this laptop's taste,
       # so they live here. The media apps (Music, Decibels, Showtime, Snapshot)
       # are deliberately kept: a webcam check and a one-off local video file are
-      # worth having even with Jellyfin on duet.
+      # worth having even with Jellyfin on balaur.
       environment.gnome.excludePackages = with pkgs; [
         # Only useful tied to an online account, and none is set up.
         gnome-calendar
@@ -118,6 +118,6 @@ in
       };
 
       # No FileList credentials here: searching happens in qBittorrent, which
-      # runs on duet. This machine only hands it magnets.
+      # runs on balaur. This machine only hands it magnets.
     };
 }

@@ -1,13 +1,13 @@
-# duet: the Lenovo Yoga Duet 7 in the living room. A home server whose built-in
+# balaur: the Lenovo Yoga Duet 7 in the living room. A home server whose built-in
 # screen is the household tablet. The aspects it runs are listed below; its own
 # choices (account, assistant voices, ...) are the settings after them.
-# Machine-generated files (hardware-configuration.nix) live in hosts/duet/.
+# Machine-generated files (hardware-configuration.nix) live in hosts/balaur/.
 { inputs, config, ... }:
 let
   aspects = config.flake.modules.nixos;
 in
 {
-  fleet.duet = {
+  fleet.balaur = {
     description = "Yoga Duet 7 in the living room: home server + household tablet";
     tailnetIp = "100.118.102.119";
     lanIp = "192.168.50.233"; # reserved in the router
@@ -17,11 +17,11 @@ in
     # userKeys: none; the admin works from laptop, whose key every machine trusts.
   };
 
-  flake.nixosConfigurations.duet = inputs.nixpkgs.lib.nixosSystem {
-    modules = [ aspects.duet ];
+  flake.nixosConfigurations.balaur = inputs.nixpkgs.lib.nixosSystem {
+    modules = [ aspects.balaur ];
   };
 
-  flake.modules.nixos.duet =
+  flake.modules.nixos.balaur =
     { config, ... }:
     {
     imports = with aspects; [
@@ -44,9 +44,9 @@ in
       tablet
     ]
     # Its own disk/boot layout, copied from /etc/nixos (see docs/SETUP.md).
-    ++ [ ../../hosts/duet/hardware-configuration.nix ];
+    ++ [ ../../hosts/balaur/hardware-configuration.nix ];
 
-    networking.hostName = "duet";
+    networking.hostName = "balaur";
     time.timeZone = "Europe/Bucharest";
     i18n.defaultLocale = "en_US.UTF-8";
 

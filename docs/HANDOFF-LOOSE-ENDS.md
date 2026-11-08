@@ -12,24 +12,24 @@ do.
 
 ## Where things stand
 
-| | laptop (Yoga Pro 7 14APH8) | duet (Yoga Duet 7) |
+| | laptop (Yoga Pro 7 14APH8) | balaur (Yoga Duet 7) |
 |---|---|---|
 | Role | cockpit: builds and deploys the fleet; personal GNOME desktop | always-on home server + household tablet |
 | Tailnet | `100.69.82.21` | `100.118.102.119` |
 | LAN | DHCP, was `192.168.50.43` | `192.168.50.233` (reserved) |
 | Nix builds | builder for the fleet (8 jobs, speedFactor 2) | farms its builds out to the laptop |
 | Syncthing | 200 GiB volume, `/srv/files/shared` | same, paired declaratively |
-| qBittorrent | client only (`balaur-torrent`) | the server, `http://duet.local:8080` |
+| qBittorrent | client only (`balaur-torrent`) | the server, `http://balaur.local:8080` |
 | Assistant | runs as `alex`, default mic | runs as `home`, 16 kHz array |
 | Secrets | `assistant-llm-key` | all three |
 
 Services: qBittorrent `:8080`, Jellyfin `:8096`, Syncthing `:8384`, AdGuard `:3000`,
-all on duet, reachable as `duet.local` on the LAN and `duet` over the tailnet.
+all on balaur, reachable as `balaur.local` on the LAN and `balaur` over the tailnet.
 No logins on the LAN/tailnet by design — do not port-forward any of them.
 
 The laptop's GNOME is trimmed: fourteen default apps are excluded, in
 `desktop.nix` (the ones no personal desktop here wants) and `laptop.nix` (this
-machine's taste). GNOME Web stays on duet, which needs Epiphany for the service
+machine's taste). GNOME Web stays on balaur, which needs Epiphany for the service
 web apps. `documentation.nixos.enable = false` on the laptop, so the offline
 manual is not rebuilt on every rebuild.
 
@@ -38,7 +38,7 @@ manual is not rebuilt on every rebuild.
 ### 1. Retune the wake word on the laptop
 
 `balaur.assistant.wakeThreshold = 0.35` in `modules/hosts/laptop.nix` was copied
-from duet, where it was measured against the Duet's 16 kHz microphone array. The
+from balaur, where it was measured against the Duet's 16 kHz microphone array. The
 laptop has an ordinary HD-Audio mic and `audio.input = null` (PipeWire's default
 source), so the number is a guess. Measure it:
 
@@ -50,19 +50,19 @@ sudo duet-wake-test score 2  # rescore the last recording, amplified
 The assistant does authenticate (the sops key works — Mistral returns 200), so
 this is about whether it *hears* you, not whether it answers.
 
-### 2. Turn duet's passwordless sudo back off
+### 2. Turn balaur's passwordless sudo back off
 
-`security.sudo.wheelNeedsPassword = false` in `modules/hosts/duet.nix`, added in
-`38d1a38` and marked TEMPORARY. It is what let this session deploy duet
+`security.sudo.wheelNeedsPassword = false` in `modules/hosts/balaur.nix`, added in
+`38d1a38` and marked TEMPORARY. It is what let this session deploy balaur
 unattended, and `docs/ROADMAP.md` already lists reverting it under "When
 development is done". Deciding that development *is* done is the only step.
 
-### 3. Keep an eye on duet's disk
+### 3. Keep an eye on balaur's disk
 
-duet is at **56% used, 194 GiB free**, down from 394 GiB, because the Syncthing
+balaur is at **56% used, 194 GiB free**, down from 394 GiB, because the Syncthing
 volume reserves 200 GiB up front — deliberately, so a runaway sync cannot fill
 the root filesystem and take the household screen, the assistant and the media
-server with it. But duet shares what is left with the media library, and
+server with it. But balaur shares what is left with the media library, and
 qBittorrent downloads into it.
 
 `balaur.files.sizeGiB` can differ per machine, and raising or lowering it needs
@@ -74,7 +74,7 @@ remade.
 ## Settled, recorded so nobody redoes it
 
 - **The admin key is backed up** (Proton, 2026-11-05). `~/.ssh/id_ed25519` is the
-  one secret that matters: SSH to duet, the sops admin age identity, and the user
+  one secret that matters: SSH to balaur, the sops admin age identity, and the user
   key the fleet authorises. Re-derive the age identity with
   `ssh-to-age -private-key -i ~/.ssh/id_ed25519 -o ~/.config/sops/age/keys.txt`;
   there is no second thing to keep.
@@ -93,11 +93,11 @@ remade.
 - **qBittorrent's unexplained quit** (`docs/ROADMAP.md`, "Watch") did not recur:
   it was restarted several times across this session's deploys and reported
   `NRestarts 0` each time, serving the web UI throughout.
-- **A sleeping builder costs about five seconds.** With duet→laptop:22
+- **A sleeping builder costs about five seconds.** With balaur→laptop:22
   blackholed, Nix reported `cannot build on 'ssh-ng://nixremote@laptop'` and
   built locally; 9.4 s total, of which ~5 s is the `ConnectTimeout` set in
   `modules/fleet.nix`. One number to change if that becomes annoying.
-- **Download directories are per machine.** `/srv/media/...` on duet is not the
+- **Download directories are per machine.** `/srv/media/...` on balaur is not the
   synced volume, so this is not a "download once, appears everywhere" setup. If
   you ever want that, downloading into `/srv/files/shared` would do it, bounded
   by the 200 GiB volume and copying everything both ways — a decision, not a fix.
@@ -109,7 +109,7 @@ Unchanged from the previous handoff, and all of it held up:
 - European providers. The assistant uses Mistral for speech, the model, TTS and
   web search; only the wake word runs locally. Don't propose self-hosted speech
   or LLMs, or non-EU services, unless asked.
-- Lean CPU use, especially on duet — which is now also why the laptop builds for it.
+- Lean CPU use, especially on balaur — which is now also why the laptop builds for it.
 - On the Duet, everything on screen is GNOME-native: GJS, libadwaita, a Shell
   extension. Prefer GNOME's own mechanisms over custom code.
 - Build the new piece next to the old one, and switch over only once it works.

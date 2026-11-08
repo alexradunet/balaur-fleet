@@ -1,4 +1,4 @@
-# Network: NetworkManager, mDNS (duet.local), Tailscale (+ SSH).
+# Network: NetworkManager, mDNS (balaur.local), Tailscale (+ SSH).
 {
   flake.modules.nixos.network =
     { config, lib, ... }:

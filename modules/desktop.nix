@@ -30,7 +30,7 @@
       # reasons — this is not about taste, which belongs in the host file.
       environment.gnome.excludePackages = with pkgs; [
         # The browser is Firefox (the `gnome` aspect sets it up with policies).
-        # GNOME Web stays on duet, which needs it to run the service web apps.
+        # GNOME Web stays on balaur, which needs it to run the service web apps.
         epiphany
         gnome-tour # a first-run walkthrough, on a machine already set up
         yelp # the help browser; the answers are on the web

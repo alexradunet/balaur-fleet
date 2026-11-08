@@ -9,7 +9,7 @@
 #   - Remote builds: a machine with a `builder` entry offers itself to the others,
 #     which get it in `nix.buildMachines`.
 #
-# Names resolve over the tailnet (MagicDNS: `duet`) and on the LAN (mDNS: `duet.local`).
+# Names resolve over the tailnet (MagicDNS: `balaur`) and on the LAN (mDNS: `balaur.local`).
 { lib, config, ... }:
 let
   inherit (lib) mkOption types;

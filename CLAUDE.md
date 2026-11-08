@@ -29,9 +29,9 @@ skipped). The **dendritic pattern** works like this:
   evaluate them all.
 - Deploying to another machine over the tailnet: `nixos-rebuild switch --flake .#<host> --target-host <host> --sudo`.
   This builds locally and copies the closure over, so do fleet work on **laptop**, the
-  cockpit: it is much the stronger machine, and duet is also the household screen, where a
-  long build competes with the people using it. duet is a deploy target, not a workstation.
-  After pushing, fast-forward duet's own clone so the next session there is not stale.
+  cockpit: it is much the stronger machine, and balaur is also the household screen, where a
+  long build competes with the people using it. balaur is a deploy target, not a workstation.
+  After pushing, fast-forward balaur's own clone so the next session there is not stale.
 
 ## Adding a machine (run on the new machine, in a clone of this repo)
 
@@ -45,7 +45,7 @@ skipped). The **dendritic pattern** works like this:
      existing account.
    - Anything else the user set up there (locale, keyboard, extra packages) that is worth keeping.
 3. `mkdir hosts/<hostname> && cp /etc/nixos/hardware-configuration.nix hosts/<hostname>/ && git add hosts/<hostname>`.
-4. Write `modules/hosts/<hostname>.nix`, modelled on `modules/hosts/duet.nix`:
+4. Write `modules/hosts/<hostname>.nix`, modelled on `modules/hosts/balaur.nix`:
    - `fleet.<hostname>`: `description`, `tailnetIp`, `lanIp` (if reserved in the router),
      `sshHostKey` (`cat /etc/ssh/ssh_host_ed25519_key.pub`, without the trailing comment),
      `userKeys` (the user's `~/.ssh/id_ed25519.pub`; offer `ssh-keygen -t ed25519` if there is none).
@@ -72,7 +72,7 @@ skipped). The **dendritic pattern** works like this:
    and reboot. The first switch to a new layout is safer at boot, and older generations
    stay in the boot menu.
 7. Commit and push. Then rebuild the other machines so they learn the new host
-   (SSH known_hosts, authorized keys): `nixos-rebuild switch --flake .#duet --target-host duet --sudo`.
+   (SSH known_hosts, authorized keys): `nixos-rebuild switch --flake .#balaur --target-host balaur --sudo`.
 
 ## The user
 

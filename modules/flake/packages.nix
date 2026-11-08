@@ -14,7 +14,7 @@
       packages = {
         inherit duet-camera duet-agent duet-assistant duet-app duet-shell-extension;
         # The patched camera modules for the kernel the Duet actually boots (`nix build .#camera-modules` checks the patch still applies).
-        camera-modules = self.nixosConfigurations.duet.config.boot.kernelPackages.callPackage ../../pkgs/camera-modules.nix { };
+        camera-modules = self.nixosConfigurations.balaur.config.boot.kernelPackages.callPackage ../../pkgs/camera-modules.nix { };
         default = duet-app;
       };
 

@@ -19,7 +19,7 @@
 keys:
   - &admin  age1p6q3hvupt4sek6d3j45hqurut5uf8arcweutvxgf7ksyukqwedss7x37q6
   - &laptop age19hy3cr77uk3zaflnkyc9vd807wka3m5hp6aetrwvsprwg5vhlpcqe802p5
-  - &duet   age1kvrzqwd2gd99c5dvuyyyzp47s8wmz507grgke6y0qu9j9fg55gnseejzuw
+  - &balaur   age1kvrzqwd2gd99c5dvuyyyzp47s8wmz507grgke6y0qu9j9fg55gnseejzuw
 
 creation_rules:
   # Shared by the whole fleet. A machine that must not read a secret needs its
@@ -29,4 +29,4 @@ creation_rules:
       - age:
           - *admin
           - *laptop
-          - *duet
+          - *balaur
