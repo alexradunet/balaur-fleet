@@ -186,7 +186,11 @@ in
         description = "Nix remote builds for the rest of the fleet";
         # `nix daemon --stdio` is run through a login shell.
         shell = pkgs.bashInteractive;
-        openssh.authorizedKeys.keys = clientHostKeys;
+        # Only ever the build protocol: no shell, no forwarding, no PTY. (It is a
+        # trusted user, so this is about not handing out a shell, not about root.)
+        openssh.authorizedKeys.keys = map
+          (k: ''restrict,command="${config.nix.package}/bin/nix-daemon --stdio" ${k}'')
+          clientHostKeys;
       };
       # It has to be trusted to be handed derivations and give their outputs back.
       nix.settings.trusted-users = lib.mkIf iAmABuilder [ builderUser ];
