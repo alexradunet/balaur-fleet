@@ -1,0 +1,30 @@
+# Every machine switches to whatever lands on main (modules/auto-deploy.nix), so a
+# commit that does not evaluate would be tried by all of them. This says so first:
+# it evaluates every host and runs the cheap checks. It reports; it does not gate
+# the deploy (AGENTS.md, "Checking a change").
+name: check
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            extra-substituters = https://cache.numtide.com
+            extra-trusted-public-keys = niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=
+      # Every nixosConfigurations.* evaluates, and every check and package
+      # derivation can be instantiated. Builds nothing.
+      - run: nix flake check --no-build
+      # The checks that cost seconds, built for real.
+      - run: nix build --no-link .#checks.x86_64-linux.formatting .#checks.x86_64-linux.skills

@@ -11,8 +11,9 @@
 #
 #   models.json    the fleet's AI entryway (ai.nix) as the provider `balaur`, with
 #                  the entryway's three names: balaur, balaur-local, balaur-remote
-#   settings.json  that provider and `balaur.agent.model` as the default. It is
-#                  read-only: a default saved from inside pi does not stick.
+#   settings.json  that provider and `balaur.agent.model` as the default, and the
+#                  repository's skills (.agents/skills, shared with Claude Code). It
+#                  is read-only: a default saved from inside pi does not stick.
 #   AGENTS.md      who it is, every machine and service of the fleet, where the
 #                  configuration is and how a change reaches the machines. Made
 #                  from the registry (fleet.nix) and each host's `balaur.services`,
@@ -107,6 +108,18 @@ in
           defaultModel = cfg.agent.model;
         }
       );
+      # The OS agent's own: the same, and the repository's skills (.agents/skills,
+      # shared with Claude Code). pi finds a project's skills by itself only in a
+      # project the user trusted in an interactive session, so `pi -p` (balaur-ask)
+      # would go without them; a path in the settings needs no trust. Not given to
+      # the roles: they have no shell, and the skills are about the configuration.
+      agentSettings = pkgs.writeText "pi-agent-settings.json" (
+        builtins.toJSON {
+          defaultProvider = "balaur";
+          defaultModel = cfg.agent.model;
+          skills = [ "${cfg.agent.clone}/.agents/skills" ];
+        }
+      );
 
       machine =
         h:
@@ -159,10 +172,14 @@ in
         `${cfg.agent.clone}` on this machine. Nothing is installed or configured by
         hand: a change is a change to that repository.
 
-        - Read its `CLAUDE.md` before you change anything. Its rules are yours too.
-        - Look first (`systemctl status`, `journalctl -u <unit>`, the module in `modules/`).
-        - Check a change before it leaves: evaluate or build the hosts it touches, as
-          `CLAUDE.md` describes.
+        - Work in that clone. Its `AGENTS.md` (loaded when you start there) has the
+          repository's rules; they are yours too.
+        - Its procedures are skills, which you have: `fleet-status` to find out how a
+          machine is doing, `check-change` before a commit, `deploy` to ship it, and
+          `add-aspect`, `add-machine`, `secrets`, `update-inputs`. Load the one that
+          fits before you start.
+        - Look first (`balaur-fleet-status`, `systemctl status`, `journalctl -u <unit>`,
+          the module in `modules/`).
         - Deploying is `git commit` and `git push`. Every machine checks `main` every few
           minutes and switches to it by itself (`journalctl -u balaur-auto-deploy`).
         - The repository is public. Never commit a secret, a key, a token or personal data.
@@ -321,7 +338,7 @@ in
         (lib.optionalAttrs (options ? home-manager) {
           home-manager.users.${cfg.user}.home.file = {
             ".pi/agent/models.json".source = models;
-            ".pi/agent/settings.json".source = settings;
+            ".pi/agent/settings.json".source = agentSettings;
             ".pi/agent/AGENTS.md".source = instructions;
           }
           // lib.concatMapAttrs roleFiles roles;

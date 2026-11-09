@@ -5,7 +5,7 @@
 #   - SSH: each machine's host key is known everywhere (no "authenticity of host"
 #     prompt, and a changed key is refused), under its name, <name>.local and its IPs.
 #   - The admin's SSH keys from every machine are authorized on every machine,
-#     so `ssh <host>` and `nixos-rebuild --target-host <host>` work from any of them.
+#     so `ssh <host>` (and `balaur-ask`, `balaur-fleet-status`) work from any of them.
 #   - Remote builds: a machine with a `builder` entry offers itself to the others,
 #     which get it in `nix.buildMachines`.
 #

@@ -1,112 +1,101 @@
 # Handoff: loose ends
 
-Written 2026-11-05 on **laptop**, after the session that registered it in the
-fleet and then added remote builds, Syncthing, sops and the torrent client.
-Read `CLAUDE.md` first for the repo's rules. **Delete this file once the list is
-empty** (and drop its pointer from CLAUDE.md), as its predecessor was.
+Written 2026-11-10 on **zmeu**, after the session that reviewed the fleet against
+current NixOS practice and made the agents' instructions and skills shared
+(AGENTS.md, `.agents/skills`). Read `AGENTS.md` first. **Delete this file once the
+list is empty** (and drop its pointer from AGENTS.md), as its predecessors were.
 
-Nothing here is broken. Both machines are healthy, on `origin/main`, with zero
-failed units, and everything described below was verified by exercising it, not
-by reading the config. These are the things a careful person would still want to
-do.
+## What that session changed
 
-## Where things stand
-
-| | laptop (Yoga Pro 7 14APH8) | balaur (Yoga Duet 7) |
-|---|---|---|
-| Role | cockpit: builds and deploys the fleet; personal GNOME desktop | always-on home server + household tablet |
-| Tailnet | `100.69.82.21` | `100.118.102.119` |
-| LAN | DHCP, was `192.168.50.43` | `192.168.50.233` (reserved) |
-| Nix builds | builder for the fleet (8 jobs, speedFactor 2) | farms its builds out to the laptop |
-| Syncthing | 200 GiB volume, `/srv/files/shared` | same, paired declaratively |
-| qBittorrent | client only (`balaur-torrent`) | the server, `http://balaur:8080` |
-| Assistant | runs as `alex`, default mic | runs as `home`, 16 kHz array |
-| Secrets | `assistant-llm-key` | all three |
-
-Services: qBittorrent `:8080`, Jellyfin `:8096`, Syncthing `:8384`, AdGuard `:3000`,
-all on balaur. The fleet reaches them at `balaur` (tailnet); `balaur.local` is for devices outside it.
-No logins on the LAN/tailnet by design — do not port-forward any of them.
-
-The laptop's GNOME is trimmed: fourteen default apps are excluded, in
-`desktop.nix` (the ones no personal desktop here wants) and `laptop.nix` (this
-machine's taste). GNOME Web stays on balaur, which needs Epiphany for the service
-web apps. `documentation.nixos.enable = false` on the laptop, so the offline
-manual is not rebuilt on every rebuild.
+nixfmt and a formatting check; one overlay for `pkgs/`; nixpkgs from the channel's
+`.tar.zst`; no channels, no offline manual, no boot-menu editor, fwupd; every script a
+`writeShellApplication`; the admin no longer a trusted Nix user; per-machine secret
+files; a sandboxed Strata; auto-deploy retries and rolls back, and
+`balaur-fleet-status`; Syncthing versioning; a `backup` aspect; CI; AGENTS.md and
+seven skills shared by Claude Code and pi.
 
 ## The list
 
-### 1. Retune the wake word on the laptop
+### 1. Choose where backups go, then turn `backup` on (needs the user)
 
-`balaur.assistant.wakeThreshold = 0.35` in `modules/hosts/laptop.nix` was copied
-from balaur, where it was measured against the Duet's 16 kHz microphone array. The
-laptop has an ordinary HD-Audio mic and `audio.input = null` (PipeWire's default
-source), so the number is a guess. Measure it:
+`modules/backup.nix` is written and evaluates on balaur, but no host has it: it needs
+an off-site restic repository in Europe. A Hetzner Storage Box (SFTP, Germany or
+Finland) fits: put balaur's SSH host key (`fleet.balaur.sshHostKey`) in its
+`.ssh/authorized_keys`. Then:
 
-```
-sudo balaur-wake-test          # say "Hey Jarvis" a few times; prints each score
-sudo balaur-wake-test score 2  # rescore the last recording, amplified
-```
+- `restic-password` (random; also into the password manager: it decrypts the backups)
+  in `secrets/hosts/balaur.yaml` (skill `secrets`);
+- `backup` in balaur's aspects, with `balaur.backup.repository` and
+  `passwordFile = config.sops.secrets.restic-password.path`;
+- after the first night: `sudo restic-balaur snapshots`, and restore one file to
+  `/tmp` to prove it.
 
-The assistant does authenticate (the sops key works — Mistral returns 200), so
-this is about whether it *hears* you, not whether it answers.
+### 2. Rotate the secrets that moved (needs the user)
 
-### 2. Keep an eye on balaur's disk
+The Gandi token and the FileList passkey moved from the shared file into
+`secrets/hosts/balaur.yaml`, but the old ciphertext, readable with the laptop's keys,
+stays in the public history. They are protected only once rotated: a new Gandi
+personal access token (balaur.space only), a new FileList passkey; then
+`sops secrets/hosts/balaur.yaml` from zmeu or balaur, and push.
 
-balaur is at **56% used, 194 GiB free**, down from 394 GiB, because the Syncthing
-volume reserves 200 GiB up front — deliberately, so a runaway sync cannot fill
-the root filesystem and take the household screen, the assistant and the media
-server with it. But balaur shares what is left with the media library, and
-qBittorrent downloads into it.
+The Sunshine password was rotated: `sops decrypt --extract '["sunshine-password"]'
+secrets/hosts/zmeu.yaml` on zmeu shows it. Sunshine takes it at its next start.
 
-`balaur.files.sizeGiB` can differ per machine, and raising or lowering it needs
-no manual resize: the backing file is extended and the filesystem grown to match
-on the next activation. Lowering it does nothing, since ext4 cannot shrink in
-place — that means moving the data out, deleting the image and letting it be
-remade.
+### 3. Check the laptop and Strata once they are up
+
+- The laptop was asleep for the whole session: when it wakes, `balaur-fleet-status`
+  should show it on main, with no failed units.
+- Strata's new sandbox (strata.nix) could not be proven: a game was running on zmeu
+  (`strata-yield` stopped it as designed). When it is back: `systemctl status strata`,
+  `curl -s balaur:4000/health | jq .local` up, and `systemd-analyze security strata`.
+  If the sandbox breaks CUDA or the memory lock, drop that one directive.
+
+### 4. A `kiosk` home on balaur
+
+`/home/kiosk` exists on balaur, but no account of that name is declared any more
+(`users.mutableUsers = true` keeps old accounts). Probably from before `tablet` used
+`home`: look at it, and delete the account and its home if nothing is in it.
+
+### 5. Retune the wake word on the laptop and zmeu
+
+`wakeThreshold = 0.35` on the laptop was copied from balaur's microphone array; zmeu
+uses the default. `sudo balaur-wake-test` on each, with real voices.
+
+### 6. Keep an eye on balaur's disk
+
+56% used at the last look; the Syncthing volume reserves 200 GiB up front and now
+also keeps 30 days of replaced and deleted files inside that cap. qBittorrent
+downloads into what is left.
+
+### 7. The assistant's state migration
+
+`balaur-assistant-migrate-state` (assistant.nix) carries state over from the old
+`duet-assistant` name. Delete it once every machine has started the assistant since
+2026-11-08 (balaur's household account could not be checked without root).
+
+## Backlog from the review (decisions, not fixes)
+
+- **Disk encryption on the laptop** (a reinstall), and whether `~/.ssh/id_ed25519` has
+  a passphrase: today a lost laptop gives away the admin key and the shared secrets.
+- **Signed commits for auto-deploy**: verify main's commit against the registry's
+  `userKeys` before switching, so a stolen GitHub login cannot deploy.
+- `nixpkgs.config.allowUnfreePredicate` (NVIDIA, Steam) instead of `allowUnfree`.
+- nftables instead of iptables (the extra rules in `game-streaming.nix`), sudo-rs,
+  Secure Boot (lanzaboote).
+- 26.11: recheck `networking.firewall.checkReversePath` with Tailscale, Home
+  Assistant's `config.http`, the Syncthing and AdGuard modules (skill `update-inputs`).
+- AdGuard (:3000) and qBittorrent (:8080) have no login on the LAN, by design; noted
+  only. Nothing is reachable from the internet.
 
 ## Settled, recorded so nobody redoes it
 
-- **The admin key is backed up** (Proton, 2026-11-05). `~/.ssh/id_ed25519` is the
-  one secret that matters: SSH to balaur, the sops admin age identity, and the user
-  key the fleet authorises. Re-derive the age identity with
-  `ssh-to-age -private-key -i ~/.ssh/id_ed25519 -o ~/.config/sops/age/keys.txt`;
-  there is no second thing to keep.
-- **Nothing irreplaceable in `secrets/balaur.yaml`.** The repo is public, so the
-  ciphertext is public forever and a leaked host key would expose every secret
-  ever encrypted to it, git history included. Today's three are all rotatable.
-  Keep it that way, and rotate the *secret* as well as the key if one ever leaks.
+- **The admin key is backed up** (Proton, 2026-11-05). Re-derive the age identity with
+  `ssh-to-age -private-key -i ~/.ssh/id_ed25519 -o ~/.config/sops/age/keys.txt`.
 - **qBittorrent's own state** (`/var/lib/qBittorrent`) is not in sops; only its
-  FileList credentials are. Noted so nobody goes looking.
+  FileList credentials are. The `backup` aspect covers it once on.
 - **`magnet:` is pinned** to `balaur-torrent` through `gnome-mimeapps.list`, not
-  home-manager's `xdg.mimeApps` — that option would take over `mimeapps.list`,
-  where Claude Code keeps its own `claude-cli` association.
-
-## Notes worth keeping, not tasks
-
-- **qBittorrent's unexplained quit** (`docs/ROADMAP.md`, "Watch") did not recur:
-  it was restarted several times across this session's deploys and reported
-  `NRestarts 0` each time, serving the web UI throughout.
-- **A sleeping builder costs about five seconds.** With balaur→laptop:22
-  blackholed, Nix reported `cannot build on 'ssh-ng://nixremote@laptop'` and
-  built locally; 9.4 s total, of which ~5 s is the `ConnectTimeout` set in
-  `modules/fleet.nix`. One number to change if that becomes annoying.
-- **Download directories are per machine.** `/srv/media/...` on balaur is not the
-  synced volume, so this is not a "download once, appears everywhere" setup. If
-  you ever want that, downloading into `/srv/files/shared` would do it, bounded
-  by the 200 GiB volume and copying everything both ways — a decision, not a fix.
-
-## How the user likes to work
-
-Unchanged from the previous handoff, and all of it held up:
-
-- European providers. The assistant uses Mistral for speech, TTS and web search;
-  the wake word runs locally. The chat model goes through the `ai` router
-  (2026-11-09, asked for): Strata on zmeu's GPU first, Mistral second. Don't
-  propose self-hosted speech or other non-EU services unless asked.
-- Lean CPU use, especially on balaur — which is now also why the laptop builds for it.
-- On the Duet, everything on screen is GNOME-native: GJS, libadwaita, a Shell
-  extension. Prefer GNOME's own mechanisms over custom code.
-- Build the new piece next to the old one, and switch over only once it works.
-- Public repo: no secrets, tokens or new personal data in commits.
-- Verify by exercising the thing, not by reading the config. Four real defects in
-  this session's Syncthing work were invisible until deployed.
+  home-manager's `xdg.mimeApps`, which would take over `mimeapps.list`, where Claude
+  Code keeps its own `claude-cli` association.
+- **A sleeping builder costs about five seconds** (`ConnectTimeout` in fleet.nix).
+- **Download directories are per machine**: `/srv/media` on balaur is not the synced
+  volume.

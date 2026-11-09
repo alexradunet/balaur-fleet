@@ -60,8 +60,8 @@ in
           # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
           agent
         ])
-        # Its own disk/boot layout, copied from /etc/nixos (see CLAUDE.md, "Adding a
-        # machine"). It must be `git add`ed or flakes cannot see it.
+        # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
+        # .agents/skills). It must be `git add`ed or flakes cannot see it.
         ++ [ ../../hosts/laptop/hardware-configuration.nix ];
 
       networking.hostName = "laptop";

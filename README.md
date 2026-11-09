@@ -9,9 +9,24 @@ fully declarative NixOS home server. The detachable-tablet laptop becomes an app
 the built-in touchscreen is a household tablet running stock GNOME, everything on it is
 GNOME-native, and the battery is the UPS.
 
-The second is **laptop**, a **Lenovo Yoga Pro 7 14APH8**: the personal machine, and where
-the fleet is built and deployed from. It shares the base, the admin's environment and the
-voice assistant, and runs none of the house services.
+The second is **laptop**, a **Lenovo Yoga Pro 7 14APH8**: the personal machine. It shares
+the base, the admin's environment and the voice assistant, and runs none of the house
+services.
+
+The third is **zmeu**, a **GMKtec NucBox EVO-X1** with an RTX 5060 Ti on OCuLink: a gaming
+desktop that streams its games to the rest of the tailnet, runs the fleet's local LLM
+(Strata), and builds for the other machines.
+
+Every machine follows `main` on GitHub by itself (`auto-deploy`): a push is a deploy.
+`balaur-fleet-status` shows what each one runs.
+
+## For agents
+
+[AGENTS.md](AGENTS.md) is the repository's instructions for every agent: Claude Code
+(through `CLAUDE.md`, which imports it) and pi, the fleet's OS agent. The procedures —
+checking a change, deploying, adding an aspect or a machine, secrets, updating inputs,
+diagnosing a machine — are [Agent Skills](https://agentskills.io) in `.agents/skills/`,
+linked into `.claude/skills/` for Claude Code and given to pi through its settings.
 
 ## Layout: the dendritic pattern
 
@@ -21,21 +36,28 @@ directories starting with `_` are skipped. A file is named after a feature (an *
 not a machine: it defines `flake.modules.nixos.<aspect>`, together with that feature's
 `balaur.*` options. A host is a file under `modules/hosts/` that lists the aspects it runs
 and sets its own choices. Adding a feature = adding a file. Giving a machine that feature =
-adding its name to that host's list. Adding a machine: [CLAUDE.md](CLAUDE.md), "Adding a machine".
+adding its name to that host's list. Adding a machine: the `add-machine` skill.
 
 ```
 flake.nix                 inputs; outputs = every file under modules/
+AGENTS.md                 the agents' instructions (CLAUDE.md imports it)
+.agents/skills/           the agents' procedures, one folder each (linked from .claude/skills/)
+.github/workflows/        CI: every host evaluates, formatting and skills checked
 modules/
-  flake/                  flake wiring: packages, checks, dev shell
+  flake/                  flake wiring: the packages overlay, checks, formatter, dev shell
   hosts/balaur.nix        balaur = these aspects + its own settings (account, voices, ...)
   hosts/laptop.nix        laptop = its aspects + its own settings (locales, printing, ...)
+  hosts/zmeu.nix          zmeu = its aspects + its own settings (builder, streaming, ...)
   hardware/yoga-duet-7.nix  the Duet's firmware and CPU bits (Intel)
   hardware/yoga-pro-7.nix   the laptop's firmware and CPU bits (AMD)
+  hardware/gmktec-evo-x1.nix, nvidia-egpu.nix  zmeu: the mini-PC (AMD) and its docked NVIDIA card
   fleet.nix               the registry: every machine, its IPs and keys; SSH trust, remote builds
+  auto-deploy.nix         every machine follows main: retries, roll back, `balaur-fleet-status`
   home.nix                home-manager: the admin's shell, git, gh, the same on every machine
-  secrets.nix             sops-nix: secrets encrypted in the repo, decrypted with each machine's host key
+  secrets.nix             sops-nix: shared and per-machine secrets, decrypted with each machine's host key
   base.nix                boot, admin account, SSH, Nix, housekeeping; the `balaur.services` registry
   network.nix             NetworkManager, Tailscale (+ SSH), <host>.local (mDNS)
+  backup.nix              restic, nightly and off-site, of the state only one machine has (waits for a repository)
   always-on.nix           a laptop as a server: never sleep, ignore lid, battery = UPS, 80% charge cap
   gnome.nix               GNOME itself: GDM, the session, PipeWire, and the canonical apps (Firefox + its add-ons, Ptyxis)
   tablet.nix              GNOME as a household tablet: auto-login, OSK, rotation, apps, web apps, the Balaur app + Shell extension, ambient screen
@@ -51,9 +73,14 @@ modules/
   files.nix               Syncthing: a 200 GiB volume of its own at /srv/files, paired from the registry
   agent.nix               pi, the OS agent on every machine: the fleet's models, machines and services; `balaur-ask`; roles (`pi-aminte`)
   dev.nix                 Claude Code + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep
-  gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow); laptop only
+  gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow); laptop and zmeu
+  steam.nix               Steam and GameMode, for a machine that plays locally (zmeu)
+  game-streaming.nix      Sunshine on the host (zmeu), Moonlight on the clients, over the tailnet
+  ai.nix                  the fleet's AI entryway on balaur (`ai-gateway`: local GPU first, Mistral second) and its clients (`ai`)
+  strata.nix              Strata: the local LLM on zmeu's GPU, stopped while a game runs
+  aminte.nix              aminte, the life log, served on balaur (`aminte`), and its dev side (`aminte-dev`)
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
-pkgs/                     our packages, built by the aspects and exposed as flake packages
+pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
 gnome/                    everything GNOME-facing, in GJS; gnome/CONTRACT.md is how the pieces talk
   assistant/              the assistant daemon: PipeWire audio, wake word, Voxtral speech, D-Bus org.balaur.Assistant
   agent/                  its brain, on the pi SDK (TypeScript): the model and its tools
