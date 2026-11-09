@@ -7,7 +7,7 @@ GNOME-facing is GJS (`gnome/`, see [gnome/CONTRACT.md](../gnome/CONTRACT.md)).
 ## Done
 
 - Stock GNOME as a household tablet: auto-login `home`, no lock, on-screen keyboard (en + ro), rotation.
-- Voice assistant in the session: GJS daemon (PipeWire, wake word, Voxtral) + agent on the pi SDK.
+- Voice assistant in the session: GJS daemon (PipeWire, wake word, Voxtral) + the fleet's pi in its home role.
 - Balaur app (libadwaita) and Shell extension (orb overlay, mic toggle); settings for model, server and keys.
 - Web UIs as GNOME web apps; Snapshot for the camera; camera movement keeps the screen awake.
 - Web dashboard, Samsung TV integration and the Go assistant removed.

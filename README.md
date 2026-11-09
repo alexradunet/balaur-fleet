@@ -84,7 +84,7 @@ hosts/<hostname>/         machine-generated files only (hardware-configuration.n
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
 gnome/                    everything GNOME-facing, in GJS; gnome/CONTRACT.md is how the pieces talk
   assistant/              the assistant daemon: PipeWire audio, wake word, Voxtral speech, D-Bus org.balaur.Assistant
-  agent/                  its brain, on the pi SDK (TypeScript): the model and its tools
+  home-agent/             its brain: the fleet's pi in its home role (a launcher and one extension), with the household's tools only
   app/                    "Balaur", a libadwaita app: assistant, lists, timers, memory, home services
   shell-extension/        the assistant's orb over every app, the mic toggle in Quick Settings, the ambient screen
 camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 frames -> webcam
@@ -97,8 +97,8 @@ camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 fram
 | Built-in screen | GNOME, logged in by itself as a household account (`balaur.tablet.user`, `home`) that never locks. Apps run full screen; swipe up for the app switcher. The on-screen keyboard pops up on touch (English and Romanian), and the screen follows rotation. Dock: **Balaur**, **Firefox** (uBlock Origin), **Jellyfin**, **Gelly** (Jellyfin music). **AdGuard Home** and **qBittorrent** (and **Syncthing** with the `files` aspect) are installed as GNOME web apps. **Snapshot** shows the front camera. Admin tools sit in an **Admin** folder, with a **Developer terminal** that asks for the admin password. |
 | Screen on/off | GNOME blanks the screen after `balaur.camera.screenTimeout` (2 minutes) idle, and never locks. Movement in front of the camera counts as activity: it keeps the screen on and wakes it (`0` = always on). The relay looks at 3 frames a second for this, and runs its full image pipeline only while an app uses the webcam (`balaur.camera.tuning.idleFps`). |
 | AI (aspects `ai-gateway`, `ai`, `strata`) | One entryway for every model call in the fleet: `http://balaur:4000/v1` (OpenAI-compatible; `OPENAI_BASE_URL` points there on every machine), with a page at **https://ai.balaur.space** to see the tiers and the last requests and to change the route and the remote model. Model `balaur` answers from zmeu's RTX 5060 Ti (Strata, Qwen3.8-Flash-Next) when it is on, loaded and free, else from Mistral; `balaur-local` and `balaur-remote` pick one. Strata stops while a game runs on zmeu. |
-| Voice (aspect `assistant`) | Say **“Hey Jarvis”**, then speak Romanian or English. Only the wake word runs on this machine; after it, Mistral (EU) transcribes what you said (Voxtral) and speaks the answer (Voxtral TTS), and an agent built on the pi SDK decides what to do: timers and reminders (GNOME notifications with a Stop button), the house **shopping** and **tasks** lists, memory, weather, news and web search. Its orb and captions show over every app; tap it to stop. The mic toggle is in Quick Settings. |
-| The Balaur app | **Assistant** (the conversation, type to ask, mic, volume, and **Assistant settings**: provider, model, server and API keys, kept in GNOME settings and the GNOME Keyring), **Lists**, **Timers & reminders**, **Memory**, and **Home**: every service with its live state and a button that opens its app. |
+| Voice (aspect `assistant`) | Say **“Hey Jarvis”**, then speak Romanian or English. Only the wake word runs on this machine; after it, Mistral (EU) transcribes what you said (Voxtral) and speaks the answer (Voxtral TTS), and the fleet's pi, in its home role, decides what to do: timers and reminders (GNOME notifications with a Stop button), the house **shopping** and **tasks** lists, memory, weather, news and web search. Its orb and captions show over every app; tap it to stop. The mic toggle is in Quick Settings. |
+| The Balaur app | **Assistant** (the conversation, type to ask, mic, volume, and **Assistant settings**: the model (one of the AI entryway's) and the Mistral key, kept in GNOME settings and the GNOME Keyring), **Lists**, **Timers & reminders**, **Memory**, and **Home**: every service with its live state and a button that opens its app. |
 | Ad blocking (aspect `adblock`) | AdGuard Home as the LAN DNS server, with European upstreams (Quad9, DNS4EU) and Samsung TV ad/ACR-tracking rules. Set it as the router's DNS 1 (keep a public DNS 2 so the network survives the box being off). |
 
 Adding a service = an aspect that appends to `balaur.services`: it shows on the Balaur app's Home
@@ -121,14 +121,14 @@ The config imports `hosts/balaur/hardware-configuration.nix` (your installer-gen
 - **Battery as UPS**: at 7% the machine powers off cleanly; charge is capped at 80% where firmware allows (`balaur.power.chargeLimit`, `null` to disable).
 - **Never sleeps**; lid ignored; power button needs a long press.
 - **An open household screen**: quiet boot with Plymouth, straight into the household desktop, no password, no lock screen. The admin account is only reachable over SSH or the Developer terminal (password).
-- **The assistant's brain has only its own tools**: pi's built-in tools (shell, files) are excluded and checked at every start and turn, so nothing it reads on the web can make it run commands.
+- **The assistant's brain has only its own tools**: pi is started without its built-in tools (shell, files), its extension refuses to run when the model is offered any other, and a call to one is blocked, so nothing it reads on the web can make it run commands.
 
 ## Developing
 
 ```bash
 nix develop                                   # Go, GJS, Node 22, libadwaita
 cd camera && go test ./...                    # the RGB-IR pipeline (Go standard library only)
-cd gnome/agent && npm test                    # the pi SDK agent
+nix build .#balaur-home-agent                 # the assistant's agent: the real pi with its extension, against a scripted model
 nix build .#balaur-assistant && ./result/libexec/balaur-assistant-tests
 nix build .#balaur-app && ./result/bin/balaur-app # the app; see gnome/app/README.md for a mock assistant
 ```

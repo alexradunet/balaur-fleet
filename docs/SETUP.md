@@ -179,7 +179,7 @@ agent. The other machines are only screens:
 dev                     # on any machine of the fleet: attach to the sessions on the Duet
 cd ~/Projects/balaur-fleet
 claude                  # first run: follow the login prompt (open the URL on another device)
-pi                      # first run: log in or set your provider's API key; see `pi --help`
+pi                      # the OS agent, set up for the fleet's AI entryway (modules/agent.nix); nothing to log in to
 ```
 
 `ctrl+b q` detaches (`ctrl+b ?` lists the keys); closing the terminal, the lid or the
@@ -369,16 +369,16 @@ for colour as close to Windows as this pipeline gets. That's a separate step.
 ## Stage 11: The voice assistant
 
 The `assistant` aspect (in the list in `modules/hosts/balaur.nix`) adds a voice assistant to the household's
-GNOME session. Only the wake word runs on the Duet; speech goes to Mistral (EU), and an agent built on the
-pi SDK does the thinking:
+GNOME session. Only the wake word runs on the Duet; speech goes to Mistral (EU), and the fleet's pi, in its
+home role, does the thinking:
 
 | Piece | Where | Does |
 |---|---|---|
 | openWakeWord | on the Duet, 127.0.0.1:10400 | listens for "Hey Jarvis"; nothing leaves the house before it fires |
 | balaur-assistant (`gnome/assistant/`) | on the Duet, a service of the GNOME session | microphone and speaker (PipeWire), timers, reminders, lists, memory, notifications; D-Bus `org.balaur.Assistant` |
-| balaur-agent (`gnome/agent/`) | on the Duet, its child | the pi SDK agent: the model and its tools, and nothing else (no shell, no files) |
+| balaur-home-agent (`gnome/home-agent/`) | on the Duet, its child | pi in its home role: the model and the household's tools, and nothing else (no shell, no files) |
 | Voxtral transcription (`voxtral-mini-transcribe-3-0`) | Mistral | what you said, Romanian or English |
-| Chat model (`mistral-medium-latest`) | Mistral, through pi | what to do: answers and calls the tools |
+| Chat model (`balaur`) | the fleet's AI entryway: zmeu's GPU first, Mistral second | what to do: answers and calls the tools |
 | Voxtral TTS (`voxtral-mini-tts-3-0`) | Mistral | the voice |
 | `web_search` tool (`mistral-medium-latest`) | Mistral | current facts |
 
@@ -391,7 +391,7 @@ Make a key at console.mistral.ai, then either:
 
 - on the Duet: **Balaur** app → Assistant → ⚙ **Assistant settings** → Mistral API key → Apply. The key goes to
   the GNOME Keyring; the first time, GNOME asks for a keyring password: **leave it empty** (the household account
-  has no password to unlock it with). The same dialog sets the provider, model, server and voices, and has a
+  has no password to unlock it with). The same dialog sets the model and the voices, and has a
   **Test** button.
 - or from a terminal: `sudo balaur-assistant-login` (paste the key, hidden; it is checked, saved to
   /var/lib/secrets as the fallback, the voices are listed, the assistant restarts).
