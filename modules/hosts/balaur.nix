@@ -47,6 +47,8 @@ in
       # https://ai.balaur.space): zmeu's GPU first, Mistral second.
       ai-gateway
       ai
+      # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
+      agent
       camera
       gnome
       tablet

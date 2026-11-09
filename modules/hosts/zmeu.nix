@@ -48,6 +48,8 @@ in
         # fleet's AI entryway (on balaur) as a client.
         strata
         ai
+        # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
+        agent
         # Decrypts with its SSH host key, a recipient in .sops.yaml.
         secrets
         # Runs as alex (no `tablet` here), on PipeWire's default microphone.

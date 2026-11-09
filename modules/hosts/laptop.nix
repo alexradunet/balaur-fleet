@@ -53,6 +53,8 @@ in
         auto-deploy
         # The fleet's AI entryway on balaur: zmeu's GPU first, Mistral second.
         ai
+        # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
+        agent
       ])
       # Its own disk/boot layout, copied from /etc/nixos (see CLAUDE.md, "Adding a
       # machine"). It must be `git add`ed or flakes cannot see it.

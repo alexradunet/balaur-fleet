@@ -1,4 +1,5 @@
 # Code directly on the box: agent harnesses plus the small tools they lean on.
+# (pi, the OS agent, is its own aspect: agent.nix.)
 # The agents come from numtide/llm-agents.nix (updated daily, binary-cached),
 # not nixpkgs, which lags upstream by months. Bump them with:
 #   nix flake update llm-agents && nixos-rebuild switch --flake .#balaur --sudo
@@ -12,7 +13,6 @@
     {
       environment.systemPackages = [
         agents.claude-code # `claude`
-        agents.pi # `pi` (pi.dev)
         agents.herdr # workspace manager for agent sessions (herdr.dev)
       ] ++ (with pkgs; [
         gh

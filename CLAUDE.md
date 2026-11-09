@@ -76,9 +76,11 @@ deploying is `git push`. Nobody runs `--target-host` any more.
      `networking.hostName`, `time.timeZone`, `system.stateVersion`, `balaur.user`.
    - Hardware specifics go in a `modules/hardware/<model>.nix` aspect (see `yoga-duet-7.nix`
      for Intel, `yoga-pro-7.nix` for AMD).
-5. Choose aspects with the user. Every machine gets `base fleet home network auto-deploy ai`, and usually `dev`.
+5. Choose aspects with the user. Every machine gets `base fleet home network auto-deploy ai agent`, and usually `dev`.
    `ai` points everything on the machine at the fleet's AI entryway (`ai-gateway`, on balaur only):
    model `balaur` goes to a fleet GPU running `strata` first (zmeu only), Mistral second.
+   `agent` is pi (pi.dev), the OS agent: `ai`'s models, and instructions made from the registry, so it
+   knows every machine and service. `balaur-ask <host> "..."` asks another machine's agent over SSH.
    A machine with a screen gets `gnome` plus exactly one of `tablet` or `desktop`.
    Don't give a normal laptop the Duet-only ones:
    - `always-on`: never sleeps, ignores the lid.
