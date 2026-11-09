@@ -254,6 +254,17 @@ in
               path = folderPath;
               devices = lib.attrNames peers;
               type = "sendreceive";
+              # A deletion or an overwrite reaches every machine within seconds, so
+              # each machine keeps what the others replaced or deleted, in
+              # .stversions inside the folder (so inside the capped volume):
+              # thinning out to one version a week, gone after 30 days.
+              versioning = {
+                type = "staggered";
+                params = {
+                  maxAge = toString (30 * 24 * 3600);
+                  cleanInterval = "3600";
+                };
+              };
             };
             # Don't phone home, and don't nag about it in the UI.
             options.urAccepted = -1;
