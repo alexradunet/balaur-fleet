@@ -41,14 +41,11 @@ personal access token (balaur.space only), a new FileList passkey; then
 The Sunshine password was rotated: `sops decrypt --extract '["sunshine-password"]'
 secrets/hosts/zmeu.yaml` on zmeu shows it. Sunshine takes it at its next start.
 
-### 3. Check the laptop and Strata once they are up
+### 3. Check the laptop when it wakes
 
-- The laptop was asleep for the whole session: when it wakes, `balaur-fleet-status`
-  should show it on main, with no failed units.
-- Strata's new sandbox (strata.nix) could not be proven: a game was running on zmeu
-  (`strata-yield` stopped it as designed). When it is back: `systemctl status strata`,
-  `curl -s balaur:4000/health | jq .local` up, and `systemd-analyze security strata`.
-  If the sandbox breaks CUDA or the memory lock, drop that one directive.
+It was asleep for the whole session: `balaur-fleet-status` should show it on main,
+with no failed units, and `pi` there should list the seven skills. (Strata's sandbox
+is proven: it loaded and answered through the entryway on 2026-11-10.)
 
 ### 4. A `kiosk` home on balaur
 
