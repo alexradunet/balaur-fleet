@@ -85,7 +85,7 @@ deploying is `git push`. Nobody runs `--target-host` any more.
    - `tablet`: the household kiosk account with auto-login and no lock.
    - `camera`: patched modules for the Duet's sensor.
 
-   `media`, `adblock` and `aminte` are services, normally on one machine only
+   `media`, `adblock`, `home-assistant` and `aminte` are services, normally on one machine only
    (`aminte-dev` is the other side of `aminte`, for the machine you develop on).
 
    `assistant` runs in the session of `balaur.assistant.user`, which defaults to the

@@ -39,6 +39,7 @@ in
       adblock
       web
       aminte
+      home-assistant
       assistant
       dev
       auto-deploy
