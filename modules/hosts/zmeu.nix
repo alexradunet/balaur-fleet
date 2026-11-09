@@ -45,7 +45,7 @@ in
         game-streaming
         auto-deploy
         # The fleet's local LLM on the 5060 Ti (stopped while a game runs), and the
-        # AI endpoint on 127.0.0.1:4000 that tries it first and Mistral second.
+        # fleet's AI entryway (on balaur) as a client.
         strata
         ai
         # Decrypts with its SSH host key, a recipient in .sops.yaml.

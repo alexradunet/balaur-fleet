@@ -42,7 +42,9 @@ in
       assistant
       dev
       auto-deploy
-      # The fleet's AI endpoint on 127.0.0.1:4000: zmeu's GPU first, Mistral second.
+      # The fleet's AI entryway for every machine (http://balaur:4000/v1, page at
+      # https://ai.balaur.space): zmeu's GPU first, Mistral second.
+      ai-gateway
       ai
       camera
       gnome

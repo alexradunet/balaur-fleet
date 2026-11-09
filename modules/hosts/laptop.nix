@@ -51,7 +51,7 @@ in
         # Moonlight, to play what zmeu streams (Sunshine there).
         game-streaming-client
         auto-deploy
-        # The fleet's AI endpoint on 127.0.0.1:4000: zmeu's GPU first, Mistral second.
+        # The fleet's AI entryway on balaur: zmeu's GPU first, Mistral second.
         ai
       ])
       # Its own disk/boot layout, copied from /etc/nixos (see CLAUDE.md, "Adding a

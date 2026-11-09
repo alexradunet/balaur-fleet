@@ -77,7 +77,7 @@ deploying is `git push`. Nobody runs `--target-host` any more.
    - Hardware specifics go in a `modules/hardware/<model>.nix` aspect (see `yoga-duet-7.nix`
      for Intel, `yoga-pro-7.nix` for AMD).
 5. Choose aspects with the user. Every machine gets `base fleet home network auto-deploy ai`, and usually `dev`.
-   `ai` is the router at `127.0.0.1:4000/v1` that everything on the machine uses for models:
+   `ai` points everything on the machine at the fleet's AI entryway (`ai-gateway`, on balaur only):
    model `balaur` goes to a fleet GPU running `strata` first (zmeu only), Mistral second.
    A machine with a screen gets `gnome` plus exactly one of `tablet` or `desktop`.
    Don't give a normal laptop the Duet-only ones:

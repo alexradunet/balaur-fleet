@@ -1,26 +1,35 @@
-# AI: one inference endpoint on every machine, local first, remote second.
+# AI: one entryway for every model call in the fleet, local first, remote second.
 #
-#   http://127.0.0.1:4000/v1    OpenAI-compatible, no key needed (loopback only)
+#   http://balaur:4000/v1     OpenAI-compatible, no key needed (tailnet only)
+#   https://ai.<domain>       the page: tiers, route, remote model, last requests
 #
-#   model `balaur`          the fleet's own GPU when it can answer now, else Mistral
+#   model `balaur`          the page's route; by default zmeu's GPU when it can
+#                           answer now, else Mistral
 #   model `balaur-local`    only the fleet's GPU
 #   model `balaur-remote`   only Mistral, even when the GPU is free
 #   any other name          straight to Mistral ("mistral-small-latest", ...)
 #
-# The local tier is every fleet machine with the `strata` aspect (zmeu, with the
-# RTX 5060 Ti), found in the registry the way the web page finds services, so a
-# second GPU machine joins by itself. The router (ai/router.py, stdlib Python)
-# probes each one every few seconds and skips one that is off, loading, stopped
-# for a game, or busy answering someone else (Strata answers one at a time), so
-# falling back costs nothing. A machine reaches its own Strata at 127.0.0.1.
+# Two aspects:
 #
-# Everything on the machine is pointed here: the voice assistant's default model
-# (assistant.nix), OPENAI_BASE_URL/OPENAI_API_KEY for CLI agents and SDKs, and
-# aminte's agent on balaur (a runtime setting, see aminte.nix). Speech (Voxtral)
-# and web search stay on Mistral directly: Strata does neither.
+#   ai-gateway   the entryway itself (ai/router.py, stdlib Python), on one machine:
+#                balaur, the always-on one. The local tier is every machine with
+#                the `strata` aspect, found in the registry, so a second GPU machine
+#                joins by itself. Each is probed every few seconds and skipped when
+#                it is off, loading, stopped for a game, or busy answering someone
+#                else (Strata answers one at a time), so falling back costs nothing.
+#                The page's changes live in /var/lib/private/balaur-ai/settings.json,
+#                over the defaults below.
+#   ai           the clients, on every machine: finds the gateway in the registry
+#                (127.0.0.1 on the gateway itself) and points everything at it: the
+#                voice assistant's default model (assistant.nix), aminte's agent
+#                (aminte.nix), and OPENAI_BASE_URL/OPENAI_API_KEY for CLI agents and
+#                SDKs. ANTHROPIC_BASE_URL is deliberately left alone: Claude Code
+#                stays on Anthropic.
 #
-#   curl -s 127.0.0.1:4000/health | jq         which tiers are up, and why not
-#   journalctl -u balaur-ai                    which tier answered each request
+# Speech (Voxtral) and web search stay on Mistral directly: Strata does neither.
+#
+#   curl -s balaur:4000/health | jq        which tiers are up, and why not
+#   journalctl -u balaur-ai                 (on balaur) which tier answered what
 { config, ... }:
 let
   nixosConfigs = config.flake.nixosConfigurations;
@@ -28,15 +37,44 @@ let
 in
 {
   flake.modules.nixos.ai =
+    { config, lib, ... }:
+    let
+      me = config.networking.hostName;
+      hostConfig = h: if h == me then config else nixosConfigs.${h}.config;
+      gateways = lib.filter (h: (h == me || nixosConfigs ? ${h}) && (hostConfig h).balaur ? ai-gateway) (lib.attrNames fleet);
+      gw = lib.head gateways;
+    in
+    {
+      options.balaur.ai.url = lib.mkOption {
+        type = lib.types.str;
+        readOnly = true;
+        default =
+          assert lib.assertMsg (gateways != [ ]) "the `ai` aspect needs a machine with `ai-gateway` in the fleet";
+          "http://${if gw == me then "127.0.0.1" else fleet.${gw}.address}:${toString (hostConfig gw).balaur.ai-gateway.port}/v1";
+        description = "The fleet's AI entryway, as this machine reaches it (OpenAI-compatible base URL).";
+      };
+
+      config.environment.sessionVariables = {
+        OPENAI_BASE_URL = config.balaur.ai.url;
+        # Not a secret: the entryway takes no key (the tailnet is the boundary),
+        # but most clients refuse to start without one.
+        OPENAI_API_KEY = "balaur";
+        BALAUR_AI_URL = config.balaur.ai.url;
+        BALAUR_AI_MODEL = "balaur";
+      };
+    };
+
+  flake.modules.nixos.ai-gateway =
     { config, options, lib, pkgs, ... }:
     let
-      cfg = config.balaur.ai;
+      cfg = config.balaur.ai-gateway;
       me = config.networking.hostName;
       useSops = options ? sops;
       keySecret = "assistant-llm-key"; # the fleet's Mistral key, shared with the assistant
+      domain = config.balaur.web.domain or null;
 
-      # The fleet's GPU machines, in name order. Reading another host's config is
-      # lazy and only touches its `balaur.strata`, so hosts reading each other is no loop.
+      # The fleet's GPU machines. Reading another host's config is lazy and only
+      # touches its `balaur.strata`, so hosts reading each other is no loop.
       hostConfig = h: if h == me then config else nixosConfigs.${h}.config;
       gpuHosts = lib.filter (h: (h == me || nixosConfigs ? ${h}) && (hostConfig h).balaur ? strata) (lib.attrNames fleet);
       local = map (h: {
@@ -47,38 +85,35 @@ in
 
       routerConfig = pkgs.writeText "balaur-ai.json" (builtins.toJSON {
         name = "balaur";
-        listen = "127.0.0.1";
+        listen = "0.0.0.0"; # loopback and the tailnet; the firewall keeps it off the LAN
         inherit (cfg) port;
         inherit local;
         remote = { url = cfg.remote.baseUrl; model = cfg.remote.model; keyCredential = "remote-key"; };
+        # The names its page is opened under (a browser's Origin), so another
+        # site's page cannot use it through a browser on the tailnet.
+        origins = [ me fleet.${me}.address ] ++ lib.optional (domain != null) "ai.${domain}";
         # Long enough for a big prompt's prefill on a 12-16 GB card, which runs
         # at a couple of hundred tokens a second.
         readTimeout = 600;
       });
     in
     {
-      options.balaur.ai = {
+      options.balaur.ai-gateway = {
         port = lib.mkOption {
           type = lib.types.port;
           default = 4000;
-          description = "The router's port on 127.0.0.1.";
-        };
-        url = lib.mkOption {
-          type = lib.types.str;
-          readOnly = true;
-          default = "http://127.0.0.1:${toString cfg.port}/v1";
-          description = "The OpenAI-compatible base URL every program on this machine uses.";
+          description = "The entryway's port, on loopback and the tailnet.";
         };
         remote = {
           baseUrl = lib.mkOption {
             type = lib.types.str;
             default = "https://api.mistral.ai/v1"; # EU (Paris)
-            description = "The remote tier: an OpenAI-compatible API (the router trims requests to what Mistral accepts).";
+            description = "The remote tier: an OpenAI-compatible API (requests are trimmed to what Mistral accepts).";
           };
           model = lib.mkOption {
             type = lib.types.str;
             default = "mistral-medium-latest";
-            description = "The remote model behind `balaur` and `balaur-remote`. It must support tool calling.";
+            description = "The default remote model behind `balaur` and `balaur-remote` (the page can change it). It must support tool calling.";
           };
           apiKeyFile = lib.mkOption {
             type = lib.types.path;
@@ -92,13 +127,14 @@ in
       config = lib.mkMerge [
         {
           systemd.services.balaur-ai = {
-            description = "Balaur AI router: local GPU first, Mistral second (127.0.0.1:${toString cfg.port})";
+            description = "Balaur AI entryway: local GPU first, Mistral second (:${toString cfg.port})";
             wantedBy = [ "multi-user.target" ];
             wants = [ "network-online.target" ];
             after = [ "network-online.target" "tailscaled.service" ];
             serviceConfig = {
               ExecStart = "${pkgs.python3}/bin/python3 -I ${./ai/router.py} ${routerConfig}";
               LoadCredential = [ "remote-key:${toString cfg.remote.apiKeyFile}" ];
+              StateDirectory = "balaur-ai"; # the page's settings
               Restart = "always";
               RestartSec = 2;
               DynamicUser = true;
@@ -121,18 +157,17 @@ in
             };
           };
 
-          # For CLI agents and SDKs that read the OpenAI variables. The key is not a
-          # secret: the router takes none (it only listens on loopback), but most
-          # clients refuse to start without one. ANTHROPIC_BASE_URL is deliberately
-          # not set: Claude Code stays on Anthropic.
-          environment.sessionVariables = {
-            OPENAI_BASE_URL = cfg.url;
-            OPENAI_API_KEY = "balaur";
-            BALAUR_AI_URL = cfg.url;
-            BALAUR_AI_MODEL = "balaur";
-          };
+          balaur.services = [{
+            name = "AI";
+            description = "Local GPU first, Mistral second";
+            icon = "✨";
+            port = cfg.port;
+            subdomain = "ai";
+            unit = "balaur-ai.service";
+            group = "System";
+          }];
         }
-        # Declared here too so the router works without the assistant; sops-nix
+        # Declared here too so the gateway works without the assistant; sops-nix
         # merges this with the assistant's own declaration of the same secret.
         (lib.optionalAttrs useSops { sops.secrets.${keySecret} = { }; })
       ];
