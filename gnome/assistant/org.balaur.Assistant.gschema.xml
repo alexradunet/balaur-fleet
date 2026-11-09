@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The assistant's settings the app can change (gnome/CONTRACT.md, "Settings").
-     NixOS sets the defaults from balaur.assistant.* with a gschema override; an
-     empty string falls back to the config file. -->
+     An empty string falls back to the config file, which NixOS writes from
+     balaur.assistant.* (a gschema override would only reach a session after
+     the next login). -->
 <schemalist>
   <schema id="org.balaur.Assistant" path="/org/balaur/assistant/">
     <key name="llm-provider" type="s">
-      <default>'mistral'</default>
+      <default>''</default>
       <summary>Model provider</summary>
-      <description>A pi provider id, e.g. mistral, openai, anthropic.</description>
+      <description>A pi provider id, e.g. mistral, openai, anthropic; empty uses the config file's llm.provider, else mistral.</description>
     </key>
     <key name="llm-model" type="s">
       <default>''</default>
@@ -17,7 +18,7 @@
     <key name="llm-base-url" type="s">
       <default>''</default>
       <summary>Model server</summary>
-      <description>Base URL for the chat model, e.g. an OpenAI-compatible server; empty uses the provider's default.</description>
+      <description>Base URL for the chat model, e.g. an OpenAI-compatible server; empty uses the config file's llm.server for the config's provider, else the provider's default.</description>
     </key>
     <key name="speech-base-url" type="s">
       <default>'https://api.mistral.ai/v1'</default>

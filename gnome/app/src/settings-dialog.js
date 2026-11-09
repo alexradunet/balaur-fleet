@@ -99,7 +99,7 @@ class AssistantSettingsDialog extends Adw.PreferencesDialog {
     }
 
     get _provider() {
-        return this._settings?.get_string('llm-provider') || 'mistral';
+        return this._settings?.get_string('llm-provider') || this._assistant.defaults.provider || 'mistral';
     }
 
     get _providerInfo() {
@@ -145,7 +145,7 @@ class AssistantSettingsDialog extends Adw.PreferencesDialog {
             this._modelRow.model = stringList([...models.map(m => m.name || m.id), 'Other']);
             this._syncing = false;
         }
-        const model = this._settings?.get_string('llm-model') ?? '';
+        const model = this._settings?.get_string('llm-model') || this._assistant.defaults.model || '';
         const i = ids.indexOf(model);
         this._syncing = true;
         this._modelRow.selected = i >= 0 ? i : this._modelIds.length - 1;

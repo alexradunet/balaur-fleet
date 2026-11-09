@@ -65,12 +65,15 @@ Editable in the app (Preferences on the Assistant page), GNOME-native:
 
 - **GSettings** schema `org.balaur.Assistant` (path `/org/balaur/assistant/`),
   shipped by the daemon package. Keys:
-  `llm-provider` (s, a pi provider id, default `mistral`), `llm-model` (s),
+  `llm-provider` (s, a pi provider id, default "" = the config's, else `mistral`), `llm-model` (s),
   `llm-base-url` (s, "" = the provider's default; for OpenAI-compatible
   servers), `speech-base-url` (s, Mistral, default `https://api.mistral.ai/v1`),
   `stt-model` (s), `tts-model` (s), `voice-ro` (s), `voice-en` (s).
-  NixOS sets the defaults from `balaur.assistant.*` with a gschema override
-  (integrator's job); user changes live in dconf. The daemon watches
+  An empty key falls back to the config file, which NixOS writes from
+  `balaur.assistant.*` (`llm.provider`, `llm.server`, `llm.model`); a gschema
+  override would only reach a session after the next login. User changes live
+  in dconf. `Models` also carries `defaults` ({provider, model, baseUrl}: what
+  the empty keys mean), so the app shows them. The daemon watches
   `changed::` and applies new values without a restart (it restarts the
   agent child when an LLM key changes).
 - **API keys** in the GNOME Keyring via libsecret: schema

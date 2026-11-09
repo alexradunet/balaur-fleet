@@ -18,6 +18,24 @@ export const tests = {
         await a.shutdown();
     },
 
+    async configProviderAndItsServer() {
+        const gs = memorySettings();
+        if (!gs) {
+            print('      (skipped: schema org.balaur.Assistant not installed; run through the package)');
+            return;
+        }
+        const a = makeAssistant({gsettings: gs});
+        const s = a.settings;
+        a.cfg.llm.provider = 'balaur';
+        a.cfg.llm.server = 'http://127.0.0.1:4000/v1';
+        eq(s.llmProvider, 'balaur', 'config llm.provider when GSettings has none');
+        eq(s.llmBaseUrl, 'http://127.0.0.1:4000/v1', 'the config server goes with the config provider');
+        gs.set_string('llm-provider', 'mistral');
+        eq(s.llmProvider, 'mistral', 'GSettings wins');
+        eq(s.llmBaseUrl, '', 'a provider picked in the app keeps its own default server');
+        await a.shutdown();
+    },
+
     async debouncedRestartOncePerBatchAndNotMidTurn() {
         const gs = memorySettings();
         if (!gs) {

@@ -182,7 +182,10 @@ export class Assistant {
     }
 
     _agentReady(r) {
-        this.models = marshal(r.models ?? {providers: []});
+        // The catalog, plus what an unset setting means here, for the app.
+        const s = this.settings;
+        this.models = marshal({...(r.models ?? {providers: []}),
+            defaults: {provider: s.llmProvider, model: s.llmModel, baseUrl: s.llmBaseUrl}});
         this.setError(r.error ?? '');
     }
 

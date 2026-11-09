@@ -57,7 +57,7 @@
           voices = lib.filterAttrs (_: v: v != null) as.tts.voices;
         };
         search.model = lib.optionalString as.webSearch.enable as.webSearch.model;
-        llm = { inherit (as.llm) baseUrl model; };
+        llm = { inherit (as.llm) baseUrl model provider server; };
         location = { inherit (cfg.location) name latitude longitude; };
         newsFeeds = as.newsFeeds;
       });
@@ -331,14 +331,6 @@
         # and its GSettings schema (model, server, voices; edited in the Balaur app).
         environment.systemPackages = [ package login wakeTest ];
         services.desktopManager.gnome.sessionPath = [ package ];
-        # The defaults the app shows and the daemon uses until someone changes them
-        # (a change in the app lives in dconf and wins over these).
-        services.desktopManager.gnome.extraGSettingsOverridePackages = [ package ];
-        services.desktopManager.gnome.extraGSettingsOverrides = ''
-          [org.balaur.Assistant]
-          llm-provider=${builtins.toJSON as.llm.provider}
-          llm-base-url=${builtins.toJSON as.llm.server}
-        '';
 
         # ---- the wake word: the one local piece (upstream NixOS module), localhost only ----
         services.wyoming.openwakeword = {

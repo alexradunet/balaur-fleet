@@ -67,7 +67,7 @@ export class Settings {
     }
 
     get llmProvider() {
-        return this._get('llm-provider') || 'mistral';
+        return this._get('llm-provider') || this.cfg.llm?.provider || 'mistral';
     }
 
     get llmModel() {
@@ -75,7 +75,11 @@ export class Settings {
     }
 
     get llmBaseUrl() {
-        return this._get('llm-base-url');
+        // The config's server belongs to the config's provider: one picked in the
+        // app keeps its own default.
+        const cfg = this.cfg.llm ?? {};
+        return this._get('llm-base-url') ||
+            (cfg.provider && this.llmProvider === cfg.provider ? cfg.server || '' : '');
     }
 
     get speechBaseUrl() {

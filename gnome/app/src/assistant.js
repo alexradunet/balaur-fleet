@@ -152,6 +152,16 @@ export const Assistant = GObject.registerClass({
         }
     }
 
+    // What the daemon uses for a setting left empty: {provider, model, baseUrl}.
+    get defaults() {
+        try {
+            const d = JSON.parse(this._prop('Models', '') || '{}').defaults;
+            return d && typeof d === 'object' ? d : {};
+        } catch {
+            return {};
+        }
+    }
+
     // Which providers have an API key stored: {mistral: true, ...}.
     get apiKeys() {
         try {

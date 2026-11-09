@@ -26,6 +26,15 @@
 #   2. In Moonlight, "Add host" with the host's tailnet name (`zmeu`). Discovery
 #      only sees the LAN, and the tailnet is not the LAN.
 #   3. Moonlight shows a PIN; enter it in Sunshine's PIN tab.
+#
+# A Samsung TV (Tizen 5.5-6.5) is not on the tailnet: list it in
+# `balaur.gameStreaming.lanClients` and install Moonlight from the host:
+#   1. TV: Apps, type 12345, Developer mode On, Host PC IP = the host's LAN address,
+#      then hold the power button 5 s. The host needs a fixed LAN address.
+#   2. nix run nixpkgs#podman -- run --rm --network host \
+#        ghcr.io/brightcraft/moonlight-tizen:master bash -c 'sdb connect <tv> &&
+#        tizen install -n Moonlight.wgt -t "$(sdb devices | awk "NR>1 && NF {print \$NF}" | head -1)"'
+#   3. Pair as above, with the host's LAN address in Moonlight.
 { config, ... }:
 let
   fleet = config.fleet;
