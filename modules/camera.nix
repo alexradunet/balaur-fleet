@@ -24,7 +24,7 @@
     let
       cfg = config.balaur;
       cameraModules = config.boot.kernelPackages.callPackage ../pkgs/camera-modules.nix { };
-      duetCamera = pkgs.callPackage ../pkgs/duet-camera.nix { };
+      duetCamera = pkgs.duet-camera;
       v4l2loopback = config.boot.kernelPackages.v4l2loopback;
       rgbir = cfg.camera.backend == "rgbir";
 

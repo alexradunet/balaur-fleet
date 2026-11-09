@@ -30,8 +30,8 @@
 
       # Ours, GNOME-native (gnome/): the Balaur app (assistant, lists, timers, memory,
       # home services) and the Shell extension (assistant orb over every app, mic toggle).
-      balaurApp = pkgs.callPackage ../pkgs/balaur-app.nix { };
-      balaurExtension = pkgs.callPackage ../pkgs/balaur-shell-extension.nix { };
+      balaurApp = pkgs.balaur-app;
+      balaurExtension = pkgs.balaur-shell-extension;
 
       # Each service with a web UI (and an appIcon) as an app of its own: GNOME Web
       # (Epiphany) "system web applications". Launched with

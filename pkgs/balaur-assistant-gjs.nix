@@ -9,7 +9,6 @@
 {
   lib,
   stdenv,
-  callPackage,
   gjs,
   glib,
   gobject-introspection,
@@ -20,7 +19,7 @@
   pipewire,
   wireplumber,
   alsa-utils,
-  balaur-agent ? callPackage ./balaur-agent.nix { },
+  balaur-agent, # the flake's overlay (modules/flake/packages.nix)
 }:
 
 stdenv.mkDerivation {

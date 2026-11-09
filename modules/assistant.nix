@@ -29,7 +29,7 @@
       cfg = config.balaur;
       as = cfg.assistant;
       user = as.user;
-      package = pkgs.callPackage ../pkgs/balaur-assistant-gjs.nix { };
+      package = pkgs.balaur-assistant;
       # With the `secrets` aspect, the key is the fleet's sops secret; without it,
       # this machine's own state, written by `sudo balaur-assistant-login`.
       useSops = options ? sops;

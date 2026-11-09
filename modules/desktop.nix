@@ -22,8 +22,8 @@
     { pkgs, ... }:
     {
       environment.systemPackages = [
-        (pkgs.callPackage ../pkgs/balaur-app.nix { })
-        (pkgs.callPackage ../pkgs/balaur-shell-extension.nix { })
+        pkgs.balaur-app
+        pkgs.balaur-shell-extension
       ];
 
       # GNOME ships these; the fleet's desktops don't use them. What stays is the
@@ -65,7 +65,7 @@
     { pkgs, ... }:
     {
       dconf.settings."org/gnome/shell".enabled-extensions = [
-        (pkgs.callPackage ../pkgs/balaur-shell-extension.nix { }).passthru.extensionUuid
+        pkgs.balaur-shell-extension.passthru.extensionUuid
       ];
     };
 }

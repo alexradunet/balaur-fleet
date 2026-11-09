@@ -1,4 +1,9 @@
-# Baseline: boot, users, SSH, Nix, housekeeping.
+# Baseline: boot, users, SSH, Nix, housekeeping; and our own packages (pkgs/)
+# in nixpkgs, through the flake's overlay (modules/flake/packages.nix).
+{ config, ... }:
+let
+  overlay = config.flake.overlays.default;
+in
 {
   flake.modules.nixos.base =
     {
@@ -146,6 +151,9 @@
       };
 
       config = {
+        # pkgs.balaur-app, pkgs.aminte, ...: one definition each, for every aspect.
+        nixpkgs.overlays = [ overlay ];
+
         boot.loader.systemd-boot = {
           enable = true;
           configurationLimit = 10;

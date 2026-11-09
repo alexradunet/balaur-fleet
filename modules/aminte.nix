@@ -30,9 +30,8 @@
 #   - Moving an existing life.db here: stop aminte.service, install the snapshot as
 #     /var/lib/aminte/life.db (owner aminte, 0600), and the old state folders as
 #     /var/lib/aminte/.config/aminte-NAME. Then start it again.
-{ inputs, ... }:
+{ ... }:
 let
-  src = inputs.aminte;
   port = 7777; # the core, loopback only
   webPort = 7780; # aminte-web, behind Caddy
 in
@@ -46,7 +45,7 @@ in
     }:
     let
       cfg = config.balaur;
-      aminte = pkgs.callPackage ../pkgs/aminte.nix { inherit src; };
+      aminte = pkgs.aminte;
       state = "/var/lib/aminte";
       db = "${state}/life.db";
       snapshots = "${state}/snapshots";
@@ -240,7 +239,7 @@ in
     }:
     let
       cfg = config.balaur.aminte-dev;
-      aminte = pkgs.callPackage ../pkgs/aminte.nix { inherit src; };
+      aminte = pkgs.aminte;
       prod = pkgs.writeShellApplication {
         name = "aminte-prod";
         runtimeInputs = [

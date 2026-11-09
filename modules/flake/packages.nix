@@ -1,16 +1,34 @@
 # Our own packages (pkgs/), their checks, and the development shell.
+#
+# The packages are one overlay, `flake.overlays.default`. The `base` aspect puts
+# it into every machine's nixpkgs, so an aspect says `pkgs.balaur-app` instead of
+# calling pkgs/balaur-app.nix itself, and there is one definition of each.
 { self, inputs, ... }:
+let
+  overlay = final: _prev: {
+    duet-camera = final.callPackage ../../pkgs/duet-camera.nix { };
+    balaur-agent = final.callPackage ../../pkgs/balaur-agent.nix { };
+    balaur-assistant = final.callPackage ../../pkgs/balaur-assistant-gjs.nix { };
+    balaur-app = final.callPackage ../../pkgs/balaur-app.nix { };
+    balaur-shell-extension = final.callPackage ../../pkgs/balaur-shell-extension.nix { };
+    # aminte (github.com/alexradunet/aminte), served by modules/aminte.nix.
+    aminte = final.callPackage ../../pkgs/aminte.nix { src = inputs.aminte; };
+  };
+in
 {
+  flake.overlays.default = overlay;
+
   perSystem =
     { pkgs, ... }:
     let
-      duet-camera = pkgs.callPackage ../../pkgs/duet-camera.nix { };
-      balaur-agent = pkgs.callPackage ../../pkgs/balaur-agent.nix { };
-      balaur-assistant = pkgs.callPackage ../../pkgs/balaur-assistant-gjs.nix { inherit balaur-agent; };
-      balaur-app = pkgs.callPackage ../../pkgs/balaur-app.nix { };
-      balaur-shell-extension = pkgs.callPackage ../../pkgs/balaur-shell-extension.nix { };
-      # aminte (github.com/alexradunet/aminte), served by modules/aminte.nix.
-      aminte = pkgs.callPackage ../../pkgs/aminte.nix { src = inputs.aminte; };
+      inherit (pkgs.extend overlay)
+        duet-camera
+        balaur-agent
+        balaur-assistant
+        balaur-app
+        balaur-shell-extension
+        aminte
+        ;
     in
     {
       packages = {
