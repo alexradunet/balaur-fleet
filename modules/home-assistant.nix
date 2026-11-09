@@ -31,6 +31,10 @@
           "isal"
           # The house's own devices and services.
           "samsungtv" # the living-room TV
+          "cast" # found on the network
+          "sonos" # found on the network
+          "tuya" # found on the network
+          "homekit_controller"
           "dlna_dmr"
           "jellyfin"
           "qbittorrent"
