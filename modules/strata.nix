@@ -23,8 +23,8 @@
 # profile at the new run config (`sudo strata profile use-config balaur ...`).
 # `sudo strata ...` is the upstream CLI, run as the strata user in its state.
 #
-# Sharing the machine with games (`yieldToGames`): while a Steam game or Battle.net
-# (umu) runs, Strata is stopped, so the game has the whole card and the RAM back;
+# Sharing the machine with games (`yieldToGames`): while a Steam game or anything on Wine (Battle.net)
+# or Proton runs, Strata is stopped, so the game has the whole card and the RAM back;
 # the router meanwhile answers from Mistral. It starts again a minute after the
 # game ends, and loading the model again takes a few minutes. A Strata stopped by
 # hand (`systemctl stop strata`) stays stopped.
@@ -131,8 +131,10 @@
         flag=/run/strata-yield/yielded
         quiet=0
         while true; do
-          # A Steam game (its reaper carries SteamLaunch) or anything under umu (Battle.net).
-          if ${pkgs.procps}/bin/pgrep -f -- 'SteamLaunch AppId=|umu-run' >/dev/null; then
+          # A Steam game (Steam's `reaper` runs beside each one), anything on Wine or
+          # Proton (`wineserver`: Battle.net and Proton games) or umu. Process names,
+          # not command lines: a shell or editor merely showing these words must not count.
+          if ${pkgs.procps}/bin/pgrep -x 'reaper|wineserver|umu-run' >/dev/null; then
             quiet=0
             case "$(${pkgs.systemd}/bin/systemctl is-active strata.service)" in active|activating|reloading)
               echo "a game started: stopping Strata"
