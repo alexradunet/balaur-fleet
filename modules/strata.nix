@@ -213,6 +213,19 @@
 
         environment.systemPackages = [ cli ];
 
+        # On the home page and in the app. It is an API with no web page of its
+        # own: the link opens /health (the model, whether it is loaded). Stopped
+        # while a game runs, so "No answer" then is expected.
+        balaur.services = [{
+          name = "Strata";
+          description = "Local LLM on the GPU";
+          icon = "🧠";
+          port = cfg.port;
+          path = "/health";
+          unit = "strata.service";
+          group = "System";
+        }];
+
         systemd.services.strata = {
           description = "Strata: the fleet's local LLM (:${toString cfg.port})";
           wantedBy = [ "multi-user.target" ];
