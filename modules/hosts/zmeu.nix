@@ -43,9 +43,11 @@ in
         gaming
         steam
         game-streaming
-        # Still to come, once this machine has an SSH host key and is a sops
-        # recipient (.sops.yaml): `secrets` and `assistant`. Until then
-        # sops could not decrypt anything here.
+        # Decrypts with its SSH host key, a recipient in .sops.yaml.
+        secrets
+        # Runs as alex (no `tablet` here), on PipeWire's default microphone.
+        # Retune wakeThreshold for that microphone with `sudo balaur-wake-test`.
+        assistant
       ])
       # Its own disk/boot layout, copied from /etc/nixos (see CLAUDE.md, "Adding a
       # machine"). It must be `git add`ed or flakes cannot see it.
