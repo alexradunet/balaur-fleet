@@ -326,6 +326,9 @@
             ExecStart = "${control}/share/strata-control/bin/strata serve --profile ${cfg.profile} --host 0.0.0.0 --port ${toString cfg.port}";
             Restart = "on-failure";
             RestartSec = 30;
+            # Stopped (by strata-yield when a game starts, or by hand), it exits 130
+            # ("interrupted"): a clean stop, not a failure to restart or report.
+            SuccessExitStatus = [ 130 ];
             # It pins the hot experts in RAM.
             LimitMEMLOCK = "infinity";
             # Loading is minutes; stopping drains the answer in progress.
