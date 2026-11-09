@@ -123,9 +123,15 @@ in
       me = config.networking.hostName;
       others = lib.filterAttrs (name: _: name != me) fleet;
       # Who this machine can farm work out to, and whether it takes work itself.
-      builders = lib.filterAttrs (_: h: h.builder != null && h.sshHostKey != null) others;
+      # A builder only hands work to builders faster than itself: Nix tries remote
+      # machines before its own cores, so the fastest machine would otherwise ship
+      # its builds off to a slower one.
       myEntry = fleet.${me} or null;
       iAmABuilder = myEntry != null && myEntry.builder != null;
+      mySpeed = if iAmABuilder then myEntry.builder.speedFactor else 0;
+      builders = lib.filterAttrs
+        (_: h: h.builder != null && h.sshHostKey != null && h.builder.speedFactor > mySpeed)
+        others;
       # Their root authenticates as their host key, which is what we authorize.
       clientHostKeys = lib.filter (k: k != null) (lib.mapAttrsToList (_: h: h.sshHostKey) others);
       haveBuilders = builders != { };

@@ -48,6 +48,8 @@ in
         aminte-dev
         assistant
         gaming
+        # Moonlight, to play what zmeu streams (Sunshine there).
+        game-streaming-client
       ])
       # Its own disk/boot layout, copied from /etc/nixos (see CLAUDE.md, "Adding a
       # machine"). It must be `git add`ed or flakes cannot see it.
