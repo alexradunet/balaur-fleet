@@ -79,24 +79,6 @@ in
       services.printing.enable = true;
       nixpkgs.config.allowUnfree = true;
 
-      # GNOME defaults this machine does not want. The `desktop` aspect already
-      # drops the ones no personal desktop needs; these are this laptop's taste,
-      # so they live here. The media apps (Music, Decibels, Showtime, Snapshot)
-      # are deliberately kept: a webcam check and a one-off local video file are
-      # worth having even with Jellyfin on balaur.
-      environment.gnome.excludePackages = with pkgs; [
-        # Only useful tied to an online account, and none is set up.
-        gnome-calendar
-        gnome-contacts
-        gnome-clocks
-        gnome-weather
-        gnome-maps
-        # No scanner attached; remote machines are reached over SSH and Tailscale.
-        simple-scan
-        gnome-connections
-        gnome-characters
-        gnome-color-manager
-      ];
       # Drops the offline manual and its "NixOS Manual" launcher. It duplicates
       # the web one, and building nixos-manual-html is a slice of every rebuild.
       documentation.nixos.enable = false;

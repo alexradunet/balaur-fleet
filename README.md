@@ -37,9 +37,9 @@ modules/
   base.nix                boot, admin account, SSH, Nix, housekeeping; the `balaur.services` registry
   network.nix             NetworkManager, Tailscale (+ SSH), <host>.local (mDNS)
   always-on.nix           a laptop as a server: never sleep, ignore lid, battery = UPS, 80% charge cap
-  gnome.nix               GNOME itself: GDM, the session, PipeWire, the Firefox policies
+  gnome.nix               GNOME itself: GDM, the session, PipeWire, and the canonical apps (Firefox + its add-ons, Ptyxis)
   tablet.nix              GNOME as a household tablet: auto-login, OSK, rotation, apps, web apps, the Balaur app + Shell extension, ambient screen
-  desktop.nix             GNOME as a personal desktop: a normal login, and the Balaur app + Shell extension
+  desktop.nix             GNOME as a personal desktop: a normal login, the Balaur app + Shell extension, the GNOME apps it drops
   assistant.nix           the voice assistant, a service of a GNOME session
   camera.nix              the Duet's front camera: patched kernel modules + RGB-IR relay, movement wakes the screen
   media.nix               Jellyfin: watches what `torrents` downloaded, /srv/media
