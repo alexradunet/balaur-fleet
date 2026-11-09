@@ -22,11 +22,9 @@ let
 
   parts = [
     (part { name = "aminte"; vendorHash = "sha256-oMNEBAoHoxa0s/rK0efMUHq5H9QvzygoInSOwrQZ3YM="; })
-    (part { name = "aminte-web"; modRoot = "extensions/web"; vendorHash = "sha256-SnsjfISgbkMMqU5t0QQs9/aPJ0LbfdJrs0EMeB7iakA="; })
-    (part { name = "aminte-agent"; modRoot = "extensions/agent"; vendorHash = "sha256-bGUkk2L+iGWzZFBSaHprY9yILEUEWP1Oxe0op1ybdj8="; })
-    (part { name = "aminte-whatsapp"; modRoot = "extensions/whatsapp"; vendorHash = "sha256-AFM2o54Xqi/XbLprQ+a5MDgZRqVue+XceXT60mSLoKw="; })
-    (part { name = "aminte-ticktick"; modRoot = "extensions/ticktick"; vendorHash = "sha256-M15waXb3PA/7vmK71fXsFwDQe/1HADBSvFq9R146y8Q="; })
-    (part { name = "aminte-mcp"; modRoot = "extensions/mcp"; vendorHash = "sha256-Ued/SjP5Yzg+4jE4XrFLxKnV7a+cDIfudPavQGHyRsg="; })
+    (part { name = "aminte-web"; modRoot = "extensions/web"; vendorHash = "sha256-qufZU9Gk0bQpWcP68PlMc9C7pwQkV+OHiofLDdXpbUM="; })
+    (part { name = "aminte-ticktick"; modRoot = "extensions/ticktick"; vendorHash = "sha256-Ba77vKH41YndzoWunFj9MzxrZYa9aUXXkp/B+iDKFjk="; })
+    (part { name = "aminte-mcp"; modRoot = "extensions/mcp"; vendorHash = "sha256-QPDJQkGLTJWTTVrmGd0wQQEjC7/PiZU1fDIl3WOnPBw="; })
     (part { name = "aminte-agentic-init"; modRoot = "extensions/agentic"; vendorHash = null; }) # standard library only
   ];
 in

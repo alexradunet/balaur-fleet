@@ -1,9 +1,9 @@
 # aminte (github.com/alexradunet/aminte): the life log, one SQLite file, life.db.
 # Two aspects:
 #
-#   aminte       runs `aminte serve` with its extensions (web, agent, whatsapp,
-#                ticktick), on one machine: the always-on one, balaur. The browser
-#                is https://aminte.<balaur.web.domain>, tailnet only.
+#   aminte       runs `aminte serve` with its extensions (web, ticktick), on one
+#                machine: the always-on one, balaur. The browser is
+#                https://aminte.<balaur.web.domain>, tailnet only.
 #   aminte-dev   the binaries and `aminte-prod`, for the machine you develop on.
 #
 # life.db can never be shared between machines as a file. It runs in WAL mode,
@@ -17,8 +17,6 @@
 #     aminte-prod opens `ssh -L 7777:127.0.0.1:7777 balaur` (the core's Host
 #     guard wants the same port on both ends) and sets AMINTE_URL/AMINTE_TOKEN;
 #     for the aminte CLI itself it adds `--url`, which the CLI needs.
-#     Don't run a dev agent or whatsapp against prod while prod runs its own:
-#     every message would get two answers.
 #   - Core and schema work runs on a copy. The nightly snapshot (it does its own
 #     restore check) is copied to <synced folder>/aminte/life-latest.db, which
 #     Syncthing brings to the other machines:
@@ -27,11 +25,8 @@
 #
 # Set up once on the serving machine (as root):
 #   - The token: `aminte-token` in secrets/balaur.yaml (64 hex characters).
-#   - The agent's model, kept in life.settings.json beside life.db: with the
-#     `ai` aspect it is set before every start to the fleet's entryway (ai.nix).
-#     Without it, by hand:
-#       sudo -u aminte HOME=/var/lib/aminte aminte --db /var/lib/aminte/life.db \
-#         do settings model_url=<url> model=<id> model_key=<key>
+#   - An AI agent works with aminte from outside, through the CLI or `aminte mcp`
+#     (aminte RFC 0026): aminte itself calls no model.
 #   - Moving an existing life.db here: stop aminte.service, install the snapshot as
 #     /var/lib/aminte/life.db (owner aminte, 0600), and the old state folders as
 #     /var/lib/aminte/.config/aminte-NAME. Then start it again.
@@ -79,28 +74,17 @@ in
     {
       options.balaur.aminte = {
         extensions = lib.mkOption {
-          type = lib.types.listOf (lib.types.enum [ "web" "agent" "whatsapp" "ticktick" ]);
-          default = [ "web" "agent" "whatsapp" "ticktick" ];
+          type = lib.types.listOf (lib.types.enum [ "web" "ticktick" ]);
+          default = [ "web" "ticktick" ];
           description = ''
             The extensions `serve` runs beside the core. One that is not set up yet
-            (whatsapp before `aminte whatsapp login`, ticktick before `aminte ticktick login`)
+            (ticktick before `aminte ticktick login`)
             exits 78 and is not started again; the others are unaffected.
           '';
         };
         tokenFile = lib.mkOption {
           type = lib.types.path;
           description = "The server's bearer token: one line, 32 characters or more. Also the browser's login.";
-        };
-        ownerNumberFile = lib.mkOption {
-          type = lib.types.nullOr lib.types.path;
-          default = null;
-          description = ''
-            A file holding the owner's phone number (digits with the country code):
-            the one number aminte-whatsapp listens to. Written into the settings
-            (owner_number) before every start, so the Settings page cannot drift
-            from it; the other settings are left as they are. null leaves
-            owner_number to the Settings page.
-          '';
         };
       };
 
@@ -130,16 +114,6 @@ in
           preStart = ''
             install -d -m 0700 ${snapshots}
             [ -e ${db} ] || ${lib.getExe aminte} --db ${db} init
-          '' + lib.optionalString (cfg.aminte.ownerNumberFile != null) ''
-            # A field left out of `settings` stays as it is, so this sets the number alone.
-            # A value that is not digits fails here, and the service stays down.
-            ${lib.getExe aminte} --db ${db} do settings \
-              owner_number="$(tr -d ' \n' < ${toString cfg.aminte.ownerNumberFile})" > /dev/null
-          '' + lib.optionalString (cfg ? ai) ''
-            # The agent's model: the fleet's AI entryway (ai.nix), like everything
-            # else here. It takes no key; aminte wants one, so it gets a placeholder.
-            ${lib.getExe aminte} --db ${db} do settings \
-              model_url=${cfg.ai.url} model=balaur model_key=balaur > /dev/null
           '';
           serviceConfig = {
             User = "aminte";

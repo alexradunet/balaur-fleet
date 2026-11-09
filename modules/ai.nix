@@ -21,10 +21,10 @@
 #                over the defaults below.
 #   ai           the clients, on every machine: finds the gateway in the registry
 #                (127.0.0.1 on the gateway itself) and points everything at it: the
-#                voice assistant's default model (assistant.nix), aminte's agent
-#                (aminte.nix), pi, the OS agent (agent.nix), and OPENAI_BASE_URL/OPENAI_API_KEY for CLI agents and
-#                SDKs. ANTHROPIC_BASE_URL is deliberately left alone: Claude Code
-#                stays on Anthropic.
+#                voice assistant's default model (assistant.nix), pi, the OS agent
+#                (agent.nix), and OPENAI_BASE_URL/OPENAI_API_KEY for CLI agents and SDKs.
+#                ANTHROPIC_BASE_URL is deliberately left alone: Claude Code stays on
+#                Anthropic.
 #
 # Speech (Voxtral) and web search stay on Mistral directly: Strata does neither.
 #
