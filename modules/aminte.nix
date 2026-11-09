@@ -27,9 +27,10 @@
 #
 # Set up once on the serving machine (as root):
 #   - The token: `aminte-token` in secrets/balaur.yaml (64 hex characters).
-#   - The agent's model, kept in life.settings.json beside life.db:
+#   - The agent's model, kept in life.settings.json beside life.db. With the `ai`
+#     aspect, the fleet's router (zmeu's GPU first, Mistral second; no key):
 #       sudo -u aminte HOME=/var/lib/aminte aminte --db /var/lib/aminte/life.db \
-#         do settings model_url=https://api.mistral.ai/v1 model=<id> model_key=<key>
+#         do settings model_url=http://127.0.0.1:4000/v1 model=balaur model_key=balaur
 #   - Moving an existing life.db here: stop aminte.service, install the snapshot as
 #     /var/lib/aminte/life.db (owner aminte, 0600), and the old state folders as
 #     /var/lib/aminte/.config/aminte-NAME. Then start it again.

@@ -194,10 +194,26 @@
               default = "https://api.mistral.ai/v1"; # Mistral: EU (Paris), OpenAI-compatible, tool calling
               description = "Mistral API base for speech (Voxtral) and the default for the model. Changeable in the Balaur app.";
             };
+            # With the `ai` aspect the model is the fleet's router (local GPU first,
+            # Mistral second): provider `balaur`, an OpenAI-compatible server to pi.
+            provider = lib.mkOption {
+              type = lib.types.str;
+              default = if cfg ? ai then "balaur" else "mistral";
+              defaultText = lib.literalMD "`balaur` with the `ai` aspect, else `mistral`";
+              description = "Default pi provider for the model. One pi does not know is taken as an OpenAI-compatible server at `server`.";
+            };
+            server = lib.mkOption {
+              type = lib.types.str;
+              default = cfg.ai.url or "";
+              defaultText = lib.literalMD "the `ai` router's URL with the `ai` aspect, else \"\" (the provider's own)";
+              description = "Default server URL for the model; \"\" is the provider's own.";
+            };
             model = lib.mkOption {
               type = lib.types.str;
-              default = "mistral-medium-latest"; # small was faster but answered English in Romanian
-              description = "Default model (Mistral, through pi; it must support tool calling). Changeable in the Balaur app, with any provider pi supports.";
+              # mistral: small was faster but answered English in Romanian
+              default = if cfg ? ai then "balaur" else "mistral-medium-latest";
+              defaultText = lib.literalMD "`balaur` with the `ai` aspect, else `mistral-medium-latest`";
+              description = "Default model (through pi; it must support tool calling). Changeable in the Balaur app, with any provider pi supports.";
             };
             apiKeyFile = lib.mkOption {
               type = lib.types.path;
@@ -315,6 +331,14 @@
         # and its GSettings schema (model, server, voices; edited in the Balaur app).
         environment.systemPackages = [ package login wakeTest ];
         services.desktopManager.gnome.sessionPath = [ package ];
+        # The defaults the app shows and the daemon uses until someone changes them
+        # (a change in the app lives in dconf and wins over these).
+        services.desktopManager.gnome.extraGSettingsOverridePackages = [ package ];
+        services.desktopManager.gnome.extraGSettingsOverrides = ''
+          [org.balaur.Assistant]
+          llm-provider=${builtins.toJSON as.llm.provider}
+          llm-base-url=${builtins.toJSON as.llm.server}
+        '';
 
         # ---- the wake word: the one local piece (upstream NixOS module), localhost only ----
         services.wyoming.openwakeword = {

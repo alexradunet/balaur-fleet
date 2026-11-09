@@ -99,9 +99,10 @@ remade.
 
 Unchanged from the previous handoff, and all of it held up:
 
-- European providers. The assistant uses Mistral for speech, the model, TTS and
-  web search; only the wake word runs locally. Don't propose self-hosted speech
-  or LLMs, or non-EU services, unless asked.
+- European providers. The assistant uses Mistral for speech, TTS and web search;
+  the wake word runs locally. The chat model goes through the `ai` router
+  (2026-11-09, asked for): Strata on zmeu's GPU first, Mistral second. Don't
+  propose self-hosted speech or other non-EU services unless asked.
 - Lean CPU use, especially on balaur — which is now also why the laptop builds for it.
 - On the Duet, everything on screen is GNOME-native: GJS, libadwaita, a Shell
   extension. Prefer GNOME's own mechanisms over custom code.
