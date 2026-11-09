@@ -81,6 +81,8 @@ deploying is `git push`. Nobody runs `--target-host` any more.
    model `balaur` goes to a fleet GPU running `strata` first (zmeu only), Mistral second.
    `agent` is pi (pi.dev), the OS agent: `ai`'s models, and instructions made from the registry, so it
    knows every machine and service. `balaur-ask <host> "..."` asks another machine's agent over SSH.
+   A role is the same pi with other instructions and only the tools it is given (`pi-aminte`, where
+   `aminte-dev` is: the life log through aminte's MCP server).
    A machine with a screen gets `gnome` plus exactly one of `tablet` or `desktop`.
    Don't give a normal laptop the Duet-only ones:
    - `always-on`: never sleeps, ignores the lid.

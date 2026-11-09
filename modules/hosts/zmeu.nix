@@ -59,6 +59,9 @@ in
           # Runs as alex (no `tablet` here), on PipeWire's default microphone.
           # Retune wakeThreshold for that microphone with `sudo balaur-wake-test`.
           assistant
+          # aminte runs on balaur; this is the dev side (aminte-prod, the binaries), and
+          # what gives pi its aminte role here (pi-aminte, agent.nix).
+          aminte-dev
         ])
         # Its own disk/boot layout, copied from /etc/nixos (see CLAUDE.md, "Adding a
         # machine"). It must be `git add`ed or flakes cannot see it.
@@ -113,6 +116,10 @@ in
 
       # The living-room TV runs Moonlight but is not on the tailnet (game-streaming).
       balaur.gameStreaming.lanClients = [ "192.168.50.106" ];
+
+      # The same token as balaur's aminte, for `aminte-prod` (modules/aminte.nix).
+      sops.secrets."aminte-token".owner = config.balaur.user;
+      balaur.aminte-dev.tokenFile = config.sops.secrets."aminte-token".path;
 
       # The second NVMe: the old Windows disk, kept for the personal media on it.
       # Read-only until its future is decided; nofail, so the machine boots without it.

@@ -49,7 +49,7 @@ modules/
   home-assistant.nix      Home Assistant: devices and automations, https://home.<domain> and :8123
   web.nix                 https://<domain>: the home page of every machine's web UIs, tailnet only (Caddy, DNS-challenge cert)
   files.nix               Syncthing: a 200 GiB volume of its own at /srv/files, paired from the registry
-  agent.nix               pi, the OS agent on every machine: the fleet's models, machines and services; `balaur-ask`
+  agent.nix               pi, the OS agent on every machine: the fleet's models, machines and services; `balaur-ask`; roles (`pi-aminte`)
   dev.nix                 Claude Code + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep
   gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow); laptop only
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
