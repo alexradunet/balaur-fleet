@@ -181,9 +181,11 @@
           type = lib.types.str;
           # Qwen3.8-Flash-Next sizes (RAM + VRAM): q2_0 37.6 GB "good", iq2_xs
           # 39.2 "better", iq3_xxs 47.0 "great", iq3_s 54.8 "best; matches the
-          # full model on the published tests" and the slowest. iq3_s on zmeu:
-          # ~14 GB on the card, ~41 GB of its 62 GB RAM, ~20 GB left for the
-          # desktop and builds (games stop Strata anyway).
+          # full model on the published tests" and the slowest. Measured on zmeu
+          # (2026-11-09): 50 GB of its 62 GB RAM (+1 GB for pictures), ~5 GB
+          # left, 43-50 tokens/s; builds and the desktop lean on swap. Chosen for
+          # quality; iq3_xxs is the step down if zmeu ever feels sluggish.
+          # Games stop Strata, so they get everything back.
           default = "iq3_s";
           description = "The model size strata-setup downloads (`strata launch --model`).";
         };
