@@ -21,9 +21,17 @@
 #   2. In Moonlight, "Add host" with the host's tailnet name (`zmeu`). Discovery
 #      only sees the LAN, and the tailnet is not the LAN.
 #   3. Moonlight shows a PIN; enter it in Sunshine's PIN tab.
+{ config, ... }:
+let
+  fleet = config.fleet;
+in
 {
   flake.modules.nixos.game-streaming =
-    { config, ... }:
+    { config, lib, ... }:
+    let
+      host = config.networking.hostName;
+      ip = fleet.${host}.tailnetIp or null;
+    in
     {
       services.sunshine = {
         enable = true;
@@ -33,7 +41,13 @@
         capSysAdmin = true;
         # Ports stay closed on the LAN; the tailnet is trusted (see above).
         openFirewall = false;
-        settings.sunshine_name = config.networking.hostName;
+        settings = {
+          sunshine_name = host;
+          # The web UI only accepts requests from localhost unless told otherwise;
+          # we open it as https://<host>:47990 from across the tailnet.
+          csrf_allowed_origins = lib.concatMapStringsSep "," (h: "https://${h}:47990")
+            ([ host ] ++ lib.optional (ip != null) ip);
+        };
       };
     };
 
