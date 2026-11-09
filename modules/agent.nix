@@ -25,7 +25,8 @@
 # (auto-deploy.nix). One hop only: an asked agent cannot ask a third.
 #
 # pi runs its tools (shell, files) without asking, as the admin account. sudo
-# still wants the password, so root is reached through a pushed commit, not directly.
+# still wants the password and the admin is not a trusted Nix user (base.nix), so
+# root is reached through a pushed commit, not directly.
 #
 # It needs the `ai` aspect, and `home` to write the files.
 { inputs, config, ... }:

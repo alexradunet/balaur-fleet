@@ -90,10 +90,11 @@ in
         # camera.tuning.cfa = "GIGI/BGRG/GIGI/RGBG"; # only if red and blue come out swapped (default: GIGI/RGBG/GIGI/BGRG)
       };
 
-      # FileList's username and passkey are two readable entries in the sops file;
-      # the search plugin wants them as one JSON object, so sops renders it.
-      sops.secrets."filelist-username" = { };
-      sops.secrets."filelist-passkey" = { };
+      # FileList's username and passkey are two entries in this machine's own sops
+      # file (secrets/hosts/balaur.yaml); the search plugin wants them as one JSON
+      # object, so sops renders it.
+      sops.secrets."filelist-username".sopsFile = config.balaur.secrets.hostFile;
+      sops.secrets."filelist-passkey".sopsFile = config.balaur.secrets.hostFile;
       sops.templates."filelist.json" = {
         owner = config.services.qbittorrent.user;
         mode = "0400";
@@ -110,7 +111,7 @@ in
       # https://balaur.space: its A record at Gandi points at this machine's tailnet
       # address. The certificate's DNS challenge uses a Gandi personal access token
       # (Domain > "Manage domain technical configurations", balaur.space only).
-      sops.secrets."gandi-token" = { };
+      sops.secrets."gandi-token".sopsFile = config.balaur.secrets.hostFile;
       sops.templates."gandi.env".content = ''
         GANDIV5_PERSONAL_ACCESS_TOKEN=${config.sops.placeholder."gandi-token"}
       '';

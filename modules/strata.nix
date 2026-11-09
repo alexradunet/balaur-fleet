@@ -333,6 +333,34 @@
             TimeoutStopSec = 60;
             # Below the desktop and games when it runs alongside them.
             Nice = 5;
+
+            # Sandboxed: it runs binaries upstream ships and updates outside Nix
+            # (`sudo strata update`), and listens on the tailnet. They can write
+            # only their own state. Not PrivateDevices (the GPU's /dev/nvidia*) and
+            # not MemoryDenyWriteExecute (CUDA and Python compile code at run time).
+            ProtectSystem = "strict";
+            ReadWritePaths = [ state ];
+            ProtectHome = true;
+            PrivateTmp = true;
+            NoNewPrivileges = true;
+            CapabilityBoundingSet = "";
+            RestrictSUIDSGID = true;
+            ProtectKernelTunables = true;
+            ProtectKernelModules = true;
+            ProtectKernelLogs = true;
+            ProtectControlGroups = true;
+            ProtectClock = true;
+            ProtectHostname = true;
+            RestrictRealtime = true;
+            LockPersonality = true;
+            SystemCallArchitectures = "native";
+            RestrictNamespaces = true;
+            RestrictAddressFamilies = [
+              "AF_UNIX"
+              "AF_INET"
+              "AF_INET6"
+              "AF_NETLINK"
+            ];
           };
         };
 

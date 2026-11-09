@@ -148,10 +148,14 @@ in
           '') config.balaur.gameStreaming.lanClients;
         }
 
-        # The web UI's login, from the sops file. Sunshine keeps it as a salted hash
+        # The web UI's login, from its own sops file. Sunshine keeps it as a salted hash
         # in its state file; --creds writes it and leaves the paired clients alone.
         (lib.optionalAttrs useSops {
-          sops.secrets.sunshine-password.owner = user;
+          sops.secrets.sunshine-password = {
+            owner = user;
+            # This machine's own file (secrets/hosts/<host>.yaml), not the shared one.
+            sopsFile = config.balaur.secrets.hostFile;
+          };
           systemd.user.services.sunshine.serviceConfig.ExecStartPre = lib.getExe (
             pkgs.writeShellApplication {
               name = "sunshine-set-login";

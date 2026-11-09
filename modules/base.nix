@@ -215,10 +215,13 @@ in
             "nix-command"
             "flakes"
           ];
-          trusted-users = [
-            "root"
-            "@wheel"
-          ];
+          # trusted-users stays NixOS's own: root only. A trusted user can hand the
+          # daemon unsigned store paths and any setting, which is root by another
+          # name; @wheel there would give it to everything that runs as the admin,
+          # the OS agent included, without the sudo password. Builds, `nix develop`
+          # and the remote builders (the daemon dispatches them, and `nixremote` is
+          # trusted on builders: fleet.nix) do not need it. A by-hand deploy builds
+          # on the target: see AGENTS.md.
         };
         # Flakes only: no root channel to drift from flake.lock. NixOS already pins
         # the registry's and NIX_PATH's `nixpkgs` to the system's own.
