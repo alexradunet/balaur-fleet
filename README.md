@@ -72,7 +72,8 @@ modules/
   web.nix                 https://<domain>: the home page of every machine's web UIs, tailnet only (Caddy, DNS-challenge cert)
   files.nix               Syncthing: a 200 GiB volume of its own at /srv/files, paired from the registry
   agent.nix               pi, the OS agent on every machine: the fleet's models, machines and services; `balaur-ask`; roles (`pi-aminte`)
-  dev.nix                 Claude Code + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep
+  dev.nix                 Claude Code + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep; `dev` opens the sessions
+  dev-host.nix            the one machine that holds the development sessions: herdr's server, from boot
   gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow); laptop and zmeu
   steam.nix               Steam and GameMode, for a machine that plays locally (zmeu)
   game-streaming.nix      Sunshine on the host (zmeu), Moonlight on the clients, over the tailnet

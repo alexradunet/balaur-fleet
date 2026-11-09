@@ -4,16 +4,50 @@
 # not nixpkgs, which lags upstream by months. Bump them with:
 #   nix flake update llm-agents && nixos-rebuild switch --flake .#balaur --sudo
 # Per-project toolchains come from `nix develop` (see each repo's flake).
-{ inputs, ... }: {
+#
+# `dev` opens the development sessions. They live in herdr on the fleet's dev host
+# (dev-host.nix, the machine marked `devHost` in the registry), so `dev` there
+# attaches to them, and `dev` anywhere else draws them over SSH. With no dev host in
+# the fleet it is plain herdr on this machine.
+{
+  inputs,
+  config,
+  lib,
+  ...
+}:
+let
+  fleet = config.fleet;
+  devHosts = lib.attrNames (lib.filterAttrs (_: h: h.devHost) fleet);
+in
+{
   flake.modules.nixos.dev =
-    { pkgs, ... }:
+    { config, pkgs, ... }:
     let
       agents = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system};
+      # The sessions are here, or there is nowhere else to look for them.
+      local = devHosts == [ ] || lib.elem config.networking.hostName devHosts;
+      dev = pkgs.writeShellApplication {
+        name = "dev";
+        runtimeInputs = [
+          agents.herdr
+          pkgs.openssh
+        ];
+        text =
+          if local then
+            ''
+              exec herdr "$@"
+            ''
+          else
+            ''
+              exec herdr --remote ${lib.escapeShellArg fleet.${lib.head devHosts}.address} "$@"
+            '';
+      };
     in
     {
       environment.systemPackages = [
         agents.claude-code # `claude`
         agents.herdr # workspace manager for agent sessions (herdr.dev)
+        dev
       ]
       ++ (with pkgs; [
         gh

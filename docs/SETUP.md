@@ -164,25 +164,40 @@ the Duet. The flake declares the cache, but Nix asks you to accept flake-provide
 once:
 
 ```bash
-cd ~/balaur-fleet && git pull
+cd ~/Projects/balaur-fleet && git pull
 nixos-rebuild switch --flake .#balaur --sudo --accept-flake-config
 ```
 
 (After that first switch the cache is part of the system config, so the flag is not needed.)
 
-Then, over SSH, start `herdr` ([herdr.dev](https://herdr.dev)), the terminal workspace manager for agent sessions (`herdr --help` for keys, panes and reattaching), and run the agents inside it:
+**The sessions live on the Duet.** Its `dev-host` aspect runs the server of `herdr`
+([herdr.dev](https://herdr.dev)), the terminal workspace manager for agent sessions, from
+boot (`systemctl --user status herdr-server`), and the server owns every terminal and
+agent. The other machines are only screens:
 
 ```bash
-herdr
-cd ~/balaur-fleet
+dev                     # on any machine of the fleet: attach to the sessions on the Duet
+cd ~/Projects/balaur-fleet
 claude                  # first run: follow the login prompt (open the URL on another device)
 pi                      # first run: log in or set your provider's API key; see `pi --help`
 ```
 
+`ctrl+b q` detaches (`ctrl+b ?` lists the keys); closing the terminal, the lid or the
+whole PC does the same, and the agents keep working. `dev` again, from that machine or
+another, shows them where they are. From a phone on the tailnet: `ssh alex@balaur` with
+a key the Duet accepts (`balaur.sshKeys` in `modules/hosts/balaur.nix`), then `dev`.
+
+The projects are cloned on the Duet, under `~/Projects`, and so are the logins (`claude`,
+`pi`, `gh auth login`). Once, so that herdr can bring the agents back after a reboot:
+`herdr integration install claude` and `herdr integration install pi`.
+
+A deploy never restarts the server, since that would end every pane; a new herdr
+starts with the next boot, or with `systemctl --user restart herdr-server`.
+
 **Updating the agents** (they move fast):
 
 ```bash
-cd ~/balaur-fleet
+cd ~/Projects/balaur-fleet
 nix flake update llm-agents
 nixos-rebuild switch --flake .#balaur --sudo
 git add flake.lock && git commit -m "Bump agents"

@@ -89,6 +89,14 @@ in
                 is a machine you cannot send a torrent to.
               '';
             };
+            devHost = mkOption {
+              type = types.bool;
+              default = false;
+              description = ''
+                Set this on the one machine that holds the development sessions (the
+                `dev-host` aspect). `dev` on every other machine attaches to it.
+              '';
+            };
             builder = mkOption {
               default = null;
               description = ''

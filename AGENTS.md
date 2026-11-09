@@ -50,6 +50,8 @@ new commit, switches to its own configuration at that commit and fast-forwards i
 clone. So work from whichever machine you are at — laptop, zmeu or balaur — and
 deploying is `git push`. Skill `deploy` has the whole routine.
 
+- The development sessions live in herdr on balaur (`dev-host`); `dev` on any machine
+  attaches to them, and a deploy does not restart them.
 - Each machine builds its own system, and the heavy builds go to the fleet's builders
   (zmeu first; fleet.nix). So editing on balaur is fine: the Duet only evaluates.
 - `balaur-fleet-status` shows every machine's deployed commit, state and failed units.

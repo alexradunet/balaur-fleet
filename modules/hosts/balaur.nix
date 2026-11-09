@@ -14,6 +14,7 @@ in
     sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKgXcAskVb3sHgL8Z0VlVpSYHB2yDirUQ3GV5xfDvKQo";
     syncthingId = "MEDQJ5M-PGUYPER-IEGEHM4-NZMCWBM-LKCJVXL-W72PFVP-5OJUMTG-4X3CQAS";
     torrentsPort = 8080;
+    devHost = true;
     userKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE0ZoRQpfEL3tB7gO5XBC9B9eG9qvlgcGpExvmhVoMMI" ];
   };
 
@@ -44,6 +45,8 @@ in
           home-assistant
           assistant
           dev
+          # Every machine's `dev` lands here: the sessions live on the one that never sleeps.
+          dev-host
           auto-deploy
           # The fleet's AI entryway for every machine (http://balaur:4000/v1, page at
           # https://ai.balaur.space): zmeu's GPU first, Mistral second.
