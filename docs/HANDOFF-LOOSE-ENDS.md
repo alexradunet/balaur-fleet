@@ -30,41 +30,24 @@ Finland) fits: put balaur's SSH host key (`fleet.balaur.sshHostKey`) in its
 - after the first night: `sudo restic-balaur snapshots`, and restore one file to
   `/tmp` to prove it.
 
-### 2. Rotate the secrets that moved (needs the user)
-
-The Gandi token and the FileList passkey moved from the shared file into
-`secrets/hosts/balaur.yaml`, but the old ciphertext, readable with the laptop's keys,
-stays in the public history. They are protected only once rotated: a new Gandi
-personal access token (balaur.space only), a new FileList passkey; then
-`sops secrets/hosts/balaur.yaml` from zmeu or balaur, and push.
-
-The Sunshine password was rotated: `sops decrypt --extract '["sunshine-password"]'
-secrets/hosts/zmeu.yaml` on zmeu shows it. Sunshine takes it at its next start.
-
-### 3. Check the laptop when it wakes
+### 2. Check the laptop when it wakes
 
 It was asleep for the whole session: `balaur-fleet-status` should show it on main,
 with no failed units, and `pi` there should list the seven skills. (Strata's sandbox
 is proven: it loaded and answered through the entryway on 2026-11-10.)
 
-### 4. A `kiosk` home on balaur
-
-`/home/kiosk` exists on balaur, but no account of that name is declared any more
-(`users.mutableUsers = true` keeps old accounts). Probably from before `tablet` used
-`home`: look at it, and delete the account and its home if nothing is in it.
-
-### 5. Retune the wake word on the laptop and zmeu
+### 3. Retune the wake word on the laptop and zmeu
 
 `wakeThreshold = 0.35` on the laptop was copied from balaur's microphone array; zmeu
 uses the default. `sudo balaur-wake-test` on each, with real voices.
 
-### 6. Keep an eye on balaur's disk
+### 4. Keep an eye on balaur's disk
 
 56% used at the last look; the Syncthing volume reserves 200 GiB up front and now
 also keeps 30 days of replaced and deleted files inside that cap. qBittorrent
 downloads into what is left.
 
-### 7. The assistant's state migration
+### 5. The assistant's state migration
 
 `balaur-assistant-migrate-state` (assistant.nix) carries state over from the old
 `duet-assistant` name. Delete it once every machine has started the assistant since
@@ -74,6 +57,11 @@ downloads into what is left.
 
 - **Disk encryption on the laptop** (a reinstall), and whether `~/.ssh/id_ed25519` has
   a passphrase: today a lost laptop gives away the admin key and the shared secrets.
+- **Rotate the Gandi token and the FileList passkey** when the laptop gets a new key or
+  an encrypted disk. They were always sops-encrypted, but the old ciphertext in git
+  history was encrypted to the laptop's keys too; moving them to
+  `secrets/hosts/balaur.yaml` keeps only new values away from those keys. (The
+  Sunshine password was rotated: Sunshine takes a new one when it restarts.)
 - **Signed commits for auto-deploy**: verify main's commit against the registry's
   `userKeys` before switching, so a stolen GitHub login cannot deploy.
 - `nixpkgs.config.allowUnfreePredicate` (NVIDIA, Steam) instead of `allowUnfree`.
