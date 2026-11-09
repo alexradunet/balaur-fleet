@@ -108,6 +108,8 @@ in
         files.guiOnLan = false;
 
         assistant = {
+          # pi in its home role answers (assistant.nix), as on zmeu.
+          engine = "pi";
           # Mistral, the voices and the sops key are the aspect's defaults, and the
           # default source is this machine's ordinary microphone (audio.input = null).
           # Retune for this machine's microphone with `sudo balaur-wake-test`.
