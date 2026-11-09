@@ -36,6 +36,10 @@ skipped). The **dendritic pattern** works like this:
   cockpit: it is much the stronger machine, and balaur is also the household screen, where a
   long build competes with the people using it. balaur is a deploy target, not a workstation.
   After pushing, fast-forward balaur's own clone so the next session there is not stale.
+- A machine with the `auto-deploy` aspect (so far: zmeu) follows `main` on GitHub by
+  itself: within ~5 minutes of a push it switches to the new commit and fast-forwards its
+  clone. No `--target-host` for it; `journalctl -u balaur-auto-deploy` shows what it did.
+  A secret change must be on GitHub (`sops updatekeys` pushed) before anything that needs it.
 
 ## Adding a machine (run on the new machine, in a clone of this repo)
 
