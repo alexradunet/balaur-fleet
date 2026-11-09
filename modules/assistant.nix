@@ -201,6 +201,20 @@
             '';
           };
 
+          engine = lib.mkOption {
+            type = lib.types.enum [
+              "sdk"
+              "pi"
+            ];
+            default = "sdk";
+            description = ''
+              What answers: `sdk` is the assistant's own program on the pi SDK
+              (gnome/agent/); `pi` is the installed pi in its home role
+              (gnome/home-agent/), with the models of the `agent` aspect. Here only
+              while the machines move from the first to the second, one at a time.
+            '';
+          };
+
           name = lib.mkOption {
             type = lib.types.str;
             default = "Jarvis";
@@ -454,7 +468,15 @@
               BALAUR_ASSISTANT_KEY_FILE = toString as.llm.apiKeyFile;
               # Timers, reminders and "what time is it" use local time.
               TZ = config.time.timeZone;
-            };
+            }
+            // lib.optionalAttrs (as.engine == "pi") (
+              {
+                BALAUR_AGENT_ENGINE = "pi";
+                BALAUR_AGENT = lib.getExe pkgs.balaur-home-agent;
+              }
+              # Without the `agent` aspect it runs on pi's own Mistral provider.
+              // lib.optionalAttrs (cfg ? agent) { BALAUR_PI_MODELS = toString cfg.agent.modelsFile; }
+            );
             unitConfig.ConditionUser = user;
             serviceConfig = {
               # Lists, reminders and memory lived in duet-assistant before the rename

@@ -38,6 +38,8 @@ export const IFACE_XML = `<node>
     <method name="ReminderCancel"><arg name="id" type="s" direction="in"/></method>
     <method name="SetApiKey"><arg name="provider" type="s" direction="in"/><arg name="key" type="s" direction="in"/></method>
     <method name="TestModel"><arg name="error" type="s" direction="out"/></method>
+    <method name="AgentContext"><arg name="context" type="s" direction="out"/></method>
+    <method name="AgentTool"><arg name="name" type="s" direction="in"/><arg name="args" type="s" direction="in"/><arg name="result" type="s" direction="out"/></method>
   </interface>
 </node>`;
 
@@ -142,6 +144,9 @@ const METHODS = {
     }},
     SetApiKey: {run: (a, provider, key) => a.setApiKey(provider.trim(), key.trim())},
     TestModel: {out: '(s)', run: a => a.testModel()},
+    // For pi's extension (gnome/home-agent/), and only while a question is being answered.
+    AgentContext: {out: '(s)', run: a => a.agentContext()},
+    AgentTool: {out: '(s)', run: (a, name, args) => a.agentTool(name, args)},
 };
 
 /** Exports the interface for assistant a on connection; returns the exported object. */

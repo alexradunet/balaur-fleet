@@ -13,6 +13,7 @@ import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 
 import {Agent} from './agent.js';
+import {PiAgent} from './pi-agent.js';
 import {Cancelled} from './http.js';
 import {Mic, Player, earconAlarm, earconDone, earconError, earconListen, getVolume, pulseDevice, setVolume} from './audio.js';
 import {clock, longDate, localZone, marshal, nowString, sorted} from './gojson.js';
@@ -78,11 +79,18 @@ export class Assistant {
         this.mic = opts.mic ?? new Mic(cfg.audio.input, f => this._onFrame(f));
         this.player = opts.player ?? new Player(cfg.audio.output);
         this.mistral = opts.mistral ?? new Mistral(settings.speechBaseUrl, '');
-        this.agent = opts.agent ?? new Agent({
-            env: () => this._agentEnv(),
-            onToolCall: (name, args) => this._toolCall(name, args),
-            onReady: r => this._agentReady(r),
-        });
+        // The engine: the installed pi with the home role (pi-agent.js), or the
+        // assistant's own pi SDK program (agent.js) until every machine has moved.
+        this.agent = opts.agent ?? (GLib.getenv('BALAUR_AGENT_ENGINE') === 'pi'
+            ? new PiAgent({
+                env: () => this._agentEnv(),
+                onReady: r => this._agentReady(r),
+            })
+            : new Agent({
+                env: () => this._agentEnv(),
+                onToolCall: (name, args) => this._toolCall(name, args),
+                onReady: r => this._agentReady(r),
+            }));
         store.onChange = () => this.changed();
     }
 
@@ -193,8 +201,15 @@ export class Assistant {
     async settingsChanged(keys) {
         await this._refreshSpeech();
         log(`settings: ${keys.join(', ')} changed`);
-        if (keys.some(k => LLM_KEYS.includes(k)))
+        const llm = keys.filter(k => LLM_KEYS.includes(k));
+        if (llm.length === 1 && llm[0] === 'llm-model' && this.agent.setModel) {
+            // pi changes its model while it runs.
+            const error = await this.agent.setModel(this.settings.llmModel);
+            if (error)
+                log(`agent: ${error}`);
+        } else if (llm.length > 0) {
             this._restartAgentWhenIdle();
+        }
         this.changed();
     }
 
@@ -231,6 +246,28 @@ export class Assistant {
         const res = await runTool(this, name, args, this.turn ?? {lang: this.lastLang});
         log(`tool ${name}(${JSON.stringify(args)})`);
         return JSON.stringify(res ?? null);
+    }
+
+    // ---- what pi's extension asks over D-Bus (gnome/home-agent/) ----
+
+    /** The context of the question being answered, for its system prompt. */
+    agentContext() {
+        if (!this.turn)
+            throw new Error('no question is being answered');
+        return JSON.stringify({...this.context(this.turn.typed), lang: this.turn.lang ?? ''});
+    }
+
+    /** Runs one of the model's daemon-side tools; the result as JSON text. */
+    agentTool(name, args) {
+        if (!this.turn)
+            throw new Error('no question is being answered');
+        let parsed;
+        try {
+            parsed = JSON.parse(args || '{}');
+        } catch {
+            throw new Error('bad arguments: not JSON');
+        }
+        return this._toolCall(name, parsed);
     }
 
     /** The per-turn context the agent builds the system prompt from (systemPrompt in assistant.go). */

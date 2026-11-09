@@ -8,6 +8,10 @@ let
   overlay = final: _prev: {
     duet-camera = final.callPackage ../../pkgs/duet-camera.nix { };
     balaur-agent = final.callPackage ../../pkgs/balaur-agent.nix { };
+    # The same pi `agent.nix` installs, in its home role (the assistant on pi).
+    balaur-home-agent = final.callPackage ../../pkgs/balaur-home-agent.nix {
+      pi = inputs.llm-agents.packages.${final.stdenv.hostPlatform.system}.pi;
+    };
     balaur-assistant = final.callPackage ../../pkgs/balaur-assistant-gjs.nix { };
     balaur-app = final.callPackage ../../pkgs/balaur-app.nix { };
     balaur-shell-extension = final.callPackage ../../pkgs/balaur-shell-extension.nix { };
@@ -24,6 +28,7 @@ in
       inherit (pkgs.extend overlay)
         duet-camera
         balaur-agent
+        balaur-home-agent
         balaur-assistant
         balaur-app
         balaur-shell-extension
@@ -35,6 +40,7 @@ in
         inherit
           duet-camera
           balaur-agent
+          balaur-home-agent
           balaur-assistant
           balaur-app
           balaur-shell-extension
@@ -53,6 +59,7 @@ in
         inherit
           duet-camera
           balaur-agent
+          balaur-home-agent
           balaur-assistant
           balaur-app
           balaur-shell-extension

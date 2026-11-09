@@ -294,6 +294,13 @@ in
     in
     {
       options.balaur.agent = {
+        modelsFile = lib.mkOption {
+          type = lib.types.path;
+          readOnly = true;
+          default = models;
+          defaultText = lib.literalMD "pi's `models.json` for the fleet's AI entryway";
+          description = "The entryway's models as pi reads them, for another aspect that runs pi in a role of its own (the assistant).";
+        };
         model = lib.mkOption {
           type = lib.types.enum [
             "balaur"
