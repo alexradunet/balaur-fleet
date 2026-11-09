@@ -144,6 +144,8 @@ in
       balaur = {
         # The existing login on this machine; its password is kept as is.
         user = "alex";
+        # The first machine on the new engine: pi in its home role (assistant.nix).
+        assistant.engine = "pi";
         # It stays at home, wired or on the home Wi-Fi: SSH and the Syncthing UI on
         # the LAN as well, like balaur.
       };
