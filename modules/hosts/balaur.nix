@@ -77,6 +77,8 @@ in
         # Voice assistant: "Hey Jarvis", Romanian + English; Mistral for speech, a pi SDK agent for the rest.
         # Mistral, the voices and the sops key are the aspect's defaults (assistant.nix).
         assistant = {
+          # pi in its home role answers (assistant.nix), as on zmeu and the laptop.
+          engine = "pi";
           # This machine's microphone array at 16 kHz (`arecord -l`: DMIC16kHz). Without
           # it PipeWire picks the 48 kHz DMIC, whose processing leaves a voice far too
           # quiet for the wake word. A laptop with an ordinary mic leaves this null.
