@@ -3,7 +3,7 @@
 
   inputs = {
     # Stable channel tarball (carries a flake.nix). Pinned by flake.lock.
-    nixpkgs.url = "https://channels.nixos.org/nixos-26.05/nixexprs.tar.xz";
+    nixpkgs.url = "https://channels.nixos.org/nixos-26.05/nixexprs.tar.zst";
 
     # Every file under modules/ is a flake-parts module (the dendritic pattern):
     # import-tree loads them all, each one defines an aspect, hosts pick aspects.
