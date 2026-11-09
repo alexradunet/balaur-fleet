@@ -1,22 +1,40 @@
-// A stand-in for balaur-agent in the tests: speaks the same JSON lines.
-//   prompt "add <item>"  -> tool_call house_list_add, then reply with its result
-//   prompt "slow"        -> waits for abort, then {"type":"error","aborted":true}
-//   prompt "fail"        -> {"type":"error","message":"boom"}
-//   anything else        -> reply "echo: <text> @<context.time>"
+// A stand-in for the agent (`pi --mode rpc`) in the tests: the commands and events agent.js uses.
+//   prompt "bold"   -> "**Added.** done" (markdown, for the cleaning before speech)
+//   prompt "slow"   -> waits for abort, then an aborted message and agent_settled
+//   prompt "fail"   -> an assistant message with stopReason "error" ("boom")
+//   prompt "/x"     -> handled without a run (no agent_settled)
+//   anything else   -> "echo: <text>" (with " (new)" on the first prompt of a session)
+// With --test as an argument it is the launcher's one-shot test: exit 0, or 1
+// with "no such model" on stderr when BALAUR_LLM_MODEL is "bad".
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GioUnix from 'gi://GioUnix';
+import System from 'system';
+
+if (System.programArgs.includes('--test')) {
+    if (GLib.getenv('BALAUR_LLM_MODEL') === 'bad') {
+        printerr('warming up\nno such model');
+        System.exit(1);
+    }
+    System.exit(0);
+}
 
 const out = new GioUnix.OutputStream({fd: 1, close_fd: false});
 const send = m => out.write_all(new TextEncoder().encode(`${JSON.stringify(m)}\n`), null);
 const input = new Gio.DataInputStream({base_stream: new GioUnix.InputStream({fd: 0, close_fd: false})});
+input.set_newline_type(Gio.DataStreamNewlineType.LF);
 
-const waiting = new Map(); // tool call id -> prompt
-let slow = null;
+let model = GLib.getenv('BALAUR_LLM_MODEL') || 'm1';
+let fresh = true; // no prompt yet in this session
+let slow = false;
 
-send({type: 'ready', tools: ['house_list_add'], models: {providers: [{id: 'faux', name: 'Faux', models: [{id: 'm1', name: 'M1'}]}]},
-    env: {provider: GLib.getenv('BALAUR_LLM_PROVIDER'), model: GLib.getenv('BALAUR_LLM_MODEL'), key: GLib.getenv('BALAUR_LLM_KEY')}});
+const respond = (m, data = undefined, error = '') =>
+    send({id: m.id, type: 'response', command: m.type, success: !error, ...(error ? {error} : {data})});
+const answer = (text, stopReason = 'stop', extra = {}) => {
+    send({type: 'message_end', message: {role: 'assistant', content: text ? [{type: 'text', text}] : [], stopReason, ...extra}});
+    send({type: 'agent_settled', aborted: stopReason === 'aborted'});
+};
 
 const loop = new GLib.MainLoop(null, false);
 function next() {
@@ -27,27 +45,52 @@ function next() {
             return;
         }
         const m = JSON.parse(line);
-        if (m.type === 'prompt') {
-            if (m.text.startsWith('add ')) {
-                const id = `c${waiting.size + 1}`;
-                waiting.set(id, m);
-                send({type: 'tool_call', id, prompt: m.id, name: 'house_list_add', args: {list: 'shopping', items: [m.text.slice(4)]}});
-            } else if (m.text === 'slow') {
-                slow = m;
-            } else if (m.text === 'fail') {
-                send({type: 'error', id: m.id, message: 'boom'});
+        switch (m.type) {
+        case 'get_state':
+            respond(m, {model: {provider: 'faux', id: model}});
+            break;
+        case 'get_available_models':
+            respond(m, {models: [{provider: 'faux', id: 'm1', name: 'M1'}, {provider: 'faux', id: 'm2', name: 'M2'}, {provider: 'other', id: 'x', name: 'X'}]});
+            break;
+        case 'set_model':
+            if (['m1', 'm2'].includes(m.modelId)) {
+                model = m.modelId;
+                respond(m, {});
             } else {
-                send({type: 'reply', id: m.id, text: `echo: ${m.text} @${m.context?.time}`, lang: m.lang});
+                respond(m, undefined, `Model not found: ${m.provider}/${m.modelId}`);
             }
-        } else if (m.type === 'tool_result') {
-            const p = waiting.get(m.id);
-            waiting.delete(m.id);
-            send({type: 'reply', id: p.id, text: m.ok ? `**Added.** ${m.result}` : `Failed: ${m.error}`, lang: p.lang});
-        } else if (m.type === 'abort' && slow?.id === m.id) {
-            send({type: 'error', id: m.id, message: 'aborted', aborted: true});
-            slow = null;
-        } else if (m.type === 'test') {
-            send({type: 'test_result', id: m.id, error: ''});
+            break;
+        case 'new_session':
+            fresh = true;
+            respond(m, {cancelled: false});
+            break;
+        case 'abort':
+            respond(m);
+            if (slow) {
+                slow = false;
+                answer('', 'aborted');
+            }
+            break;
+        case 'prompt':
+            if (m.message.startsWith('/')) {
+                respond(m, {disposition: 'handled'});
+                break;
+            }
+            respond(m, {disposition: 'started'});
+            send({type: 'message_end', message: {role: 'user', content: [{type: 'text', text: m.message}]}});
+            if (m.message === 'slow') {
+                slow = true;
+            } else if (m.message === 'bold') {
+                answer('**Added.** done');
+            } else if (m.message === 'fail') {
+                answer('', 'error', {errorMessage: 'boom'});
+            } else {
+                answer(`echo: ${m.message}${fresh ? ' (new)' : ''} [${model}]`);
+                fresh = false;
+            }
+            break;
+        default:
+            respond(m, undefined, `unknown command ${m.type}`);
         }
         next();
     });

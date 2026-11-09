@@ -1,10 +1,15 @@
-// The daemon's side of the agent protocol (gnome/CONTRACT.md, "The agent"):
-// spawns `balaur-agent` (path in $BALAUR_AGENT) with Gio.Subprocess and speaks
-// JSON lines on its stdin/stdout; its stderr goes to our journal.
+// The daemon's side of the agent: the installed pi (https://pi.dev) in RPC
+// mode, started by the launcher in $BALAUR_AGENT with the home role's extension
+// (gnome/home-agent/, gnome/CONTRACT.md "The agent"). JSON lines on its
+// stdin/stdout (pi's docs/rpc.md); its stderr goes to our journal.
 //
-//   ready        {tools, models, error?}            once, after start-up
-//   prompt   →   tool_call* ← → tool_result*   ←   reply | error
-//   abort, reset, test → test_result
+//   get_state, get_available_models  →  response      once, after start-up: "ready"
+//   prompt  →  response, events ...  →  agent_settled  the answer is the last assistant message
+//   abort, new_session, set_model    →  response
+//
+// The model's tools do not pass through here: the extension calls the daemon
+// over D-Bus (AgentTool, AgentContext in dbus.js). So this class only starts
+// the child, asks, aborts and forgets.
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -14,33 +19,44 @@ import {errText, log, scope, writeAll} from './util.js';
 
 const READY_TIMEOUT_MS = 60000;
 const RESTART_DELAY_MS = 3000;
+// A quiet period after which the conversation starts afresh.
+const HISTORY_TTL_MS = 5 * 60 * 1000;
 const enc = new TextEncoder();
 const dec = new TextDecoder();
 
+/** Text of an assistant message's text blocks. */
+function messageText(m) {
+    if (typeof m?.content === 'string')
+        return m.content;
+    return (m?.content ?? []).filter(c => c.type === 'text').map(c => c.text).join('');
+}
+
 export class Agent {
     /**
-     * argv: the command (default [$BALAUR_AGENT or "balaur-agent"]).
+     * argv: the launcher (default [$BALAUR_AGENT or "balaur-home-agent"]).
      * env(): resolves to the environment variables to add (model, keys).
-     * onToolCall(name, args, promptId): resolves to the result JSON text, or throws.
-     * onReady(ready): the ready record (catalog for the Models property).
+     * onReady(ready): {models: {providers: [...]}, error?} for the Models property.
      */
-    constructor({argv = null, env = async () => ({}), onToolCall, onReady = () => {}}) {
-        this.argv = argv ?? [GLib.getenv('BALAUR_AGENT') || 'balaur-agent'];
+    constructor({argv = null, env = async () => ({}), onReady = () => {}}) {
+        this.argv = argv ?? [GLib.getenv('BALAUR_AGENT') || 'balaur-home-agent'];
         this.env = env;
-        this.onToolCall = onToolCall;
         this.onReady = onReady;
         this.proc = null;
-        this.ready = null; // the ready record once received
+        this.ready = null; // the ready record once pi has answered
         this.readyWaiters = [];
-        this.pending = new Map(); // prompt/test id -> {resolve, reject}
+        this.pending = new Map(); // command or prompt id -> {resolve}
         this.nextId = 0;
         this.writeChain = Promise.resolve();
         this.generation = 0;
         this.stopping = false;
         this.restartId = 0;
+        this.turnId = null; // id of the prompt being answered
+        this.last = null; // its last assistant message so far
+        this.lastTurn = 0;
+        this.provider = '';
     }
 
-    /** Starts the child (if not running). Returns at once; use whenReady(). */
+    /** Starts the child (if not running) and asks what it runs on. Use whenReady(). */
     async start() {
         if (this.proc || this.stopping)
             return;
@@ -57,6 +73,8 @@ export class Agent {
         }
         const proc = this.proc;
         this.stdin = proc.get_stdin_pipe();
+        this.turnId = null;
+        this.lastTurn = 0;
         this._readLoop(proc, gen);
         proc.wait_async(null).then(() => {
             if (gen !== this.generation)
@@ -64,6 +82,33 @@ export class Agent {
             const why = proc.get_if_signaled() ? `killed by signal ${proc.get_term_sig()}` : `exited with status ${proc.get_exit_status()}`;
             this._lost(`agent ${why}`);
         }).catch(() => {});
+
+        const [state, models] = await Promise.all([
+            this._command({type: 'get_state'}),
+            this._command({type: 'get_available_models'}),
+        ]);
+        if (proc !== this.proc)
+            return; // it went away meanwhile; _lost has told everyone
+        this.provider = state.data?.model?.provider ?? '';
+        // Only the provider it runs on: the entryway's models. (A Mistral key in the
+        // environment, there for web search, makes pi list Mistral's own too.)
+        const providers = new Map();
+        for (const m of (models.data?.models ?? []).filter(x => !this.provider || x.provider === this.provider)) {
+            if (!providers.has(m.provider))
+                providers.set(m.provider, {id: m.provider, name: m.provider, models: []});
+            providers.get(m.provider).models.push({id: m.id, name: m.name ?? m.id});
+        }
+        const ready = {models: {providers: [...providers.values()]}, model: state.data?.model?.id ?? ''};
+        const error = [state, models].find(r => !r.success)?.error;
+        if (error) {
+            ready.error = error;
+            log(`agent: ${error}`);
+        }
+        this.ready = ready;
+        this.onReady(ready);
+        for (const w of this.readyWaiters.splice(0))
+            w.resolve(ready);
+        log(`agent: pi is ready (model ${this.provider}/${ready.model || '?'})`);
     }
 
     async _readLoop(proc, gen) {
@@ -96,41 +141,62 @@ export class Agent {
 
     _handle(msg) {
         switch (msg.type) {
-        case 'ready':
-            this.ready = msg;
-            if (msg.error)
-                log(`agent: ${msg.error}`);
-            this.onReady(msg);
-            for (const w of this.readyWaiters.splice(0))
-                w.resolve(msg);
-            break;
-        case 'tool_call':
-            this._toolCall(msg);
-            break;
-        case 'reply':
-        case 'error':
-        case 'test_result': {
+        case 'response': {
+            if (msg.command === 'prompt') {
+                // Accepted: the answer comes with agent_settled. Refused: that is the answer.
+                const started = msg.success && ['started', 'queued'].includes(msg.data?.disposition ?? 'started');
+                if (!started)
+                    this._settle(msg.id, {type: 'error', id: msg.id, message: msg.error || 'the agent did not take the question'});
+                break;
+            }
             const p = this.pending.get(msg.id);
             if (p) {
                 this.pending.delete(msg.id);
                 p.resolve(msg);
+            } else if (!msg.success) {
+                log(`agent: ${msg.command}: ${msg.error}`);
             }
             break;
         }
+        case 'message_end':
+            if (this.turnId && msg.message?.role === 'assistant')
+                this.last = msg.message;
+            break;
+        case 'agent_settled': {
+            const id = this.turnId;
+            const last = this.last;
+            if (!id)
+                break;
+            let r;
+            if (last?.stopReason === 'aborted' || (!last && msg.aborted))
+                r = {type: 'error', id, message: 'aborted', aborted: true};
+            else if (!last)
+                r = {type: 'error', id, message: 'the model gave no answer'};
+            else if (last.stopReason === 'error')
+                r = {type: 'error', id, message: last.errorMessage || 'the model failed'};
+            else
+                r = {type: 'reply', id, text: messageText(last).trim()};
+            this._settle(id, r);
+            break;
+        }
+        case 'extension_error':
+            log(`agent: extension: ${msg.error ?? JSON.stringify(msg)}`);
+            break;
         default:
-            log(`agent: unknown record ${JSON.stringify(msg.type)}`);
+            // The other session events (streaming, tool execution) are not ours to act on.
         }
     }
 
-    async _toolCall(msg) {
-        let reply;
-        try {
-            const result = await this.onToolCall(msg.name, msg.args ?? {}, msg.prompt);
-            reply = {type: 'tool_result', id: msg.id, ok: true, result};
-        } catch (e) {
-            reply = {type: 'tool_result', id: msg.id, ok: false, error: errText(e)};
+    _settle(id, result) {
+        if (this.turnId === id) {
+            this.turnId = null;
+            this.last = null;
         }
-        this._send(reply);
+        const p = this.pending.get(id);
+        if (p) {
+            this.pending.delete(id);
+            p.resolve(result);
+        }
     }
 
     _send(msg) {
@@ -139,6 +205,14 @@ export class Agent {
             return;
         const bytes = enc.encode(`${JSON.stringify(msg)}\n`);
         this.writeChain = this.writeChain.then(() => writeAll(stdin, bytes)).catch(e => log(`agent: write: ${errText(e)}`));
+    }
+
+    /** Sends one command; resolves to its response (success false when the child went away). */
+    _command(msg) {
+        const id = `c${++this.nextId}`;
+        const result = new Promise(resolve => this.pending.set(id, {resolve}));
+        this._send({...msg, id});
+        return result.then(r => (r.type === 'response' ? r : {success: false, error: r.message ?? 'the agent failed'}));
     }
 
     _failReady(message) {
@@ -188,40 +262,38 @@ export class Agent {
         });
     }
 
-    async _request(msg, cancellable) {
-        const ready = await this.whenReady();
-        if (ready.error && msg.type === 'prompt')
-            throw new Error(ready.error);
-        const id = msg.id;
-        const result = new Promise(resolve => this.pending.set(id, {resolve}));
-        let cid = 0;
-        if (cancellable) {
-            cid = cancellable.connect(() => {
-                // Stop the model; the agent still answers (an "aborted" error).
-                this._send({type: 'abort', id});
-            });
-        }
-        this._send(msg);
-        try {
-            return await result;
-        } finally {
-            if (cid)
-                cancellable.disconnect(cid);
-        }
-    }
-
     /**
      * Asks one question; resolves to the reply text. Throws Cancelled when the
-     * cancellable fired, an Error with the agent's message otherwise.
-     * context: the per-turn context for the system prompt (see assistant.js).
+     * cancellable fired, an Error with the agent's message otherwise. The
+     * system prompt's context is not sent: the extension asks for it (AgentContext).
      */
-    async ask(text, lang, context, cancellable = null, timeoutMs = 180000) {
+    async ask(text, cancellable = null, timeoutMs = 180000) {
         const sc = scope(cancellable, timeoutMs);
         try {
+            const ready = await this.whenReady();
+            if (ready.error)
+                throw new Error(ready.error);
+            if (this.lastTurn && Date.now() - this.lastTurn > HISTORY_TTL_MS)
+                await this._forget();
             const id = `p${++this.nextId}`;
-            const r = await this._request({type: 'prompt', id, text, lang, context}, sc.cancellable);
-            if (r.type === 'reply')
+            this.turnId = id;
+            this.last = null;
+            const result = new Promise(resolve => this.pending.set(id, {resolve}));
+            // Stop the model; pi still settles (the last message says "aborted").
+            const cid = sc.cancellable.connect(() => this._send({type: 'abort'}));
+            this._send({type: 'prompt', id, message: text});
+            let r;
+            try {
+                r = await result;
+            } finally {
+                sc.cancellable.disconnect(cid);
+                if (this.turnId === id)
+                    this.turnId = null;
+            }
+            if (r.type === 'reply') {
+                this.lastTurn = Date.now();
                 return r.text ?? '';
+            }
             if (sc.timedOut())
                 throw new Error(`the model did not answer within ${timeoutMs / 1000}s`);
             if (r.aborted || cancellable?.is_cancelled())
@@ -232,25 +304,44 @@ export class Agent {
         }
     }
 
-    /** One tiny request with the current settings: "" when fine, else the error. */
+    async _forget() {
+        this.lastTurn = 0;
+        const r = await this._command({type: 'new_session'});
+        if (!r.success)
+            log(`agent: new_session: ${r.error}`);
+    }
+
+    /** Forgets the conversation. */
+    reset() {
+        if (this.ready)
+            this._forget();
+    }
+
+    /** Changes the model of the running agent: "" when done, else the error. */
+    async setModel(id) {
+        if (!this.ready)
+            return ''; // not started: it takes the setting at start-up
+        const r = await this._command({type: 'set_model', provider: this.provider, modelId: id});
+        return r.success ? '' : r.error || 'the model was not changed';
+    }
+
+    /** One tiny request with the current settings (`<launcher> --test`): "" when fine, else the error. */
     async test() {
         try {
-            const ready = await this.whenReady();
-            if (ready.error)
-                return ready.error;
-            const r = await this._request({type: 'test', id: `t${++this.nextId}`}, null);
-            return r.type === 'test_result' ? r.error ?? '' : r.message ?? 'the agent failed';
+            const launcher = new Gio.SubprocessLauncher({flags: Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_PIPE});
+            for (const [k, v] of Object.entries(await this.env()))
+                launcher.setenv(k, v ?? '', true);
+            const proc = launcher.spawnv([...this.argv, '--test']);
+            const [, stderr] = await proc.communicate_utf8_async(null, null);
+            if (proc.get_successful())
+                return '';
+            return (stderr ?? '').trim().split('\n').pop() || 'the model did not answer';
         } catch (e) {
             return errText(e);
         }
     }
 
-    reset() {
-        if (this.ready)
-            this._send({type: 'reset'});
-    }
-
-    /** Stops the child (closing its stdin asks it to exit); optionally starts a new one. */
+    /** Stops the child (closing its stdin asks it to exit) and starts a new one. */
     async restart() {
         await this.stop();
         this.stopping = false;

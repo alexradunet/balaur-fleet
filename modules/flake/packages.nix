@@ -7,8 +7,7 @@
 let
   overlay = final: _prev: {
     duet-camera = final.callPackage ../../pkgs/duet-camera.nix { };
-    balaur-agent = final.callPackage ../../pkgs/balaur-agent.nix { };
-    # The same pi `agent.nix` installs, in its home role (the assistant on pi).
+    # The same pi `agent.nix` installs, in its home role: the assistant's brain.
     balaur-home-agent = final.callPackage ../../pkgs/balaur-home-agent.nix {
       pi = inputs.llm-agents.packages.${final.stdenv.hostPlatform.system}.pi;
     };
@@ -27,7 +26,6 @@ in
     let
       inherit (pkgs.extend overlay)
         duet-camera
-        balaur-agent
         balaur-home-agent
         balaur-assistant
         balaur-app
@@ -39,7 +37,6 @@ in
       packages = {
         inherit
           duet-camera
-          balaur-agent
           balaur-home-agent
           balaur-assistant
           balaur-app
@@ -53,12 +50,11 @@ in
         default = balaur-app;
       };
 
-      # balaur-agent and duet-camera run their tests while building; the assistant's
+      # balaur-home-agent and duet-camera run their tests while building; the assistant's
       # are `./result/libexec/balaur-assistant-tests` (they need a session bus).
       checks = {
         inherit
           duet-camera
-          balaur-agent
           balaur-home-agent
           balaur-assistant
           balaur-app
@@ -129,7 +125,7 @@ in
         ];
         shellHook = ''
           echo "dev: camera/          go test ./..."
-          echo "     gnome/agent/     npm test"
+          echo "     gnome/home-agent/ nix build .#balaur-home-agent   (runs its tests)"
           echo "     gnome/assistant/ nix build .#balaur-assistant && ./result/libexec/balaur-assistant-tests"
           echo "     gnome/app/       nix build .#balaur-app && ./result/bin/balaur-app"
         '';

@@ -5,20 +5,10 @@
      the next login). -->
 <schemalist>
   <schema id="org.balaur.Assistant" path="/org/balaur/assistant/">
-    <key name="llm-provider" type="s">
-      <default>''</default>
-      <summary>Model provider</summary>
-      <description>A pi provider id, e.g. mistral, openai, anthropic; empty uses the config file's llm.provider, else mistral.</description>
-    </key>
     <key name="llm-model" type="s">
       <default>''</default>
       <summary>Chat model</summary>
-      <description>The provider's model id; empty uses the config file's llm.model.</description>
-    </key>
-    <key name="llm-base-url" type="s">
-      <default>''</default>
-      <summary>Model server</summary>
-      <description>Base URL for the chat model, e.g. an OpenAI-compatible server; empty uses the config file's llm.server for the config's provider, else the provider's default.</description>
+      <description>One of the agent's models (the fleet's AI entryway: balaur, balaur-local, balaur-remote); empty uses the config file's llm.model.</description>
     </key>
     <key name="speech-base-url" type="s">
       <default>'https://api.mistral.ai/v1'</default>

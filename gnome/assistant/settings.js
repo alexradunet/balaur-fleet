@@ -1,8 +1,8 @@
-// What the app can change: the model, its server, the speech models and
-// voices (GSettings org.balaur.Assistant, watched live), and API keys (GNOME
-// Keyring through libsecret, schema org.balaur.Assistant.ApiKey, attribute
-// "provider"). A setting left empty falls back to the config JSON; the
-// Mistral key falls back to the systemd credential.
+// What the app can change: the chat model (one of the agent's), the speech
+// models and voices (GSettings org.balaur.Assistant, watched live), and the
+// Mistral API key (GNOME Keyring through libsecret, schema
+// org.balaur.Assistant.ApiKey, attribute "provider"). A setting left empty falls
+// back to the config JSON; the key falls back to the systemd credential.
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -11,9 +11,9 @@ import {credentialKey} from './config.js';
 import {errText, log} from './util.js';
 
 const SCHEMA_ID = 'org.balaur.Assistant';
-const KEYS = ['llm-provider', 'llm-model', 'llm-base-url', 'speech-base-url', 'stt-model', 'tts-model', 'voice-ro', 'voice-en'];
-// Changing these restarts the agent (they are its start-up parameters).
-export const LLM_KEYS = ['llm-provider', 'llm-model', 'llm-base-url', 'speech-base-url'];
+const KEYS = ['llm-model', 'speech-base-url', 'stt-model', 'tts-model', 'voice-ro', 'voice-en'];
+// The agent's: a new model is set while it runs, the speech server (web search) restarts it.
+export const LLM_KEYS = ['llm-model', 'speech-base-url'];
 const DEBOUNCE_MS = 1500;
 
 let Secret = null;
@@ -66,20 +66,8 @@ export class Settings {
         return this.gs && KEYS.includes(key) ? this.gs.get_string(key) : '';
     }
 
-    get llmProvider() {
-        return this._get('llm-provider') || this.cfg.llm?.provider || 'mistral';
-    }
-
     get llmModel() {
         return this._get('llm-model') || this.cfg.llm?.model || '';
-    }
-
-    get llmBaseUrl() {
-        // The config's server belongs to the config's provider: one picked in the
-        // app keeps its own default.
-        const cfg = this.cfg.llm ?? {};
-        return this._get('llm-base-url') ||
-            (cfg.provider && this.llmProvider === cfg.provider ? cfg.server || '' : '');
     }
 
     get speechBaseUrl() {

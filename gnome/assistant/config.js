@@ -14,7 +14,7 @@ export function defaultConfig() {
         stt: {model: 'voxtral-mini-transcribe-3-0'},
         tts: {model: 'voxtral-mini-tts-3-0', voices: {}},
         search: {model: ''},
-        llm: {provider: '', server: '', baseUrl: '', model: '', temperature: null},
+        llm: {baseUrl: '', model: ''}, // baseUrl: Mistral, for speech and web search
         location: {name: '', latitude: 0, longitude: 0},
         newsFeeds: [],
     };

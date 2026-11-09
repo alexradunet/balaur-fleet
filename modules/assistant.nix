@@ -4,11 +4,12 @@
 #   balaur-assistant  session service   the GJS daemon: microphone and speaker through
 #                                     PipeWire, Voxtral speech, timers, lists, memory,
 #                                     notifications; D-Bus org.balaur.Assistant
-#   balaur-agent      its child         the brain, on the pi SDK: the model and its tools
+#   balaur-home-agent its child         the brain: the fleet's pi in its home role
+#                                     (gnome/home-agent/), with the household's tools only
 #
 # After the wake word, Mistral (EU) does the rest: Voxtral transcription (what
-# you said), the model with tools (what to do; any provider pi supports, set in
-# the Balaur app), Voxtral TTS (the voice), and the web_search tool. Audio is sent
+# you said), the model with tools (what to do: the fleet's AI entryway with the
+# `agent` aspect, else Mistral), Voxtral TTS (the voice), and the web_search tool. Audio is sent
 # only for the sentence after the wake word and is not kept here.
 #
 # It runs in the session of `balaur.assistant.user`, which defaults to the
@@ -51,7 +52,7 @@
       # ... and what `parec` needs to read that same source in balaur-wake-test.
       parecDevice = lib.optionalString customMic "--device=${micNode} ";
 
-      # Defaults for the daemon; the model, server and voices can be changed in the
+      # Defaults for the daemon; the model and voices can be changed in the
       # Balaur app (GSettings org.balaur.Assistant), which then take precedence.
       configFile = pkgs.writeText "balaur-assistant.json" (
         builtins.toJSON {
@@ -75,8 +76,6 @@
             inherit (as.llm)
               baseUrl
               model
-              provider
-              server
               ;
           };
           location = { inherit (cfg.location) name latitude longitude; };
@@ -201,20 +200,6 @@
             '';
           };
 
-          engine = lib.mkOption {
-            type = lib.types.enum [
-              "sdk"
-              "pi"
-            ];
-            default = "sdk";
-            description = ''
-              What answers: `sdk` is the assistant's own program on the pi SDK
-              (gnome/agent/); `pi` is the installed pi in its home role
-              (gnome/home-agent/), with the models of the `agent` aspect. Here only
-              while the machines move from the first to the second, one at a time.
-            '';
-          };
-
           name = lib.mkOption {
             type = lib.types.str;
             default = "Jarvis";
@@ -250,28 +235,14 @@
             baseUrl = lib.mkOption {
               type = lib.types.str;
               default = "https://api.mistral.ai/v1"; # Mistral: EU (Paris), OpenAI-compatible, tool calling
-              description = "Mistral API base for speech (Voxtral) and the default for the model. Changeable in the Balaur app.";
-            };
-            # With the `ai` aspect the model is the fleet's router (local GPU first,
-            # Mistral second): provider `balaur`, an OpenAI-compatible server to pi.
-            provider = lib.mkOption {
-              type = lib.types.str;
-              default = if cfg ? ai then "balaur" else "mistral";
-              defaultText = lib.literalMD "`balaur` with the `ai` aspect, else `mistral`";
-              description = "Default pi provider for the model. One pi does not know is taken as an OpenAI-compatible server at `server`.";
-            };
-            server = lib.mkOption {
-              type = lib.types.str;
-              default = cfg.ai.url or "";
-              defaultText = lib.literalMD "the `ai` router's URL with the `ai` aspect, else \"\" (the provider's own)";
-              description = "Default server URL for the model; \"\" is the provider's own.";
+              description = "Mistral API base for speech (Voxtral) and web search. Changeable in the Balaur app.";
             };
             model = lib.mkOption {
               type = lib.types.str;
               # mistral: small was faster but answered English in Romanian
-              default = if cfg ? ai then "balaur" else "mistral-medium-latest";
-              defaultText = lib.literalMD "`balaur` with the `ai` aspect, else `mistral-medium-latest`";
-              description = "Default model (through pi; it must support tool calling). Changeable in the Balaur app, with any provider pi supports.";
+              default = if cfg ? agent then cfg.agent.model else "mistral-medium-latest";
+              defaultText = lib.literalMD "`balaur.agent.model` with the `agent` aspect, else `mistral-medium-latest`";
+              description = "The model it starts with: one of the AI entryway's (agent.nix) with the `agent` aspect, else one of Mistral's. It must support tool calling. Changeable in the Balaur app.";
             };
             apiKeyFile = lib.mkOption {
               type = lib.types.path;
@@ -420,7 +391,7 @@
       config = lib.mkMerge [
         {
           # The daemon's desktop file (GNOME only shows notifications from known apps)
-          # and its GSettings schema (model, server, voices; edited in the Balaur app).
+          # and its GSettings schema (model, voices; edited in the Balaur app).
           environment.systemPackages = [
             package
             login
@@ -469,14 +440,9 @@
               # Timers, reminders and "what time is it" use local time.
               TZ = config.time.timeZone;
             }
-            // lib.optionalAttrs (as.engine == "pi") (
-              {
-                BALAUR_AGENT_ENGINE = "pi";
-                BALAUR_AGENT = lib.getExe pkgs.balaur-home-agent;
-              }
-              # Without the `agent` aspect it runs on pi's own Mistral provider.
-              // lib.optionalAttrs (cfg ? agent) { BALAUR_PI_MODELS = toString cfg.agent.modelsFile; }
-            );
+            # The fleet's AI entryway as pi reads it; without the `agent` aspect the
+            # agent runs on pi's own Mistral provider, with the Mistral key.
+            // lib.optionalAttrs (cfg ? agent) { BALAUR_PI_MODELS = toString cfg.agent.modelsFile; };
             unitConfig.ConditionUser = user;
             serviceConfig = {
               # Lists, reminders and memory lived in duet-assistant before the rename

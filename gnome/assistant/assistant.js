@@ -13,7 +13,6 @@ import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 
 import {Agent} from './agent.js';
-import {PiAgent} from './pi-agent.js';
 import {Cancelled} from './http.js';
 import {Mic, Player, earconAlarm, earconDone, earconError, earconListen, getVolume, pulseDevice, setVolume} from './audio.js';
 import {clock, longDate, localZone, marshal, nowString, sorted} from './gojson.js';
@@ -79,18 +78,10 @@ export class Assistant {
         this.mic = opts.mic ?? new Mic(cfg.audio.input, f => this._onFrame(f));
         this.player = opts.player ?? new Player(cfg.audio.output);
         this.mistral = opts.mistral ?? new Mistral(settings.speechBaseUrl, '');
-        // The engine: the installed pi with the home role (pi-agent.js), or the
-        // assistant's own pi SDK program (agent.js) until every machine has moved.
-        this.agent = opts.agent ?? (GLib.getenv('BALAUR_AGENT_ENGINE') === 'pi'
-            ? new PiAgent({
-                env: () => this._agentEnv(),
-                onReady: r => this._agentReady(r),
-            })
-            : new Agent({
-                env: () => this._agentEnv(),
-                onToolCall: (name, args) => this._toolCall(name, args),
-                onReady: r => this._agentReady(r),
-            }));
+        this.agent = opts.agent ?? new Agent({
+            env: () => this._agentEnv(),
+            onReady: r => this._agentReady(r),
+        });
         store.onChange = () => this.changed();
     }
 
@@ -174,26 +165,21 @@ export class Assistant {
             log('no Mistral API key (set one in the app, or `sudo balaur-assistant-login`); speech will fail');
     }
 
+    /** What the launcher and pi's extension read (gnome/home-agent/). */
     async _agentEnv() {
         const s = this.settings;
-        const provider = s.llmProvider;
         return {
             BALAUR_ASSISTANT_CONFIG: GLib.getenv('BALAUR_ASSISTANT_CONFIG') ?? '',
-            BALAUR_LLM_PROVIDER: provider,
             BALAUR_LLM_MODEL: s.llmModel,
-            BALAUR_LLM_BASE_URL: s.llmBaseUrl,
-            BALAUR_LLM_KEY: await s.apiKey(provider),
             MISTRAL_API_KEY: await s.apiKey('mistral'),
             BALAUR_SPEECH_BASE_URL: s.speechBaseUrl,
-            BALAUR_AGENT_DIR: GLib.build_filenamev([GLib.getenv('XDG_RUNTIME_DIR') || GLib.get_tmp_dir(), 'balaur-agent']),
         };
     }
 
     _agentReady(r) {
-        // The catalog, plus what an unset setting means here, for the app.
-        const s = this.settings;
+        // The models to choose from, plus what an unset setting means here, for the app.
         this.models = marshal({...(r.models ?? {providers: []}),
-            defaults: {provider: s.llmProvider, model: s.llmModel, baseUrl: s.llmBaseUrl}});
+            defaults: {model: this.settings.llmModel || r.model || ''}});
         this.setError(r.error ?? '');
     }
 
@@ -202,7 +188,7 @@ export class Assistant {
         await this._refreshSpeech();
         log(`settings: ${keys.join(', ')} changed`);
         const llm = keys.filter(k => LLM_KEYS.includes(k));
-        if (llm.length === 1 && llm[0] === 'llm-model' && this.agent.setModel) {
+        if (llm.length === 1 && llm[0] === 'llm-model') {
             // pi changes its model while it runs.
             const error = await this.agent.setModel(this.settings.llmModel);
             if (error)
@@ -218,13 +204,13 @@ export class Assistant {
         this.apiKeysJSON = marshal(sorted(await this.settings.apiKeys()));
         if (provider === 'mistral')
             await this._refreshSpeech();
-        if (provider === this.settings.llmProvider || provider === 'mistral')
+        if (provider === 'mistral') // the agent has it in its environment, for web search
             this._restartAgentWhenIdle();
         this.changed();
     }
 
     /**
-     * The agent takes its model settings at start-up: restart it, once per
+     * The agent takes its settings at start-up: restart it, once per
      * batch of changes, and never in the middle of a turn (the loop calls
      * this again when the turn is over).
      */
@@ -270,7 +256,7 @@ export class Assistant {
         return this._toolCall(name, parsed);
     }
 
-    /** The per-turn context the agent builds the system prompt from (systemPrompt in assistant.go). */
+    /** The per-turn context the system prompt is built from (gnome/home-agent/prompt.ts). */
     context(typed) {
         const now = GLib.DateTime.new_now_local();
         return {
@@ -577,7 +563,7 @@ export class Assistant {
     async converse(text, lang, typed, cancellable) {
         this.turn = {lang, typed};
         try {
-            const reply = spoken(await this.agent.ask(text, lang, this.context(typed), cancellable));
+            const reply = spoken(await this.agent.ask(text, cancellable));
             if (!reply)
                 throw new Error('the model gave no answer');
             return reply;

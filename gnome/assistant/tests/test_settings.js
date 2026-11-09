@@ -1,5 +1,5 @@
-// GSettings over the config file, debounced changes, one agent restart per
-// batch and never mid-turn.
+// GSettings over the config file, debounced changes: a new model is set on the
+// running agent, anything else of the agent's restarts it, once and never mid-turn.
 
 import {eq, ok, until} from './assert.js';
 import {makeAssistant, memorySettings} from './helpers.js';
@@ -9,7 +9,6 @@ export const tests = {
     async fallbacksAndVoices() {
         const a = makeAssistant();
         const s = a.settings;
-        eq(s.llmProvider, 'mistral');
         eq(s.llmModel, 'm1', 'config llm.model when GSettings has none');
         eq(s.speechBaseUrl, 'https://api.mistral.ai/v1');
         a.cfg.tts.voices = {ro: 'v-ro', en: 'v-en'};
@@ -18,25 +17,14 @@ export const tests = {
         await a.shutdown();
     },
 
-    async configProviderAndItsServer() {
-        const gs = memorySettings();
-        if (!gs) {
-            print('      (skipped: schema org.balaur.Assistant not installed; run through the package)');
-            return;
-        }
-        const a = makeAssistant({gsettings: gs});
-        const s = a.settings;
-        a.cfg.llm.provider = 'balaur';
-        a.cfg.llm.server = 'http://127.0.0.1:4000/v1';
-        eq(s.llmProvider, 'balaur', 'config llm.provider when GSettings has none');
-        eq(s.llmBaseUrl, 'http://127.0.0.1:4000/v1', 'the config server goes with the config provider');
-        gs.set_string('llm-provider', 'mistral');
-        eq(s.llmProvider, 'mistral', 'GSettings wins');
-        eq(s.llmBaseUrl, '', 'a provider picked in the app keeps its own default server');
+    async theAgentGetsItsModelAndTheMistralKeyOnly() {
+        const a = makeAssistant();
+        eq(Object.keys(await a._agentEnv()).sort().join(),
+            'BALAUR_ASSISTANT_CONFIG,BALAUR_LLM_MODEL,BALAUR_SPEECH_BASE_URL,MISTRAL_API_KEY');
         await a.shutdown();
     },
 
-    async debouncedRestartOncePerBatchAndNotMidTurn() {
+    async debouncedModelChangeAndRestartNotMidTurn() {
         const gs = memorySettings();
         if (!gs) {
             print('      (skipped: schema org.balaur.Assistant not installed; run through the package)');
@@ -47,14 +35,16 @@ export const tests = {
         // As application.js wires it, with the test's short debounce.
         a.settings.gs.connect('changed', () => {});
         const restarts = [];
+        const models = [];
         a.agent.restart = async () => restarts.push(Date.now());
+        a.agent.setModel = async id => (models.push(id), '');
         const origChanged = a.settingsChanged.bind(a);
         a.settings = new (a.settings.constructor)(a.cfg, keys => {
             batches.push(keys);
             origChanged(keys);
         }, {gsettings: gs, keyring: false, debounceMs: 150});
-        // Typing "mistral-large" one key at a time.
-        for (const ch of 'mistral-large') {
+        // Typing "balaur-local" one key at a time.
+        for (const ch of 'balaur-local') {
             gs.set_string('llm-model', (gs.get_string('llm-model') + ch));
             await sleep(20); // eslint-disable-line no-await-in-loop
         }
@@ -63,17 +53,19 @@ export const tests = {
         await sleep(300);
         eq(batches.length, 1, 'one batch');
         ok(batches[0].includes('llm-model') && batches[0].includes('voice-ro'), `keys ${batches[0]}`);
-        await until(() => restarts.length === 1, 1000, 'one restart');
-        eq(a.settings.llmModel, 'mistral-large');
+        eq(models.join(), 'balaur-local', 'the model is set once, on the running agent');
+        eq(restarts.length, 0, 'a new model needs no restart');
+        eq(a.settings.llmModel, 'balaur-local');
 
-        // Mid-turn: the restart waits for the turn to end.
+        // The speech server is in the agent's environment (web search): a restart,
+        // and mid-turn it waits for the turn to end.
         a.busy = true;
-        gs.set_string('llm-provider', 'openai');
+        gs.set_string('speech-base-url', 'https://example.invalid/v1');
         await sleep(400);
-        eq(restarts.length, 1, 'no restart during a turn');
+        eq(restarts.length, 0, 'no restart during a turn');
         a.busy = false;
         a._restartAgentWhenIdle(false);
-        eq(restarts.length, 2, 'restarted once idle');
+        eq(restarts.length, 1, 'restarted once idle');
         await a.shutdown();
     },
 };

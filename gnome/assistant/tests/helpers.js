@@ -72,7 +72,6 @@ export function makeAssistant({gsettings = false, notifier = null} = {}) {
     const agent = new Agent({
         argv: fakeAgentArgv(),
         env: () => a._agentEnv(),
-        onToolCall: (name, args) => a._toolCall(name, args),
         onReady: r => a._agentReady(r),
     });
     a = new Assistant(cfg, store, settings, {agent, mic: new FakeMic(), player: new FakePlayer(), notifier});

@@ -41,7 +41,7 @@ that fails and fix it.
    expected. A build also runs shellcheck on every `writeShellApplication`.
 
 6. **Cheap checks for real.** `nix build --no-link .#checks.x86_64-linux.formatting
-   .#checks.x86_64-linux.skills`; the package checks (`balaur-agent`, `duet-camera`,
+   .#checks.x86_64-linux.skills`; the package checks (`balaur-home-agent`, `duet-camera`,
    ...) build with their packages.
 
 7. **What evaluation cannot show** — a service that starts, a page that answers, a

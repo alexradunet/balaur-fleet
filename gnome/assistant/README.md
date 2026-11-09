@@ -4,7 +4,7 @@ The household's voice assistant ("Hey Jarvis") as a GNOME session service:
 a `Gio.Application` (`org.balaur.Assistant`) started by the systemd user unit
 `balaur-assistant.service`. It replaced a Go service and keeps its config JSON
 and state files; the API is D-Bus only (see `gnome/CONTRACT.md`). The model and its tools run in a separate process,
-`balaur-agent` (`gnome/agent/`, pi SDK), which this daemon spawns.
+the fleet's pi in its home role (`balaur-home-agent`, `gnome/home-agent/`), which this daemon starts.
 
 ## Layout
 
@@ -13,15 +13,15 @@ and state files; the API is D-Bus only (see `gnome/CONTRACT.md`). The model and 
 | `main.js`, `application.js` | Entry point; the `Gio.Application`, `app.stop`, alarm notifications |
 | `dbus.js` | `org.balaur.Assistant1` (properties, methods, `Error.Failed`) |
 | `assistant.js` | The pipeline: wake word → listen → transcribe → agent → speak; alarms; Snapshot |
-| `agent.js` | Spawns `balaur-agent` (`$BALAUR_AGENT`) and speaks its JSON-lines protocol |
-| `tools.js`, `timers.js` | The daemon-side tools the agent forwards (timers, reminders, lists, memory, volume) |
+| `agent.js` | Starts the agent (`$BALAUR_AGENT`: pi in RPC mode) and asks, aborts, forgets, sets its model |
+| `tools.js`, `timers.js` | The daemon-side tools the agent calls over D-Bus (timers, reminders, lists, memory, volume) |
 | `store.js`, `gojson.js` | `house.json`, `memory.json`, `reminders.json`, byte-compatible with Go's encoding/json |
-| `settings.js`, `org.balaur.Assistant.gschema.xml` | GSettings (model, servers, voices; changes debounced 1.5 s) and keyring API keys |
+| `settings.js`, `org.balaur.Assistant.gschema.xml` | GSettings (model, speech server, voices; changes debounced 1.5 s) and the Mistral key in the keyring |
 | `audio.js` | GStreamer capture (`pipewiresrc` from `balaur-mic`, mic watchdog), playback (`pipewiresink`, `media.role=Assistant`), earcons, `wpctl` volume |
 | `wyoming.js` | Client for openWakeWord's Wyoming server (127.0.0.1:10400), reconnects when it restarts |
 | `mistral.js`, `http.js` | Voxtral speech-to-text and text-to-speech over libsoup 3 |
 | `vad.js`, `lang.js`, `config.js`, `util.js` | End of speech, Romanian/English heuristics, config, helpers |
-| `tests/` | Tests (no framework): `run.js` runs every `test_*.js`; `fake-agent.js` stands in for `balaur-agent` |
+| `tests/` | Tests (no framework): `run.js` runs every `test_*.js`; `fake-agent.js` stands in for the agent (pi in RPC mode) |
 
 ## Tests
 
@@ -33,8 +33,8 @@ nix build --impure --expr 'let p = (builtins.getFlake (toString ./.)).inputs.nix
 They use test elements instead of PipeWire, fake Mistral/Wyoming servers and
 the fake agent: no sound, no network, no key. On the household session,
 `BALAUR_TEST_PIPEWIRE=1` adds two tests with the real `balaur-mic` and
-`pipewiresink` (silence only). The agent's own tests run when its package
-builds (`node --test test/*.test.ts` in `gnome/agent/`).
+`pipewiresink` (silence only). The agent's own tests (the real pi with its extension)
+run when its package builds: `nix build .#balaur-home-agent`.
 
 ## Running by hand
 

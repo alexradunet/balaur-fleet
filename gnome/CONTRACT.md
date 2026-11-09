@@ -13,93 +13,105 @@ Nix packaging needs). Three pieces talk over the **session D-Bus**:
 | Shell extension | `gnome/shell-extension/` | `balaur@balaur.local`: orb + captions over every app while the assistant listens/thinks/speaks/rings (tap = Stop), a Quick Settings toggle for the microphone, and the ambient screen when idle (reads `Snapshot` for timers and reminders). |
 | App | `gnome/app/` | `org.balaur.Balaur`, libadwaita: conversation (+ type to ask), lists, timers & reminders, memory, home services. |
 
-## The agent: built on the pi SDK (`gnome/agent/`)
+## The agent: the fleet's pi in its home role (`gnome/home-agent/`)
 
-The assistant's brain (system prompt, model, tools, conversation) is
-`balaur-agent`, a TypeScript program built on the **pi SDK**
-(`@earendil-works/pi-coding-agent` 1.4.x, https://pi.dev/docs/latest/sdk;
-local copy of the docs: `$(dirname $(readlink -f $(which pi)))/../libexec/pi/docs/`,
-esp. `sdk.md`, `extensions.md`, `providers.md`, `models.md`, and `../examples/sdk/`
-`05-tools.ts`, `06-extensions.ts`, `12-full-control.ts`). It calls
-`createAgentSession()` in its own Node process. The SDK needs Node (or Bun)
-and GJS is neither, so the GJS daemon spawns `balaur-agent` with
-`Gio.Subprocess` and they speak **JSON lines on stdin/stdout** (stderr = logs).
+The assistant's brain (system prompt, model, tools, conversation) is the
+installed **pi** (https://pi.dev, the one `modules/agent.nix` gives every
+machine), in a role of its own: the home role. The GJS daemon starts the
+launcher `balaur-home-agent` (`$BALAUR_AGENT`, set by its wrapper) with
+`Gio.Subprocess`. The launcher runs `pi --mode rpc` with one extension,
+`gnome/home-agent/index.ts`, and nothing else. pi's docs are in
+`$(dirname $(readlink -f $(which pi)))/../libexec/pi/docs/` (`rpc.md`,
+`rpc-commands.md`, `extensions.md`, `models.md`).
 
-- Model: Mistral through pi's provider (`MISTRAL_API_KEY` in its
-  environment, from the same credential), model = config `llm.model`.
-- **No built-in pi tools** (no bash/read/edit/write/grep/find/ls): a voice
-  assistant fed web pages and news must not be able to run commands. Only
-  our tools; check `session.getActiveToolNames()` at start-up and refuse to
-  run if anything else is active.
-- **No filesystem resource discovery** (no `.pi` dirs, settings files,
-  skills, prompt templates, AGENTS.md/context files, MCP): everything is
-  passed explicitly in code. In-memory `SessionManager`.
-- Our tools, registered through the SDK (TypeBox schemas), (`gnome/agent/src/`):
-  - agent-side (Node `fetch`): weather (Open-Meteo), news (RSS feeds from
+- Model: the fleet's AI entryway (`modules/ai.nix`) as pi's provider `balaur`,
+  from the `models.json` the `agent` aspect makes (`$BALAUR_PI_MODELS`), model =
+  config `llm.model`. Without that aspect: pi's own Mistral provider with
+  `MISTRAL_API_KEY`.
+- **No tool of pi's own** (no bash/read/edit/write/grep/find/ls): a voice
+  assistant fed web pages and news must not be able to run commands. Three
+  locks: the launcher passes `--no-builtin-tools`; the extension exits when the
+  model is offered any tool but ours (pi keeps its own registered, so what is
+  checked is the active set); and a call to any other tool is blocked.
+- **Nothing found on disk**: no skills, prompt templates, context files
+  (AGENTS.md), themes or MCP servers, no session file, an empty working
+  directory, a private agent directory under the daemon's state directory.
+- Our tools, registered by the extension (TypeBox schemas):
+  - in the extension (Node `fetch`): weather (Open-Meteo), news (RSS feeds from
     the config), web search (Mistral's web_search);
-  - daemon-side (the GJS daemon owns the state and GNOME): timers,
-    reminders, lists, memory, volume, time. The agent forwards these as
-    `tool_call` records and awaits the matching `tool_result`.
-- Conversation: one session kept across turns (follow-ups work), reset after
-  5 quiet minutes; the system prompt is rebuilt per turn from the `context`
-  the daemon sends (time, language, memories, lists).
+  - daemon-side (the GJS daemon owns the state and GNOME): timers, reminders,
+    lists, memory, volume. The extension calls the daemon over D-Bus
+    (`AgentTool`, with `busctl`) and returns its JSON to the model.
+- The system prompt is built for every question (`prompt.ts`) from the
+  daemon's `AgentContext`: time, language, typed or spoken, memories.
+- At most 6 model rounds per question; the last gets no tools, so it answers.
+- Conversation: one pi session kept across turns (follow-ups work), a new one
+  after 5 quiet minutes (the daemon sends `new_session`).
 
-Protocol (one JSON object per line; `id` correlates):
+What the daemon uses of pi's RPC protocol (`gnome/assistant/agent.js`; one JSON
+object per line, `id` correlates a command with its `response`):
 
 ```
-agent  → daemon {"type":"ready","tools":["timer_start", ...]}            (once, after start-up)
-daemon → agent  {"type":"prompt","id":"p1","text":"...","lang":"ro","context":{...}}
-agent  → daemon {"type":"tool_call","id":"c1","prompt":"p1","name":"timer_start","args":{...}}
-daemon → agent  {"type":"tool_result","id":"c1","ok":true,"result":"..."}   (or "ok":false,"error":"...")
-agent  → daemon {"type":"reply","id":"p1","text":"...","lang":"ro"}        (or {"type":"error","id":"p1","message":"..."})
-daemon → agent  {"type":"abort","id":"p1"}   |   {"type":"reset"}
+daemon → pi  {"id":"c1","type":"get_state"}  {"id":"c2","type":"get_available_models"}   (once: "ready")
+daemon → pi  {"id":"p1","type":"prompt","message":"..."}
+pi → daemon  {"id":"p1","type":"response","command":"prompt","success":true,"data":{"disposition":"started"}}
+pi → daemon  {"type":"message_end","message":{"role":"assistant","content":[...],"stopReason":"stop"}}   (the last one is the answer)
+pi → daemon  {"type":"agent_settled","aborted":false}
+daemon → pi  {"type":"abort"}  |  {"type":"new_session"}  |  {"type":"set_model","provider":"balaur","modelId":"balaur-local"}
 ```
 
-Packaging: `pkgs/balaur-agent.nix` with `buildNpmPackage` (committed
-`package-lock.json`, pinned `npmDepsHash`), Node 22 from nixpkgs, producing
-`bin/balaur-agent`; the daemon finds it via `BALAUR_AGENT` (set by its wrapper).
+Packaging: `pkgs/balaur-home-agent.nix`: the launcher and the extension's three
+files, nothing to build (pi runs TypeScript). Its check runs the real pi with
+the extension against a model and a daemon the test plays
+(`gnome/home-agent/test/rpc.test.mjs`).
 
-## Settings: model, server, API key
+## Settings: model, API key
 
 Editable in the app (Preferences on the Assistant page), GNOME-native:
 
 - **GSettings** schema `org.balaur.Assistant` (path `/org/balaur/assistant/`),
   shipped by the daemon package. Keys:
-  `llm-provider` (s, a pi provider id, default "" = the config's, else `mistral`), `llm-model` (s),
-  `llm-base-url` (s, "" = the provider's default; for OpenAI-compatible
-  servers), `speech-base-url` (s, Mistral, default `https://api.mistral.ai/v1`),
-  `stt-model` (s), `tts-model` (s), `voice-ro` (s), `voice-en` (s).
+  `llm-model` (s, one of the agent's models: `balaur`, `balaur-local`,
+  `balaur-remote`), `speech-base-url` (s, Mistral, default
+  `https://api.mistral.ai/v1`), `stt-model` (s), `tts-model` (s), `voice-ro` (s),
+  `voice-en` (s).
   An empty key falls back to the config file, which NixOS writes from
-  `balaur.assistant.*` (`llm.provider`, `llm.server`, `llm.model`); a gschema
-  override would only reach a session after the next login. User changes live
-  in dconf. `Models` also carries `defaults` ({provider, model, baseUrl}: what
-  the empty keys mean), so the app shows them. The daemon watches
-  `changed::` and applies new values without a restart (it restarts the
-  agent child when an LLM key changes).
-- **API keys** in the GNOME Keyring via libsecret: schema
-  `org.balaur.Assistant.ApiKey`, attribute `provider` (`mistral`, `openai`, ...).
-  Only the daemon reads them. Fallback when the keyring has none for
-  `mistral`: the credential file (`$CREDENTIALS_DIRECTORY/llm-key`), as today.
+  `balaur.assistant.*`; a gschema override would only reach a session after the
+  next login. User changes live in dconf. `Models` also carries `defaults`
+  ({model}: what the empty key means), so the app shows it. The daemon watches
+  `changed::` and applies new values without a restart: a new model is set on
+  the running agent (`set_model`); `speech-base-url` restarts the agent child,
+  which has it in its environment for web search.
+- Which machine or service answers under each model name is not chosen here:
+  that is the AI entryway's page (`modules/ai.nix`).
+- **The Mistral API key** in the GNOME Keyring via libsecret: schema
+  `org.balaur.Assistant.ApiKey`, attribute `provider` (`mistral`).
+  Only the daemon reads it. Fallback when the keyring has none: the credential
+  file (`$CREDENTIALS_DIRECTORY/llm-key`, or `$BALAUR_ASSISTANT_KEY_FILE`).
   The household account has no password, so the first store makes GNOME ask
   for a keyring password (the user leaves it empty); don't try to work around that.
-- Speech (Voxtral STT/TTS) always uses the `mistral` key and `speech-base-url`;
-  the chat model may use any pi provider with its own key.
+- Speech (Voxtral STT/TTS) and web search use the Mistral key and `speech-base-url`.
 
 D-Bus additions on `org.balaur.Assistant1` (same object):
 
 ```xml
-<!-- pi's catalog for the model picker: {"providers":[{"id":"mistral","name":"Mistral",
-     "models":[{"id":"mistral-medium-latest","name":"..."}]}, ...]} -->
+<!-- The agent's models for the picker: {"providers":[{"id":"balaur","name":"balaur",
+     "models":[{"id":"balaur","name":"..."}, ...]}], "defaults":{"model":"balaur"}} -->
 <property name="Models" type="s" access="read"/>
-<!-- Which providers have a key stored (never the key itself): {"mistral": true, ...} -->
+<!-- Whether the key is stored (never the key itself): {"mistral": true} -->
 <property name="ApiKeys" type="s" access="read"/>
 <method name="SetApiKey"><arg name="provider" type="s" direction="in"/><arg name="key" type="s" direction="in"/></method>  <!-- "" deletes -->
-<!-- One tiny request with the current settings: "" when fine, else the human error. -->
+<!-- One tiny request with the current model: "" when fine, else the human error. -->
 <method name="TestModel"><arg name="error" type="s" direction="out"/></method>
+<!-- For pi's extension, and only while a question is being answered: the context of
+     that question as JSON (name, location, date, time, zone, typed, lang, memories),
+     and one of the model's daemon-side tools (arguments and result as JSON text). -->
+<method name="AgentContext"><arg name="context" type="s" direction="out"/></method>
+<method name="AgentTool"><arg name="name" type="s" direction="in"/><arg name="args" type="s" direction="in"/><arg name="result" type="s" direction="out"/></method>
 ```
 
-The agent reports pi's model catalog in its `ready` record (`"models": {...}`
-in the same shape) so the daemon can publish `Models`.
+The daemon asks pi for its models at start-up (`get_available_models`, kept to
+the provider it runs on) and publishes them as `Models`.
 
 ## D-Bus API: `org.balaur.Assistant`
 

@@ -83,21 +83,17 @@ const fail = text => {
     return e;
 };
 
-// Settings (CONTRACT.md "Settings"): a small model catalog, and keys kept in
-// memory only (the real daemon uses the GNOME Keyring). TestModel reads the
-// app's GSettings when the schema is installed (GSETTINGS_SCHEMA_DIR), and
-// fails for a provider without a key or a model called "broken".
+// Settings (CONTRACT.md "Settings"): the agent's models, and the Mistral key
+// kept in memory only (the real daemon uses the GNOME Keyring). TestModel reads
+// the app's GSettings when the schema is installed (GSETTINGS_SCHEMA_DIR), and
+// fails for a model called "broken".
 const models = {providers: [
-    {id: 'mistral', name: 'Mistral', models: [
-        {id: 'mistral-medium-latest', name: 'Mistral Medium'},
-        {id: 'mistral-small-latest', name: 'Mistral Small'},
-        {id: 'mistral-large-latest', name: 'Mistral Large'},
+    {id: 'balaur', name: 'balaur', models: [
+        {id: 'balaur', name: 'Balaur (the entryway’s route: local GPU first, Mistral second)'},
+        {id: 'balaur-local', name: 'Balaur local (the fleet’s GPU only)'},
+        {id: 'balaur-remote', name: 'Balaur remote (Mistral only)'},
     ]},
-    {id: 'openai', name: 'OpenAI', models: [
-        {id: 'gpt-5-mini', name: 'GPT-5 mini'},
-        {id: 'gpt-5', name: 'GPT-5'},
-    ]},
-]};
+], defaults: {model: 'balaur'}};
 const apiKeys = {mistral: true};
 
 function settings() {
@@ -169,14 +165,11 @@ const impl = {
     },
     TestModelAsync(_params, invocation) {
         const s = settings();
-        const provider = s?.get_string('llm-provider') ?? 'mistral';
-        const model = s?.get_string('llm-model') ?? '?';
-        print(`CALL TestModel provider=${provider} model=${model} baseUrl=${s?.get_string('llm-base-url') ?? ''}`);
+        const model = s?.get_string('llm-model') || 'balaur';
+        print(`CALL TestModel model=${model}`);
         let error = '';
-        if (!apiKeys[provider])
-            error = `No API key for ${provider}`;
-        else if (model === 'broken')
-            error = `${provider} says: model "broken" does not exist`;
+        if (model === 'broken')
+            error = 'the entryway says: model "broken" does not exist';
         later(1500, () => invocation.return_value(new GLib.Variant('(s)', [error])));
     },
 

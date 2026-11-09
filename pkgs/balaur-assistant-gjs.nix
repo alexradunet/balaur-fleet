@@ -1,7 +1,7 @@
 # balaur-assistant: the voice assistant daemon for the GNOME session, in GJS
 # (gnome/assistant/). Runs as the systemd user service balaur-assistant.service
 # (started by systemd, not D-Bus activated: no D-Bus service file). It spawns
-# the agent (pkgs/balaur-agent.nix) for the model and its tools.
+# the agent (pkgs/balaur-home-agent.nix: pi in its home role) for the model and its tools.
 #
 # Outputs: bin/balaur-assistant, libexec/balaur-assistant-tests,
 # share/applications/org.balaur.Assistant.desktop (so GNOME accepts its
@@ -19,7 +19,7 @@
   pipewire,
   wireplumber,
   alsa-utils,
-  balaur-agent, # the flake's overlay (modules/flake/packages.nix)
+  balaur-home-agent, # the flake's overlay (modules/flake/packages.nix)
 }:
 
 stdenv.mkDerivation {
@@ -82,11 +82,11 @@ stdenv.mkDerivation {
           alsa-utils
         ]
       }"
-      --set-default BALAUR_AGENT "${lib.getExe balaur-agent}"
+      --set-default BALAUR_AGENT "${lib.getExe balaur-home-agent}"
     )
   '';
 
-  passthru = { inherit balaur-agent; };
+  passthru = { inherit balaur-home-agent; };
 
   meta = {
     description = "Balaur voice assistant daemon for GNOME (GJS, GStreamer, PipeWire)";

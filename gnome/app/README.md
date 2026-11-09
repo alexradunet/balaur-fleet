@@ -26,8 +26,8 @@ below 720 sp (portrait). Style follows the system dark/light setting.
   overrides) and opens a service (its `desktopId` app, else its `url`).
 - `src/pages/*.js`, `src/style.css`: the pages.
 - `src/settings-dialog.js`: "Assistant Settings" (gear on the Assistant page,
-  or the main menu): chat provider/model/server and Mistral speech settings
-  bound to GSettings `org.balaur.Assistant`, API keys via the daemon's
+  or the main menu): the chat model (one of the agent's) and Mistral speech settings
+  in GSettings `org.balaur.Assistant`, the Mistral key via the daemon's
   `SetApiKey` (never shown or read back), and a Test button (`TestModel`).
 - `data/`: desktop file and icon. Packaged by `pkgs/balaur-app.nix`.
 

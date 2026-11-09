@@ -141,7 +141,7 @@ export const Assistant = GObject.registerClass({
     get name() { return this._prop('Name', '') || 'Assistant'; }
     get wakeWord() { return this._prop('WakeWord', ''); }
 
-    // pi's model catalog: [{id, name, models: [{id, name}]}] (empty while
+    // The agent's models: [{id, name, models: [{id, name}]}] (empty while
     // the daemon is away or hasn't heard from its agent yet).
     get providers() {
         try {
@@ -152,7 +152,7 @@ export const Assistant = GObject.registerClass({
         }
     }
 
-    // What the daemon uses for a setting left empty: {provider, model, baseUrl}.
+    // What the daemon uses for a setting left empty: {model}.
     get defaults() {
         try {
             const d = JSON.parse(this._prop('Models', '') || '{}').defaults;
@@ -162,7 +162,7 @@ export const Assistant = GObject.registerClass({
         }
     }
 
-    // Which providers have an API key stored: {mistral: true, ...}.
+    // Whether the Mistral key is stored: {mistral: true}.
     get apiKeys() {
         try {
             const k = JSON.parse(this._prop('ApiKeys', '') || '{}');

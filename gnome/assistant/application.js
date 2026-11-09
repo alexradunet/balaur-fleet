@@ -69,7 +69,7 @@ class BalaurAssistantApp extends Gio.Application {
         }
         const c = this.cfg;
         log(`balaur-assistant "${c.name}" on the session bus as org.balaur.Assistant ` +
-            `(model ${this.settings.llmProvider}/${this.settings.llmModel}, wake word ${c.wake.words.join(', ')})`);
+            `(model ${this.settings.llmModel}, wake word ${c.wake.words.join(', ')})`);
         this.assistant.start().catch(e => {
             logError(e, 'start');
             this.quit();

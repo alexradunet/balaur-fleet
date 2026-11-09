@@ -1,12 +1,11 @@
-// "Assistant settings": which chat model the assistant uses, where it is
-// served from, the API keys, and Mistral's speech settings (gnome/CONTRACT.md,
-// "Settings: model, server, API key").
+// "Assistant settings": which chat model the assistant uses, the Mistral key,
+// and Mistral's speech settings (gnome/CONTRACT.md, "Settings").
 //
 // Plain settings live in GSettings (org.balaur.Assistant, shipped by the daemon
-// package) and are bound straight to the rows; the daemon watches them and
-// applies changes live. API keys never pass through GSettings or this app's
-// memory longer than the Apply tap: they go to the daemon (SetApiKey), which
-// keeps them in the GNOME Keyring and only tells us whether one is stored.
+// package); the daemon watches them and applies changes live. The API key never
+// passes through GSettings or this app's memory longer than the Apply tap: it
+// goes to the daemon (SetApiKey), which keeps it in the GNOME Keyring and only
+// tells us whether one is stored.
 
 import GObject from 'gi://GObject';
 import Gio from 'gi://Gio';
@@ -43,7 +42,7 @@ class AssistantSettingsDialog extends Adw.PreferencesDialog {
             const missing = new Adw.PreferencesGroup({
                 title: 'Settings unavailable',
                 description: `The settings schema ${SCHEMA_ID} isn't installed; it comes with ` +
-                    'the assistant package. API keys can still be set below.',
+                    'the assistant package. The Mistral key can still be set below.',
             });
             page.add(missing);
         }
@@ -62,118 +61,58 @@ class AssistantSettingsDialog extends Adw.PreferencesDialog {
     _chatGroup() {
         const group = new Adw.PreferencesGroup({
             title: 'Chat Model',
-            description: 'The model that understands and answers. The list comes from the assistant.',
+            description: 'The model that understands and answers, through the fleet’s AI entryway. ' +
+                'Which machine or service is behind each name is set on the entryway’s page.',
         });
-
-        this._providerIds = [];
-        this._providerRow = new Adw.ComboRow({title: 'Provider', model: stringList([])});
-        this._providerRow.connect('notify::selected', () => this._providerPicked());
-        group.add(this._providerRow);
 
         this._modelIds = [];
         this._modelRow = new Adw.ComboRow({title: 'Model', model: stringList([])});
         this._modelRow.connect('notify::selected', () => this._modelPicked());
         group.add(this._modelRow);
 
-        // Any model id, for ones the catalog doesn't know (or a custom server).
-        this._modelEntry = new Adw.EntryRow({title: 'Model id'});
-        group.add(this._modelEntry);
-
-        this._baseUrl = new Adw.EntryRow({title: 'Server address (empty: the provider’s default)',
-            input_purpose: Gtk.InputPurpose.URL});
-        group.add(this._baseUrl);
-
-        this._chatKey = this._keyRow('API key', () => this._provider);
-        group.add(this._chatKey.row);
-
-        if (this._settings) {
-            this._settings.bind('llm-model', this._modelEntry, 'text', Gio.SettingsBindFlags.DEFAULT);
-            this._settings.bind('llm-base-url', this._baseUrl, 'text', Gio.SettingsBindFlags.DEFAULT);
-            this._settings.connect('changed::llm-provider', () => this._syncFromAssistant());
+        if (this._settings)
             this._settings.connect('changed::llm-model', () => this._syncModelRow());
-        } else {
-            for (const row of [this._providerRow, this._modelRow, this._modelEntry, this._baseUrl])
-                row.sensitive = false;
-        }
+        else
+            this._modelRow.sensitive = false;
         return group;
     }
 
-    get _provider() {
-        return this._settings?.get_string('llm-provider') || this._assistant.defaults.provider || 'mistral';
-    }
-
-    get _providerInfo() {
-        return this._assistant.providers.find(p => p.id === this._provider) ?? null;
-    }
-
-    // Rebuild the pickers from the daemon's catalog and the current settings.
+    // Rebuild the picker from the assistant's models and the current setting.
     _syncFromAssistant() {
-        const providers = this._assistant.providers;
-        const current = this._provider;
-        const ids = providers.map(p => p.id);
-        const names = providers.map(p => p.name || p.id);
-        if (!ids.includes(current)) { // keep a provider the catalog doesn't list
-            ids.push(current);
-            names.push(current);
-        }
-        if (ids.join('\n') !== this._providerIds.join('\n')) {
-            this._syncing = true;
-            this._providerIds = ids;
-            this._providerRow.model = stringList(names);
-            this._syncing = false;
-        }
-        this._syncing = true;
-        this._providerRow.selected = ids.indexOf(current);
-        this._syncing = false;
-        this._providerRow.subtitle = providers.length ? ''
-            : this._assistant.available ? 'The assistant hasn’t reported its models yet'
-                : 'The assistant isn’t running: type the model id below';
-
         this._syncModelRow();
         for (const k of this._keyRows)
             k.sync();
     }
 
     _syncModelRow() {
-        const models = this._providerInfo?.models ?? [];
+        const models = this._assistant.providers.flatMap(p => p.models ?? []);
+        const current = this._settings?.get_string('llm-model') || this._assistant.defaults.model || '';
         const ids = models.map(m => m.id);
-        const key = `${this._provider}\n${ids.join('\n')}`;
-        if (key !== this._modelKey) { // rebuild only when the choices changed
-            this._modelKey = key;
+        const names = models.map(m => m.name || m.id);
+        if (current && !ids.includes(current)) { // keep a model the assistant doesn't list
+            ids.push(current);
+            names.push(current);
+        }
+        if (ids.join('\n') !== this._modelIds.join('\n')) { // rebuild only when the choices changed
             this._syncing = true;
-            this._modelIds = [...ids, null]; // null: "Other"
-            this._modelRow.model = stringList([...models.map(m => m.name || m.id), 'Other']);
+            this._modelIds = ids;
+            this._modelRow.model = stringList(names);
             this._syncing = false;
         }
-        const model = this._settings?.get_string('llm-model') || this._assistant.defaults.model || '';
-        const i = ids.indexOf(model);
         this._syncing = true;
-        this._modelRow.selected = i >= 0 ? i : this._modelIds.length - 1;
+        this._modelRow.selected = Math.max(0, ids.indexOf(current));
         this._syncing = false;
-    }
-
-    _providerPicked() {
-        if (this._syncing || !this._settings)
-            return;
-        const id = this._providerIds[this._providerRow.selected];
-        if (!id || id === this._provider)
-            return;
-        this._settings.set_string('llm-provider', id);
-        // A model id from another provider would only fail; take the new
-        // provider's first model when the current one isn't among its own.
-        const models = (this._assistant.providers.find(p => p.id === id)?.models ?? []).map(m => m.id);
-        if (models.length && !models.includes(this._settings.get_string('llm-model')))
-            this._settings.set_string('llm-model', models[0]);
+        this._modelRow.subtitle = models.length ? ''
+            : this._assistant.available ? 'The assistant hasn’t reported its models yet'
+                : 'The assistant isn’t running';
     }
 
     _modelPicked() {
         if (this._syncing || !this._settings)
             return;
         const id = this._modelIds[this._modelRow.selected];
-        if (id) // "Other" leaves the typed id alone
+        if (id && id !== this._settings.get_string('llm-model'))
             this._settings.set_string('llm-model', id);
-        else
-            this._modelEntry.grab_focus();
     }
 
     // ---- speech ----
@@ -181,7 +120,7 @@ class AssistantSettingsDialog extends Adw.PreferencesDialog {
     _speechGroup() {
         const group = new Adw.PreferencesGroup({
             title: 'Speech (Mistral)',
-            description: 'Hearing and speaking always use Mistral (Voxtral) with the Mistral key.',
+            description: 'Hearing, speaking and web search use Mistral (Voxtral) with the Mistral key.',
         });
         const mistralKey = this._keyRow('Mistral API key', () => 'mistral');
         group.add(mistralKey.row);
@@ -241,7 +180,7 @@ class AssistantSettingsDialog extends Adw.PreferencesDialog {
                 state.label = saved ? 'Key saved' : 'No key';
                 state.css_classes = ['caption', saved ? 'success' : 'dim-label'];
                 clear.visible = saved;
-                row.title = baseTitle === 'API key' ? `API key for ${provider}` : baseTitle;
+                row.title = baseTitle;
                 row.sensitive = this._assistant.available;
             },
         };
@@ -254,7 +193,7 @@ class AssistantSettingsDialog extends Adw.PreferencesDialog {
     _testGroup() {
         const group = new Adw.PreferencesGroup();
         const row = new Adw.ActionRow({title: 'Try the chat model',
-            subtitle: 'Sends one small request with the settings above'});
+            subtitle: 'Sends one small request to the model chosen above'});
         this._spinner = new Adw.Spinner({visible: false, valign: Gtk.Align.CENTER});
         this._testButton = new Gtk.Button({label: 'Test', valign: Gtk.Align.CENTER,
             css_classes: ['suggested-action', 'pill']});

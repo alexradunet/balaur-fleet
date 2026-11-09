@@ -1,6 +1,6 @@
 #!@bash@
 # balaur-home-agent: pi in its home role, the voice assistant's brain.
-# Started by the GJS daemon (gnome/assistant/pi-agent.js), which speaks pi's RPC
+# Started by the GJS daemon (gnome/assistant/agent.js), which speaks pi's RPC
 # protocol on its stdin and stdout. With --test: one tiny request with the same
 # model, exit status 0 when it answered.
 #
