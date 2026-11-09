@@ -53,6 +53,22 @@ downloads into what is left.
 `duet-assistant` name. Delete it once every machine has started the assistant since
 2026-11-08 (balaur's household account could not be checked without root).
 
+### 6. The development sessions on balaur (`dev-host`, 2026-11-10)
+
+`dev` from zmeu attaches to herdr on balaur and the panes outlive the client; herdr's
+Claude Code and pi integrations are installed there. Left:
+
+- **The phone** (needs the user): a key from its SSH app, as
+  `balaur.sshKeys = [ "ssh-ed25519 ..." ];` in `modules/hosts/balaur.nix`; then
+  `ssh alex@balaur` and `dev` from mobile data.
+- **`gh auth login` on balaur** (needs the user): its token is invalid.
+- **The laptop**: `dev` there, once it is awake and on main.
+- **A deploy leaves the server alone**: `systemctl --user show herdr-server -p MainPID`
+  on balaur was 235170 before the first switch after `c7be55a`; it should not change.
+- **A reboot of balaur**: see what herdr restores (the layout, and the agents through
+  the integrations). The old workspace `yoga-duet-7-home-server` points at a directory
+  that is gone and can be closed.
+
 ## Backlog from the review (decisions, not fixes)
 
 - **Disk encryption on the laptop** (a reinstall), and whether `~/.ssh/id_ed25519` has
