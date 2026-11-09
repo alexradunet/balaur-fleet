@@ -519,10 +519,20 @@ api('/api/remote-models').then(j=>{models=j.models;render()}).catch(e=>{$('#remo
 </script></body></html>"""
 
 
+class Server(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        # A client that drops a kept-alive connection (pi does at exit) is not an
+        # error worth a traceback in the journal.
+        if isinstance(sys.exc_info()[1], ConnectionError):
+            return
+        super().handle_error(request, client_address)
+
+
 def main():
     threading.Thread(target=prober, daemon=True).start()
-    srv = ThreadingHTTPServer((CFG.get("listen", "127.0.0.1"), CFG["port"]), Handler)
-    srv.daemon_threads = True
+    srv = Server((CFG.get("listen", "127.0.0.1"), CFG["port"]), Handler)
     log(f"balaur-ai on {CFG.get('listen', '127.0.0.1')}:{CFG['port']}: "
         f"local {[e['name'] for e in LOCAL]}, remote {REMOTE['url']}; settings {json.dumps(settings)}")
     srv.serve_forever()
