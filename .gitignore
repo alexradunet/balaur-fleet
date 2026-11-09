@@ -1,2 +1,4 @@
 result
 result-*
+# Logs that programs run from this folder write (e.g. a game launcher's cpu.log).
+Logs/
