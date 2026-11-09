@@ -3,7 +3,7 @@
 One address for every program on every machine, and three model names:
 
   balaur          as the page's route says; by default local first: the fleet's
-                  own GPUs (Strata on zmeu) when one is up, loaded and not already
+                  own GPUs (Strata on the pc) when one is up, loaded and not already
                   answering someone else, otherwise the remote API (Mistral).
   balaur-local    only the fleet's GPUs (fails when none is up).
   balaur-remote   only the remote API, even when a local one is up.

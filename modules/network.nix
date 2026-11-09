@@ -1,4 +1,4 @@
-# Network: NetworkManager, mDNS (balaur.local), Tailscale.
+# Network: NetworkManager, mDNS (<hostname>.local), Tailscale.
 {
   flake.modules.nixos.network =
     { config, lib, ... }:
@@ -48,7 +48,13 @@
           # The way back in if keys ever break is auto-deploy: push a fix and every
           # machine applies it without anyone logging in.
           # `=false`, not just dropping `--ssh`: `tailscale set` keeps what it is not told.
-          extraSetFlags = [ "--ssh=false" ];
+          # The tailnet name is the hostname, said outright: the fleet dials
+          # `fleet.<host>.address` (that name), so a renamed machine must not keep
+          # an old name in the tailnet.
+          extraSetFlags = [
+            "--ssh=false"
+            "--hostname=${config.networking.hostName}"
+          ];
         };
         # Stays active after setting, so a change to the flags re-runs it on a switch
         # instead of only at the next boot.

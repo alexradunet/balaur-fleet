@@ -32,11 +32,11 @@
       # Snapshot, Calculator, Disks. `tablet` curates its own list instead.
       environment.gnome.excludePackages = with pkgs; [
         # The browser is Firefox (the `gnome` aspect sets it up with policies).
-        # GNOME Web stays on balaur, which needs it to run the service web apps.
+        # GNOME Web stays on the tablet, which needs it to run the service web apps.
         epiphany
         gnome-tour # a first-run walkthrough, on a machine already set up
         yelp # the help browser; the answers are on the web
-        gnome-music # Decibels plays a file; the library is Jellyfin on balaur
+        gnome-music # Decibels plays a file; the library is Jellyfin on the tablet
         # Only useful tied to an online account, and none is set up.
         gnome-calendar
         gnome-contacts

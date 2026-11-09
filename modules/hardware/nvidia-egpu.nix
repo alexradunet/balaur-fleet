@@ -1,5 +1,5 @@
 # An NVIDIA card in an external dock (OCuLink or Thunderbolt), next to the
-# machine's own AMD/Intel iGPU. Written for an RTX 5060 Ti on zmeu's OCuLink port.
+# machine's own AMD/Intel iGPU. Written for an RTX 5060 Ti on the pc's OCuLink port.
 #
 # OCuLink is plain PCIe on a cable, with no hot-plug: power the dock on *before*
 # the machine, and don't pull it while running. Booted without the dock, the

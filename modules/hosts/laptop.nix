@@ -27,10 +27,10 @@ in
   };
 
   flake.nixosConfigurations.laptop = inputs.nixpkgs.lib.nixosSystem {
-    modules = [ aspects.laptop ];
+    modules = [ aspects.host-laptop ];
   };
 
-  flake.modules.nixos.laptop =
+  flake.modules.nixos.host-laptop =
     { config, pkgs, ... }:
     {
       imports =
@@ -45,17 +45,17 @@ in
           desktop
           dev
           files
-          # torrents (the qBittorrent server) stays on balaur; this is just the
+          # torrents (the qBittorrent server) stays on the tablet; this is just the
           # client, so a magnet clicked here can be sent there.
           torrents-client
-          # aminte runs on balaur; this is the dev side (aminte-prod, the binaries).
+          # aminte runs on the tablet; this is the dev side (aminte-prod, the binaries).
           aminte-dev
           assistant
           gaming
-          # Moonlight, to play what zmeu streams (Sunshine there).
+          # Moonlight, to play what the pc streams (Sunshine there).
           game-streaming-client
           auto-deploy
-          # The fleet's AI entryway on balaur: zmeu's GPU first, Mistral second.
+          # The fleet's AI entryway on the tablet: the pc's GPU first, Mistral second.
           ai
           # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
           agent
@@ -94,7 +94,7 @@ in
         hm.torrents-client
       ];
 
-      # The same token as balaur's aminte, for `aminte-prod` (modules/aminte.nix).
+      # The same token as the tablet's aminte, for `aminte-prod` (modules/aminte.nix).
       sops.secrets."aminte-token".owner = config.balaur.user;
       balaur.aminte-dev.tokenFile = config.sops.secrets."aminte-token".path;
 
@@ -116,6 +116,6 @@ in
       };
 
       # No FileList credentials here: searching happens in qBittorrent, which
-      # runs on balaur. This machine only hands it magnets.
+      # runs on the tablet. This machine only hands it magnets.
     };
 }

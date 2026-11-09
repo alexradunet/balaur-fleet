@@ -1,6 +1,6 @@
 # Handoff: loose ends
 
-Written 2026-11-10 on **zmeu**, after the session that reviewed the fleet against
+Written 2026-11-10 on **zmeu** (now `pc`), after the session that reviewed the fleet against
 current NixOS practice and made the agents' instructions and skills shared
 (AGENTS.md, `.agents/skills`). Read `AGENTS.md` first. **Delete this file once the
 list is empty** (and drop its pointer from AGENTS.md), as its predecessors were.
@@ -18,14 +18,14 @@ seven skills shared by Claude Code and pi.
 
 ### 1. Choose where backups go, then turn `backup` on (needs the user)
 
-`modules/backup.nix` is written and evaluates on balaur, but no host has it: it needs
+`modules/backup.nix` is written and evaluates on the tablet, but no host has it: it needs
 an off-site restic repository in Europe. A Hetzner Storage Box (SFTP, Germany or
-Finland) fits: put balaur's SSH host key (`fleet.balaur.sshHostKey`) in its
+Finland) fits: put the tablet's SSH host key (`fleet.tablet.sshHostKey`) in its
 `.ssh/authorized_keys`. Then:
 
 - `restic-password` (random; also into the password manager: it decrypts the backups)
-  in `secrets/hosts/balaur.yaml` (skill `secrets`);
-- `backup` in balaur's aspects, with `balaur.backup.repository` and
+  in `secrets/hosts/tablet.yaml` (skill `secrets`);
+- `backup` in the tablet's aspects, with `balaur.backup.repository` and
   `passwordFile = config.sops.secrets.restic-password.path`;
 - after the first night: `sudo restic-balaur snapshots`, and restore one file to
   `/tmp` to prove it.
@@ -37,12 +37,12 @@ with no failed units, and `pi` there should list the seven skills. (Strata's san
 is proven: it loaded and answered through the entryway on 2026-11-10.) Its assistant
 should have house devices: `~/.local/state/balaur-assistant/pi/mcp.json` exists.
 
-### 3. Retune the wake word on the laptop and zmeu
+### 3. Retune the wake word on the laptop and the pc
 
-`wakeThreshold = 0.35` on the laptop was copied from balaur's microphone array; zmeu
+`wakeThreshold = 0.35` on the laptop was copied from the tablet's microphone array; the pc
 uses the default. `sudo balaur-wake-test` on each, with real voices.
 
-### 4. Keep an eye on balaur's disk
+### 4. Keep an eye on the tablet's disk
 
 56% used at the last look; the Syncthing volume reserves 200 GiB up front and now
 also keeps 30 days of replaced and deleted files inside that cap. qBittorrent
@@ -52,28 +52,28 @@ downloads into what is left.
 
 `balaur-assistant-migrate-state` (assistant.nix) carries state over from the old
 `duet-assistant` name. Delete it once every machine has started the assistant since
-2026-11-08 (balaur's household account could not be checked without root).
+2026-11-08 (the tablet's household account could not be checked without root).
 
-### 6. The development sessions on balaur (`dev-host`, 2026-11-10)
+### 6. The development sessions on the tablet (`dev-host`, 2026-11-10)
 
-`dev` from zmeu attaches to herdr on balaur and the panes outlive the client; herdr's
+`dev` from the pc attaches to herdr on the tablet and the panes outlive the client; herdr's
 Claude Code and pi integrations are installed there. Left:
 
 - **The phone** (needs the user): a key from its SSH app, as
-  `balaur.sshKeys = [ "ssh-ed25519 ..." ];` in `modules/hosts/balaur.nix`; then
-  `ssh alex@balaur` and `dev` from mobile data.
-- **`gh auth login` on balaur** (needs the user): its token is invalid.
+  `balaur.sshKeys = [ "ssh-ed25519 ..." ];` in `modules/hosts/tablet.nix`; then
+  `ssh alex@tablet` and `dev` from mobile data.
+- **`gh auth login` on the tablet** (needs the user): its token is invalid.
 - **The laptop**: `dev` there, once it is awake and on main.
 - **A deploy leaves the server alone**: `systemctl --user show herdr-server -p MainPID`
-  on balaur was 235170 before the first switch after `c7be55a`; it should not change.
-- **A reboot of balaur**: see what herdr restores (the layout, and the agents through
+  on the tablet was 235170 before the first switch after `c7be55a`; it should not change.
+- **A reboot of the tablet**: see what herdr restores (the layout, and the agents through
   the integrations). The old workspace `yoga-duet-7-home-server` points at a directory
   that is gone and can be closed.
 
 ### 7. The voice assistant on pi, and its house devices (2026-11-10)
 
 House devices are done (`7400f7b`, `5175363`; `gnome/CONTRACT.md`, "The agent"):
-on zmeu a typed question listed the devices exposed to Assist and "turn on the
+on the pc (then zmeu) a typed question listed the devices exposed to Assist and "turn on the
 Samsung" reached Home Assistant without error. Left:
 
 - **The Samsung does not wake from off** (needs the user): Home Assistant accepts
@@ -92,7 +92,7 @@ Samsung" reached Home Assistant without error. Left:
 - **Rotate the Gandi token and the FileList passkey** when the laptop gets a new key or
   an encrypted disk. They were always sops-encrypted, but the old ciphertext in git
   history was encrypted to the laptop's keys too; moving them to
-  `secrets/hosts/balaur.yaml` keeps only new values away from those keys. (The
+  `secrets/hosts/tablet.yaml` keeps only new values away from those keys. (The
   Sunshine password was rotated: Sunshine takes a new one when it restarts.)
 - **Signed commits for auto-deploy**: verify main's commit against the registry's
   `userKeys` before switching, so a stolen GitHub login cannot deploy.
@@ -114,5 +114,5 @@ Samsung" reached Home Assistant without error. Left:
   home-manager's `xdg.mimeApps`, which would take over `mimeapps.list`, where Claude
   Code keeps its own `claude-cli` association.
 - **A sleeping builder costs about five seconds** (`ConnectTimeout` in fleet.nix).
-- **Download directories are per machine**: `/srv/media` on balaur is not the synced
+- **Download directories are per machine**: `/srv/media` on the tablet is not the synced
   volume.

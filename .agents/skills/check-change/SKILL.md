@@ -14,7 +14,7 @@ that fails and fix it.
    aspect affects every host that lists it: `grep -l '<aspect>' modules/hosts/*.nix`.
    The shared aspects (`base fleet home network secrets dev ai agent auto-deploy`),
    `flake.nix`, `flake.lock`, `pkgs/` and `modules/flake/` affect every host. When in
-   doubt, all of them: `balaur laptop zmeu` (`ls modules/hosts`).
+   doubt, all of them: `tablet laptop pc` (`ls modules/hosts`).
 
 3. **Evaluate everything.** `nix flake check --no-build` evaluates every host, check
    and package. NixOS warnings print as `evaluation warning:`; treat them as errors.

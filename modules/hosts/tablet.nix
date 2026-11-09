@@ -1,13 +1,13 @@
-# balaur: the Lenovo Yoga Duet 7 in the living room. A home server whose built-in
+# tablet: the Lenovo Yoga Duet 7 in the living room. A home server whose built-in
 # screen is the household tablet. The aspects it runs are listed below; its own
 # choices (account, assistant voices, ...) are the settings after them.
-# Machine-generated files (hardware-configuration.nix) live in hosts/balaur/.
+# Machine-generated files (hardware-configuration.nix) live in hosts/tablet/.
 { inputs, config, ... }:
 let
   aspects = config.flake.modules.nixos;
 in
 {
-  fleet.balaur = {
+  fleet.tablet = {
     description = "Yoga Duet 7 in the living room: home server + household tablet";
     tailnetIp = "100.118.102.119";
     lanIp = "192.168.50.233"; # reserved in the router
@@ -18,11 +18,14 @@ in
     userKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE0ZoRQpfEL3tB7gO5XBC9B9eG9qvlgcGpExvmhVoMMI" ];
   };
 
-  flake.nixosConfigurations.balaur = inputs.nixpkgs.lib.nixosSystem {
-    modules = [ aspects.balaur ];
+  flake.nixosConfigurations.tablet = inputs.nixpkgs.lib.nixosSystem {
+    modules = [ aspects.host-tablet ];
   };
+  # Until it has switched once: this machine was called `balaur`, and auto-deploy
+  # builds `#<its current hostname>`. Remove once balaur-fleet-status shows `tablet`.
+  flake.nixosConfigurations.balaur = config.flake.nixosConfigurations.tablet;
 
-  flake.modules.nixos.balaur =
+  flake.modules.nixos.host-tablet =
     { config, ... }:
     {
       imports =
@@ -48,8 +51,8 @@ in
           # Every machine's `dev` lands here: the sessions live on the one that never sleeps.
           dev-host
           auto-deploy
-          # The fleet's AI entryway for every machine (http://balaur:4000/v1, page at
-          # https://ai.balaur.space): zmeu's GPU first, Mistral second.
+          # The fleet's AI entryway for every machine (http://tablet:4000/v1, page at
+          # https://ai.balaur.space): the pc's GPU first, Mistral second.
           ai-gateway
           ai
           # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
@@ -59,9 +62,9 @@ in
           tablet
         ]
         # Its own disk/boot layout, copied from /etc/nixos (see docs/SETUP.md).
-        ++ [ ../../hosts/balaur/hardware-configuration.nix ];
+        ++ [ ../../hosts/tablet/hardware-configuration.nix ];
 
-      networking.hostName = "balaur";
+      networking.hostName = "tablet";
       time.timeZone = "Europe/Bucharest";
       i18n.defaultLocale = "en_US.UTF-8";
 
@@ -94,7 +97,7 @@ in
       };
 
       # FileList's username and passkey are two entries in this machine's own sops
-      # file (secrets/hosts/balaur.yaml); the search plugin wants them as one JSON
+      # file (secrets/hosts/tablet.yaml); the search plugin wants them as one JSON
       # object, so sops renders it.
       sops.secrets."filelist-username".sopsFile = config.balaur.secrets.hostFile;
       sops.secrets."filelist-passkey".sopsFile = config.balaur.secrets.hostFile;

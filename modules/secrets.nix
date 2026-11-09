@@ -29,7 +29,7 @@
 #
 # Day to day (the `secrets` skill, .agents/skills/secrets, has the whole routine):
 #   sops secrets/balaur.yaml              edit (decrypts to $EDITOR, re-encrypts on save)
-#   sops secrets/hosts/balaur.yaml        edit balaur's own (from zmeu or balaur)
+#   sops secrets/hosts/tablet.yaml        edit the tablet's own (from the pc or the tablet)
 #   sops updatekeys secrets/<file>.yaml   after changing recipients in .sops.yaml
 { inputs, ... }:
 {

@@ -69,7 +69,7 @@ in
                 # for them here would only invite someone to type a passkey that gets
                 # thrown away. This is a test of what is actually deployed.
                 echo "This machine takes the FileList credentials from sops. To change them:"
-                echo "    sops secrets/hosts/${me}.yaml      (filelist-username, filelist-passkey; from zmeu or balaur)"
+                echo "    sops secrets/hosts/${me}.yaml      (filelist-username, filelist-passkey; from the pc or the tablet)"
                 echo "  then rebuild. Testing the search with what is deployed now:"
               ''
           }

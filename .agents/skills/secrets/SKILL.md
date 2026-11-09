@@ -15,10 +15,10 @@ and length instead.
 | File | Who can decrypt | For |
 |---|---|---|
 | `secrets/balaur.yaml` | every machine, every admin key | only what more than one machine needs |
-| `secrets/hosts/<host>.yaml` | that machine, the admin keys of zmeu and balaur | everything one machine needs |
+| `secrets/hosts/<host>.yaml` | that machine, the admin keys of the pc and the tablet | everything one machine needs |
 
 The laptop's admin key is deliberately not a recipient of the host files (it travels,
-unencrypted), so edit those from zmeu or balaur. Recipients are in `.sops.yaml`;
+unencrypted), so edit those from the pc or the tablet. Recipients are in `.sops.yaml`;
 machine recipients are their SSH host keys through `ssh-to-age`.
 
 ## Use a secret
@@ -29,7 +29,7 @@ sops.secrets."<name>" = {
   owner = "<user that reads it>";              # default root
 };
 # a path for the service: config.sops.secrets."<name>".path   (/run/secrets/<name>)
-# several values as one file: sops.templates (see modules/hosts/balaur.nix)
+# several values as one file: sops.templates (see modules/hosts/tablet.nix)
 ```
 
 Prefer `LoadCredential` in our own units, so the file's owner does not matter. An

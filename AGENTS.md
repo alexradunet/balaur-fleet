@@ -25,7 +25,7 @@ skipped). The **dendritic pattern** works like this:
   `callPackage ../pkgs/...` (the kernel modules are the exception: they follow the kernel).
 - Machine-generated files (`hardware-configuration.nix`) live in `hosts/<hostname>/`,
   outside `modules/`, so import-tree doesn't load them.
-- Machines reach each other at `fleet.<host>.address`, the tailnet name (`balaur`), and
+- Machines reach each other at `fleet.<host>.address`, the tailnet name (`tablet`), and
   themselves at `127.0.0.1`. Never dial `lanIp` or `<name>.local`: those are for devices
   outside the tailnet (the TV). Accepting every address (known_hosts, qBittorrent's
   ServerDomains) is fine.
@@ -47,13 +47,13 @@ push (`.github/workflows/check.yml`); it reports, it does not stop a deploy.
 `main` on GitHub is the fleet's one source of truth; every machine is a copy of it.
 The `auto-deploy` aspect (on every machine) checks `main` every 5 minutes and, on a
 new commit, switches to its own configuration at that commit and fast-forwards its
-clone. So work from whichever machine you are at — laptop, zmeu or balaur — and
+clone. So work from whichever machine you are at — laptop, pc or tablet — and
 deploying is `git push`. Skill `deploy` has the whole routine.
 
-- The development sessions live in herdr on balaur (`dev-host`); `dev` on any machine
+- The development sessions live in herdr on the tablet (`dev-host`); `dev` on any machine
   attaches to them, and a deploy does not restart them.
 - Each machine builds its own system, and the heavy builds go to the fleet's builders
-  (zmeu first; fleet.nix). So editing on balaur is fine: the Duet only evaluates.
+  (the pc first; fleet.nix). So editing on the tablet is fine: the Duet only evaluates.
 - `balaur-fleet-status` shows every machine's deployed commit, state and failed units.
 - A commit that fails is retried after 15 minutes and an hour, then left until the
   next push; a switch that loses GitHub is rolled back. Push a fix rather than wait.

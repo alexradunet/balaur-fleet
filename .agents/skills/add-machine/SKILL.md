@@ -23,7 +23,7 @@ choice that is theirs (name, aspects, account).
 3. **Its generated file.**
    `mkdir hosts/<hostname> && cp /etc/nixos/hardware-configuration.nix hosts/<hostname>/ && git add hosts/<hostname>`.
 
-4. **Its host file,** `modules/hosts/<hostname>.nix`, modelled on `modules/hosts/zmeu.nix`:
+4. **Its host file,** `modules/hosts/<hostname>.nix`, modelled on `modules/hosts/pc.nix`:
    - `fleet.<hostname>`: `description`, `tailnetIp`, `lanIp` (only if reserved in the
      router), `sshHostKey` (`cat /etc/ssh/ssh_host_ed25519_key.pub`, without the
      trailing comment), `userKeys` (the user's `~/.ssh/id_ed25519.pub`; offer
@@ -37,8 +37,8 @@ choice that is theirs (name, aspects, account).
 
 5. **Its aspects,** with the user. Every machine: `base fleet home network auto-deploy
    ai agent`, usually `dev`, and `secrets` once step 7 is done.
-   - `ai` points everything at the fleet's AI entryway (`ai-gateway`, balaur only):
-     model `balaur` is a fleet GPU running `strata` first (zmeu), Mistral second.
+   - `ai` points everything at the fleet's AI entryway (`ai-gateway`, the tablet only):
+     model `balaur` is a fleet GPU running `strata` first (the pc), Mistral second.
    - `agent` is pi, the OS agent. A role is pi with other instructions and only the
      tools it is given (`pi-aminte`, where `aminte-dev` is).
    - A screen: `gnome` plus exactly one of `tablet` or `desktop`. Not on a normal

@@ -101,7 +101,7 @@
         ];
         text = ''
           if [ "$(id -u)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
-          echo "Jellyfin (http://balaur:8096) > Dashboard > API Keys > + (name it Balaur), then paste it here."
+          echo "Jellyfin (http://tablet:8096) > Dashboard > API Keys > + (name it Balaur), then paste it here."
           read -rsp "API key (hidden): " key; echo
           api() { # api PATH [curl args]; the key goes through curl's config on stdin, never the process list
             local p=$1; shift

@@ -1,6 +1,6 @@
 # Strata (github.com/Niko1221/Strata): a local LLM server for a big
 # mixture-of-experts model on one consumer GPU. The hot experts stay in VRAM,
-# the rest in RAM, so Qwen3.8-Flash-Next (125B) runs on zmeu's RTX 5060 Ti
+# the rest in RAM, so Qwen3.8-Flash-Next (125B) runs on the pc's RTX 5060 Ti
 # 16 GB with its 62 GB of RAM. OpenAI-compatible /v1 (and Anthropic /v1/messages)
 # on :8090, tailnet only: the port is not opened on the LAN, the tailnet is trusted.
 #
@@ -242,10 +242,10 @@
           type = lib.types.str;
           # Qwen3.8-Flash-Next sizes (RAM + VRAM): q2_0 37.6 GB "good", iq2_xs
           # 39.2 "better", iq3_xxs 47.0 "great", iq3_s 54.8 "best; matches the
-          # full model on the published tests" and the slowest. Measured on zmeu
+          # full model on the published tests" and the slowest. Measured on the pc
           # (2026-11-09): 50 GB of its 62 GB RAM (+1 GB for pictures), ~5 GB
           # left, 43-50 tokens/s; builds and the desktop lean on swap. Chosen for
-          # quality; iq3_xxs is the step down if zmeu ever feels sluggish.
+          # quality; iq3_xxs is the step down if the pc ever feels sluggish.
           # Games stop Strata, so they get everything back.
           default = "iq3_s";
           description = "The model size strata-setup downloads (`strata launch --model`).";

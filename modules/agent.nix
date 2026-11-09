@@ -69,7 +69,7 @@ in
             baseUrl = aiUrl;
             api = "openai-completions";
             apiKey = "balaur"; # not a secret: the entryway takes no key (ai.nix)
-            # 128k is Strata's window on zmeu (n_ctx 131072) and no more than Mistral's.
+            # 128k is Strata's window on the pc (n_ctx 131072) and no more than Mistral's.
             models =
               map
                 (

@@ -2,7 +2,7 @@
 # (pi, the OS agent, is its own aspect: agent.nix.)
 # The agents come from numtide/llm-agents.nix (updated daily, binary-cached),
 # not nixpkgs, which lags upstream by months. Bump them with:
-#   nix flake update llm-agents && nixos-rebuild switch --flake .#balaur --sudo
+#   nix flake update llm-agents && nixos-rebuild switch --flake .#$(hostname) --sudo
 # Per-project toolchains come from `nix develop` (see each repo's flake).
 #
 # `dev` opens the development sessions. They live in herdr on the fleet's dev host

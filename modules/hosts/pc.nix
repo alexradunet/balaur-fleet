@@ -1,14 +1,14 @@
-# zmeu: the GMKtec NucBox EVO-X1 mini-PC, the fleet's most powerful machine. A
+# pc: the GMKtec NucBox EVO-X1 mini-PC, the fleet's most powerful machine. A
 # personal GNOME desktop for gaming (an RTX 5060 Ti on OCuLink), the host that
 # streams games to the rest of the tailnet, and the fleet's first-choice builder.
-# Machine-generated files (hardware-configuration.nix) live in hosts/zmeu/.
+# Machine-generated files (hardware-configuration.nix) live in hosts/pc/.
 { inputs, config, ... }:
 let
   aspects = config.flake.modules.nixos;
   hm = config.flake.modules.homeManager;
 in
 {
-  fleet.zmeu = {
+  fleet.pc = {
     description = "GMKtec NucBox EVO-X1: gaming desktop, game streaming host, fleet builder";
     tailnetIp = "100.118.216.118";
     sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILAacHQ+NIgv8wtFGuzdu3jF52vZJtv9H9p8fqK6F6sb";
@@ -24,11 +24,14 @@ in
     };
   };
 
-  flake.nixosConfigurations.zmeu = inputs.nixpkgs.lib.nixosSystem {
-    modules = [ aspects.zmeu ];
+  flake.nixosConfigurations.pc = inputs.nixpkgs.lib.nixosSystem {
+    modules = [ aspects.host-pc ];
   };
+  # Until it has switched once: this machine was called `zmeu`, and auto-deploy
+  # builds `#<its current hostname>`. Remove once balaur-fleet-status shows `pc`.
+  flake.nixosConfigurations.zmeu = config.flake.nixosConfigurations.pc;
 
-  flake.modules.nixos.zmeu =
+  flake.modules.nixos.host-pc =
     { config, ... }:
     {
       imports =
@@ -49,7 +52,7 @@ in
           game-streaming
           auto-deploy
           # The fleet's local LLM on the 5060 Ti (stopped while a game runs), and the
-          # fleet's AI entryway (on balaur) as a client.
+          # fleet's AI entryway (on the tablet) as a client.
           strata
           ai
           # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
@@ -59,15 +62,15 @@ in
           # Runs as alex (no `tablet` here), on PipeWire's default microphone.
           # Retune wakeThreshold for that microphone with `sudo balaur-wake-test`.
           assistant
-          # aminte runs on balaur; this is the dev side (aminte-prod, the binaries), and
+          # aminte runs on the tablet; this is the dev side (aminte-prod, the binaries), and
           # what gives pi its aminte role here (pi-aminte, agent.nix).
           aminte-dev
         ])
         # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
         # .agents/skills). It must be `git add`ed or flakes cannot see it.
-        ++ [ ../../hosts/zmeu/hardware-configuration.nix ];
+        ++ [ ../../hosts/pc/hardware-configuration.nix ];
 
-      networking.hostName = "zmeu";
+      networking.hostName = "pc";
       time.timeZone = "Europe/Bucharest";
 
       # Carried over from this install's /etc/nixos/configuration.nix.
@@ -117,7 +120,7 @@ in
       # The living-room TV runs Moonlight but is not on the tailnet (game-streaming).
       balaur.gameStreaming.lanClients = [ "192.168.50.106" ];
 
-      # The same token as balaur's aminte, for `aminte-prod` (modules/aminte.nix).
+      # The same token as the tablet's aminte, for `aminte-prod` (modules/aminte.nix).
       sops.secrets."aminte-token".owner = config.balaur.user;
       balaur.aminte-dev.tokenFile = config.sops.secrets."aminte-token".path;
 
@@ -145,7 +148,7 @@ in
         # The existing login on this machine; its password is kept as is.
         user = "alex";
         # It stays at home, wired or on the home Wi-Fi: SSH and the Syncthing UI on
-        # the LAN as well, like balaur.
+        # the LAN as well, like the tablet.
       };
     };
 }

@@ -4,7 +4,7 @@
 is the body: one flake that configures every machine at home, each one a head with its
 own purpose. They share a common base and know about each other.
 
-The first head is **balaur**, a **Lenovo Yoga Duet 7 (13ITL6)** turned into an opinionated,
+The first head is **tablet**, a **Lenovo Yoga Duet 7 (13ITL6)** turned into an opinionated,
 fully declarative NixOS home server. The detachable-tablet laptop becomes an appliance:
 the built-in touchscreen is a household tablet running stock GNOME, everything on it is
 GNOME-native, and the battery is the UPS.
@@ -13,7 +13,7 @@ The second is **laptop**, a **Lenovo Yoga Pro 7 14APH8**: the personal machine. 
 the base, the admin's environment and the voice assistant, and runs none of the house
 services.
 
-The third is **zmeu**, a **GMKtec NucBox EVO-X1** with an RTX 5060 Ti on OCuLink: a gaming
+The third is **pc**, a **GMKtec NucBox EVO-X1** with an RTX 5060 Ti on OCuLink: a gaming
 desktop that streams its games to the rest of the tailnet, runs the fleet's local LLM
 (Strata), and builds for the other machines.
 
@@ -45,12 +45,12 @@ AGENTS.md                 the agents' instructions (CLAUDE.md imports it)
 .github/workflows/        CI: every host evaluates, formatting and skills checked
 modules/
   flake/                  flake wiring: the packages overlay, checks, formatter, dev shell
-  hosts/balaur.nix        balaur = these aspects + its own settings (account, voices, ...)
+  hosts/tablet.nix        tablet = these aspects + its own settings (account, voices, ...)
   hosts/laptop.nix        laptop = its aspects + its own settings (locales, printing, ...)
-  hosts/zmeu.nix          zmeu = its aspects + its own settings (builder, streaming, ...)
+  hosts/pc.nix            pc = its aspects     + its own settings (builder, streaming, ...)
   hardware/yoga-duet-7.nix  the Duet's firmware and CPU bits (Intel)
   hardware/yoga-pro-7.nix   the laptop's firmware and CPU bits (AMD)
-  hardware/gmktec-evo-x1.nix, nvidia-egpu.nix  zmeu: the mini-PC (AMD) and its docked NVIDIA card
+  hardware/gmktec-evo-x1.nix, nvidia-egpu.nix  the pc: the mini-PC (AMD) and its docked NVIDIA card
   fleet.nix               the registry: every machine, its IPs and keys; SSH trust, remote builds
   auto-deploy.nix         every machine follows main: retries, roll back, `balaur-fleet-status`
   home.nix                home-manager: the admin's shell, git, gh, the same on every machine
@@ -65,7 +65,7 @@ modules/
   assistant.nix           the voice assistant, a service of a GNOME session
   camera.nix              the Duet's front camera: patched kernel modules + RGB-IR relay, movement wakes the screen
   media.nix               Jellyfin: watches what `torrents` downloaded, /srv/media
-  torrents.nix            qBittorrent + FileList search (aspect `torrents`, balaur only), and
+  torrents.nix            qBittorrent + FileList search (aspect `torrents`, the tablet only), and
                           `balaur-torrent` + the magnet handler (aspect `torrents-client`, anywhere)
   adblock.nix             AdGuard Home: network-wide ad/tracker blocking on :53, UI on :3000
   home-assistant.nix      Home Assistant: devices and automations, https://home.<domain> and :8123
@@ -74,12 +74,12 @@ modules/
   agent.nix               pi, the OS agent on every machine: the fleet's models, machines and services; `balaur-ask`; roles (`pi-aminte`)
   dev.nix                 Claude Code + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep; `dev` opens the sessions
   dev-host.nix            the one machine that holds the development sessions: herdr's server, from boot
-  gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow); laptop and zmeu
-  steam.nix               Steam and GameMode, for a machine that plays locally (zmeu)
-  game-streaming.nix      Sunshine on the host (zmeu), Moonlight on the clients, over the tailnet
-  ai.nix                  the fleet's AI entryway on balaur (`ai-gateway`: local GPU first, Mistral second) and its clients (`ai`)
-  strata.nix              Strata: the local LLM on zmeu's GPU, stopped while a game runs
-  aminte.nix              aminte, the life log, served on balaur (`aminte`), and its dev side (`aminte-dev`)
+  gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow); laptop and pc
+  steam.nix               Steam and GameMode, for a machine that plays locally (the pc)
+  game-streaming.nix      Sunshine on the host (the pc), Moonlight on the clients, over the tailnet
+  ai.nix                  the fleet's AI entryway on the tablet (`ai-gateway`: local GPU first, Mistral second) and its clients (`ai`)
+  strata.nix              Strata: the local LLM on the pc's GPU, stopped while a game runs
+  aminte.nix              aminte, the life log, served on the tablet (`aminte`), and its dev side (`aminte-dev`)
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
 gnome/                    everything GNOME-facing, in GJS; gnome/CONTRACT.md is how the pieces talk
@@ -96,7 +96,7 @@ camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 fram
 |---|---|
 | Built-in screen | GNOME, logged in by itself as a household account (`balaur.tablet.user`, `home`) that never locks. Apps run full screen; swipe up for the app switcher. The on-screen keyboard pops up on touch (English and Romanian), and the screen follows rotation. Dock: **Balaur**, **Firefox** (uBlock Origin), **Jellyfin**, **Gelly** (Jellyfin music). **AdGuard Home** and **qBittorrent** (and **Syncthing** with the `files` aspect) are installed as GNOME web apps. **Snapshot** shows the front camera. Admin tools sit in an **Admin** folder, with a **Developer terminal** that asks for the admin password. |
 | Screen on/off | GNOME blanks the screen after `balaur.camera.screenTimeout` (2 minutes) idle, and never locks. Movement in front of the camera counts as activity: it keeps the screen on and wakes it (`0` = always on). The relay looks at 3 frames a second for this, and runs its full image pipeline only while an app uses the webcam (`balaur.camera.tuning.idleFps`). |
-| AI (aspects `ai-gateway`, `ai`, `strata`) | One entryway for every model call in the fleet: `http://balaur:4000/v1` (OpenAI-compatible; `OPENAI_BASE_URL` points there on every machine), with a page at **https://ai.balaur.space** to see the tiers and the last requests and to change the route and the remote model. Model `balaur` answers from zmeu's RTX 5060 Ti (Strata, Qwen3.8-Flash-Next) when it is on, loaded and free, else from Mistral; `balaur-local` and `balaur-remote` pick one. Strata stops while a game runs on zmeu. |
+| AI (aspects `ai-gateway`, `ai`, `strata`) | One entryway for every model call in the fleet: `http://tablet:4000/v1` (OpenAI-compatible; `OPENAI_BASE_URL` points there on every machine), with a page at **https://ai.balaur.space** to see the tiers and the last requests and to change the route and the remote model. Model `balaur` answers from the pc's RTX 5060 Ti (Strata, Qwen3.8-Flash-Next) when it is on, loaded and free, else from Mistral; `balaur-local` and `balaur-remote` pick one. Strata stops while a game runs on the pc. |
 | Voice (aspect `assistant`) | Say **“Hey Jarvis”**, then speak Romanian or English. Only the wake word runs on this machine; after it, Mistral (EU) transcribes what you said (Voxtral) and speaks the answer (Voxtral TTS), and the fleet's pi, in its home role, decides what to do: timers and reminders (GNOME notifications with a Stop button), the house **shopping** and **tasks** lists, memory, weather, news and web search. Its orb and captions show over every app; tap it to stop. The mic toggle is in Quick Settings. |
 | The Balaur app | **Assistant** (the conversation, type to ask, mic, volume, and **Assistant settings**: the model (one of the AI entryway's) and the Mistral key, kept in GNOME settings and the GNOME Keyring), **Lists**, **Timers & reminders**, **Memory**, and **Home**: every service with its live state and a button that opens its app. |
 | Ad blocking (aspect `adblock`) | AdGuard Home as the LAN DNS server, with European upstreams (Quad9, DNS4EU) and Samsung TV ad/ACR-tracking rules. Set it as the router's DNS 1 (keep a public DNS 2 so the network survives the box being off). |
@@ -108,11 +108,11 @@ page with its live systemd state, and an `appIcon` installs its web UI as a GNOM
 
 On a Duet that already runs NixOS (graphical installer, "erase disk"): follow **[docs/SETUP.md](docs/SETUP.md)**. It is the piece-by-piece guide: inspect, clone, copy your `hardware-configuration.nix`, set your user/SSH key, `nixos-rebuild build`, then `nixos-rebuild boot` and reboot.
 
-The config imports `hosts/balaur/hardware-configuration.nix` (your installer-generated file) when it exists, so no disk layout is assumed.
+The config imports `hosts/tablet/hardware-configuration.nix` (your installer-generated file) when it exists, so no disk layout is assumed.
 
 ## First-boot checklist
 
-- **Tailscale + SSH**: run `sudo tailscale up` once (or set `balaur.network.tailscale.authKeyFile`). SSH is OpenSSH, reachable over the tailnet (`ssh balaur` from any machine whose key is in the registry) and on the LAN. Tailscale SSH is deliberately off (`modules/network.nix` says why). Password login is off (`balaur.ssh.passwordAuth`): the `userKeys` in the fleet registry are authorized on every machine. Set `balaur.ssh.lan = false` to make Tailscale the only way in.
+- **Tailscale + SSH**: run `sudo tailscale up` once (or set `balaur.network.tailscale.authKeyFile`). SSH is OpenSSH, reachable over the tailnet (`ssh tablet` from any machine whose key is in the registry) and on the LAN. Tailscale SSH is deliberately off (`modules/network.nix` says why). Password login is off (`balaur.ssh.passwordAuth`): the `userKeys` in the fleet registry are authorized on every machine. Set `balaur.ssh.lan = false` to make Tailscale the only way in.
 - **Local recovery** (Tailscale or network down): attach a keyboard to the Duet and press Ctrl+Alt+F3 for a login console (`balaur` user, `sudo` available), or pick an older generation in the boot menu (last 10 kept). From there you can fix the config and rebuild.
 - Service ports are open on the LAN and fully open on `tailscale0`. This is a home-LAN design; do not port-forward it.
 

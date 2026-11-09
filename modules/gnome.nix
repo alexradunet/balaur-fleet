@@ -47,7 +47,7 @@
         };
       };
       # Said outright (in /etc/xdg/mimeapps.list, under the user's own list), so
-      # GNOME Web on balaur, or anything installed later, does not take over links.
+      # GNOME Web on the tablet, or anything installed later, does not take over links.
       xdg.mime.defaultApplications = lib.genAttrs [
         "text/html"
         "x-scheme-handler/http"

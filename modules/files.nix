@@ -67,7 +67,7 @@ in
             # -E nodiscard: mkfs otherwise punches holes straight back through the
             # fallocate above and leaves a sparse image. That still caps the synced
             # set, but it stops reserving the space, so other things on the root
-            # filesystem (on balaur, the media library) could eat it and the volume
+            # filesystem (on the tablet, the media library) could eat it and the volume
             # would then hit ENOSPC on its own backing file.
             mkfs.ext4 -q -m 0 -E nodiscard -L ${folderId} ${image}
           else

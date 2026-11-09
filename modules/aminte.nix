@@ -2,7 +2,7 @@
 # Two aspects:
 #
 #   aminte       runs `aminte serve` with its extensions (web), on one
-#                machine: the always-on one, balaur. The browser is
+#                machine: the always-on one, the tablet. The browser is
 #                https://aminte.<balaur.web.domain>, tailnet only.
 #   aminte-dev   the binaries and `aminte-prod`, for the machine you develop on.
 #
@@ -14,7 +14,7 @@
 #   - Clients and extensions work on the live data through prod's API:
 #       aminte-prod aminte day --human
 #       cd extensions/web && AMINTE_WEB_LISTEN=127.0.0.1:7790 aminte-prod go run ./cmd/aminte-web
-#     aminte-prod opens `ssh -L 7777:127.0.0.1:7777 balaur` (the core's Host
+#     aminte-prod opens `ssh -L 7777:127.0.0.1:7777 tablet` (the core's Host
 #     guard wants the same port on both ends) and sets AMINTE_URL/AMINTE_TOKEN;
 #     for the aminte CLI itself it adds `--url`, which the CLI needs.
 #   - Core and schema work runs on a copy. The nightly snapshot (it does its own
@@ -271,7 +271,7 @@ in
       options.balaur.aminte-dev = {
         host = lib.mkOption {
           type = lib.types.str;
-          default = "balaur";
+          default = "tablet";
           description = "The machine that serves prod.";
         };
         tokenFile = lib.mkOption {

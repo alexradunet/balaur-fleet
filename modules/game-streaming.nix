@@ -23,7 +23,7 @@
 # Pairing, once per client:
 #   1. https://<host>:47990 from any machine on the tailnet (a self-signed
 #      certificate), logged in as above.
-#   2. In Moonlight, "Add host" with the host's tailnet name (`zmeu`). Discovery
+#   2. In Moonlight, "Add host" with the host's tailnet name (`pc`). Discovery
 #      only sees the LAN, and the tailnet is not the LAN.
 #   3. Moonlight shows a PIN; enter it in Sunshine's PIN tab.
 #

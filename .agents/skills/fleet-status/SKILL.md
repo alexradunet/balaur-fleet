@@ -39,16 +39,16 @@ password, an agent has none. Say what you could not read rather than guessing.
 
 - **Behind main.** `trying <rev> (attempt n/3)`: read the auto-deploy journal on that
   machine; the build error is in it. Push a fix. `no answer`: asleep or off the tailnet.
-- **AI.** `curl -s balaur:4000/health | jq` shows each tier and why it is down. Strata
-  on zmeu is stopped on purpose while a game runs (`strata-yield`: it looks for
+- **AI.** `curl -s tablet:4000/health | jq` shows each tier and why it is down. Strata
+  on the pc is stopped on purpose while a game runs (`strata-yield`: it looks for
   `reaper`, `wineserver`, `umu-run`), and starts a minute after; loading takes minutes.
 - **A web UI.** On the machine: `curl -sI http://127.0.0.1:<port>`. Through the domain:
   `curl -sI https://<subdomain>.balaur.space` (Caddy and the wildcard certificate on
-  balaur: `systemctl status caddy acme-balaur.space`).
+  the tablet: `systemctl status caddy acme-balaur.space`).
 - **Syncthing.** `systemctl status syncthing balaur-files-volume srv-files.mount`; the
   volume must be mounted before Syncthing starts. Replaced or deleted files are kept in
   `/srv/files/shared/.stversions` for 30 days.
-- **The voice assistant** is a user unit of the household session on balaur
+- **The voice assistant** is a user unit of the household session on the tablet
   (`systemctl --user -M home@ status balaur-assistant` as root).
 
 ## Report

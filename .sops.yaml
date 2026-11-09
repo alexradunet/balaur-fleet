@@ -8,7 +8,7 @@
 #   nix run nixpkgs#ssh-to-age <<< "ssh-ed25519 AAAA..."
 #
 # The admin recipients are alex's ~/.ssh/id_ed25519 on each machine the fleet
-# is administered from (laptop, zmeu, balaur), through the same conversion
+# is administered from (laptop, pc, tablet), through the same conversion
 # (`ssh-to-age -private-key -i ~/.ssh/id_ed25519 -o ~/.config/sops/age/keys.txt`),
 # so there is no extra secret to look after: whoever holds that SSH key — which
 # already opens every machine — can also read and edit these.
@@ -19,30 +19,30 @@
 # rotate the secret as well as the key if that ever happens.
 keys:
   - &admin  age1p6q3hvupt4sek6d3j45hqurut5uf8arcweutvxgf7ksyukqwedss7x37q6 # on the laptop
-  - &admin_zmeu   age10hypj9yw78cve37yxzszq0ldeypq8veedfryxzzylaexnney8ccs3s50es
-  - &admin_balaur age1jvdfnzq208fvja4dyhcdf8jj8tu6v7mrarhh39zfy8ev9z3ewetsy5rwes
+  - &admin_pc     age10hypj9yw78cve37yxzszq0ldeypq8veedfryxzzylaexnney8ccs3s50es
+  - &admin_tablet age1jvdfnzq208fvja4dyhcdf8jj8tu6v7mrarhh39zfy8ev9z3ewetsy5rwes
   - &laptop age19hy3cr77uk3zaflnkyc9vd807wka3m5hp6aetrwvsprwg5vhlpcqe802p5
-  - &balaur   age1kvrzqwd2gd99c5dvuyyyzp47s8wmz507grgke6y0qu9j9fg55gnseejzuw
-  - &zmeu     age13hf9d5up2350sfnrv6399hcm4e969t8sfu3qhkwvlpvcqpq7nazq9e5zxy
+  - &tablet   age1kvrzqwd2gd99c5dvuyyyzp47s8wmz507grgke6y0qu9j9fg55gnseejzuw
+  - &pc       age13hf9d5up2350sfnrv6399hcm4e969t8sfu3qhkwvlpvcqpq7nazq9e5zxy
 
 creation_rules:
   # One machine's own secrets (modules/secrets.nix, `balaur.secrets.hostFile`):
   # that machine, and the admin keys of the machines that stay at home. Not the
   # laptop's admin key: it travels, and its disk is not encrypted, so a lost
   # laptop would otherwise give away every other machine's secrets too. Edit
-  # these from zmeu or balaur.
-  - path_regex: ^secrets/hosts/balaur\.yaml$
+  # these from the pc or the tablet.
+  - path_regex: ^secrets/hosts/tablet\.yaml$
     key_groups:
       - age:
-          - *admin_zmeu
-          - *admin_balaur
-          - *balaur
-  - path_regex: ^secrets/hosts/zmeu\.yaml$
+          - *admin_pc
+          - *admin_tablet
+          - *tablet
+  - path_regex: ^secrets/hosts/pc\.yaml$
     key_groups:
       - age:
-          - *admin_zmeu
-          - *admin_balaur
-          - *zmeu
+          - *admin_pc
+          - *admin_tablet
+          - *pc
 
   # Shared by the whole fleet: only what more than one machine needs. A machine
   # that must not read a secret needs its own file and its own rule above.
@@ -50,8 +50,8 @@ creation_rules:
     key_groups:
       - age:
           - *admin
-          - *admin_zmeu
-          - *admin_balaur
+          - *admin_pc
+          - *admin_tablet
           - *laptop
-          - *balaur
-          - *zmeu
+          - *tablet
+          - *pc
