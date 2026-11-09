@@ -25,8 +25,13 @@
 #   sops updatekeys secrets/balaur.yaml   after changing recipients in .sops.yaml
 { inputs, ... }:
 {
-  flake.modules.nixos.secrets = {
+  flake.modules.nixos.secrets = { pkgs, ... }: {
     imports = [ inputs.sops-nix.nixosModules.sops ];
+
+    # The tools from "Day to day" above, on every machine that has secrets, so
+    # whichever one you are at can edit them (with the admin key in
+    # ~/.config/sops/age/keys.txt) or add a recipient (ssh-to-age).
+    environment.systemPackages = with pkgs; [ sops ssh-to-age age ];
 
     # This machine decrypts with its own SSH host key. sops-nix converts it to an
     # age identity itself, so there is no separate key file to place or back up.
