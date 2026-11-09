@@ -182,7 +182,6 @@ in
         once. You cannot ask a third machine from there.
       '';
 
-
       # ---- roles ----
       # A role is the same pi with a directory of its own (~/.pi/roles/NAME): other
       # instructions, other tools, the same models. `pi-NAME` opens it, with pi's
@@ -216,7 +215,11 @@ in
           # the log and gives aminte-mcp its address and token.
           mcp.aminte = {
             command = "aminte-prod";
-            args = [ "aminte-mcp" "--agent" "pi" ];
+            args = [
+              "aminte-mcp"
+              "--agent"
+              "pi"
+            ];
             description = "The owner's life log: journal days, notes, people, readings, files";
           };
         };
@@ -228,15 +231,19 @@ in
         "${roleDir name}/AGENTS.md".text = r.instructions;
         "${roleDir name}/mcp.json".text = builtins.toJSON { mcpServers = r.mcp; };
       };
-      roleCommand = name: _: pkgs.writeShellScriptBin "pi-${name}" ''
-        # pi in its ${name} role (agent.nix).
-        export PI_CODING_AGENT_DIR="$HOME/${roleDir name}"
-        exec ${pi}/bin/pi --no-builtin-tools "$@"
-      '';
+      roleCommand =
+        name: _:
+        pkgs.writeShellScriptBin "pi-${name}" ''
+          # pi in its ${name} role (agent.nix).
+          export PI_CODING_AGENT_DIR="$HOME/${roleDir name}"
+          exec ${pi}/bin/pi --no-builtin-tools "$@"
+        '';
       rolesNote = lib.optionalString (roles != { }) ''
         ## Other roles on this machine
 
-        ${lib.concatMapStringsSep ", " (n: "`pi-${n}`") (lib.attrNames roles)}: pi with other instructions and tools, opened by the user
+        ${
+          lib.concatMapStringsSep ", " (n: "`pi-${n}`") (lib.attrNames roles)
+        }: pi with other instructions and tools, opened by the user
         on purpose. What they work with (the life log) is not yours to read or change.
 
       '';
