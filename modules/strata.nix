@@ -100,7 +100,7 @@
         trap 'rm -f "$marker"' EXIT
         echo "downloading the engine and ${cfg.family} ${cfg.model} (tens of GB) and loading it once"
         if ! ${cli}/bin/strata launch --family ${cfg.family} --model ${cfg.model} --access local \
-               --port ${toString cfg.port} --no-api-key --yes --no-tui; then
+               --port ${toString cfg.port} --drafting ${cfg.drafting} --no-api-key --yes --no-tui; then
           # Its logs are the strata user's own (0600): put what matters in the journal.
           echo "---- launch failed; the GPU as the strata user sees it:"
           ${pkgs.util-linux}/bin/runuser -u strata -- nvidia-smi -L || true
@@ -165,6 +165,14 @@
           type = lib.types.str;
           default = "qwen";
           description = "The model family strata-setup downloads (`strata launch --family`).";
+        };
+        drafting = lib.mkOption {
+          type = lib.types.enum [ "auto" "mtp" "dflash2" "off" ];
+          # Strata 0.2.13 + q2_0: auto picks DFlash2, which needs a native pack
+          # (published for q4_0 only), and with no MTP layer to fall back on the
+          # engine stops at start ("--draft-fallback none ... the start ends here").
+          default = "off";
+          description = "The drafter that guesses words ahead (`strata launch --drafting`); off is slower but starts on every size.";
         };
         model = lib.mkOption {
           type = lib.types.str;
@@ -251,6 +259,8 @@
         systemd.timers.strata-setup = {
           wantedBy = [ "timers.target" ];
           timerConfig = { OnActiveSec = "1min"; OnUnitInactiveSec = "1h"; };
+          # A new setup script (other settings) restarts the timer: retried in a minute.
+          restartTriggers = [ setup ];
         };
 
         systemd.services.strata-yield = lib.mkIf cfg.yieldToGames {
