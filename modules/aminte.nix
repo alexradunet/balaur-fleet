@@ -27,10 +27,11 @@
 #
 # Set up once on the serving machine (as root):
 #   - The token: `aminte-token` in secrets/balaur.yaml (64 hex characters).
-#   - The agent's model, kept in life.settings.json beside life.db. With the `ai`
-#     aspect, the fleet's router (zmeu's GPU first, Mistral second; no key):
+#   - The agent's model, kept in life.settings.json beside life.db: with the
+#     `ai` aspect it is set before every start to the fleet's entryway (ai.nix).
+#     Without it, by hand:
 #       sudo -u aminte HOME=/var/lib/aminte aminte --db /var/lib/aminte/life.db \
-#         do settings model_url=http://127.0.0.1:4000/v1 model=balaur model_key=balaur
+#         do settings model_url=<url> model=<id> model_key=<key>
 #   - Moving an existing life.db here: stop aminte.service, install the snapshot as
 #     /var/lib/aminte/life.db (owner aminte, 0600), and the old state folders as
 #     /var/lib/aminte/.config/aminte-NAME. Then start it again.
@@ -134,6 +135,11 @@ in
             # A value that is not digits fails here, and the service stays down.
             ${lib.getExe aminte} --db ${db} do settings \
               owner_number="$(tr -d ' \n' < ${toString cfg.aminte.ownerNumberFile})" > /dev/null
+          '' + lib.optionalString (cfg ? ai) ''
+            # The agent's model: the fleet's AI entryway (ai.nix), like everything
+            # else here. It takes no key; aminte wants one, so it gets a placeholder.
+            ${lib.getExe aminte} --db ${db} do settings \
+              model_url=${cfg.ai.url} model=balaur model_key=balaur > /dev/null
           '';
           serviceConfig = {
             User = "aminte";
