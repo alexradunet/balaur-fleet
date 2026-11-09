@@ -174,28 +174,38 @@ in
           environment.FILELIST_CREDENTIALS = credentials;
           serviceConfig = {
             UMask = "0002"; # files group-writable for `media` (you can tidy them over SSH)
-            ExecStartPre = pkgs.writeShellScript "qbittorrent-seed" ''
-              conf=${qbProfile}/qBittorrent/config
-              [ -e $conf/qBittorrent.conf ] || ${pkgs.coreutils}/bin/install -Dm600 ${qbSeed} $conf/qBittorrent.conf
-              [ -e $conf/categories.json ] || ${pkgs.coreutils}/bin/install -Dm644 ${qbCategories} $conf/categories.json
-              # The web UI's protections, whatever the file said before.
-              ${pkgs.gnused}/bin/sed -i \
-                ${
-                  lib.concatMapStringsSep " " (k: "-e '/^${lib.replaceStrings [ "\\" ] [ "\\\\" ] k}=/d'") (
-                    lib.attrNames enforced
-                  )
-                } \
-                $conf/qBittorrent.conf
-              ${pkgs.gnugrep}/bin/grep -q '^\[Preferences\]$' $conf/qBittorrent.conf || printf '\n[Preferences]\n' >> $conf/qBittorrent.conf
-              ${pkgs.gnused}/bin/sed -i '/^\[Preferences\]$/a ${
-                lib.concatStringsSep "\\n" (
-                  lib.mapAttrsToList (k: v: "${lib.replaceStrings [ "\\" ] [ "\\\\" ] k}=${v}") enforced
-                )
-              }' \
-                $conf/qBittorrent.conf
-              # Always the current version of our search plugin.
-              ${pkgs.coreutils}/bin/install -Dm644 ${./media-search/filelist.py} ${nova3}/engines/filelist.py
-            '';
+            ExecStartPre = lib.getExe (
+              pkgs.writeShellApplication {
+                name = "qbittorrent-seed";
+                runtimeInputs = [
+                  pkgs.coreutils
+                  pkgs.gnugrep
+                  pkgs.gnused
+                ];
+                text = ''
+                  conf=${qbProfile}/qBittorrent/config
+                  [ -e $conf/qBittorrent.conf ] || install -Dm600 ${qbSeed} $conf/qBittorrent.conf
+                  [ -e $conf/categories.json ] || install -Dm644 ${qbCategories} $conf/categories.json
+                  # The web UI's protections, whatever the file said before.
+                  sed -i \
+                    ${
+                      lib.concatMapStringsSep " " (k: "-e '/^${lib.replaceStrings [ "\\" ] [ "\\\\" ] k}=/d'") (
+                        lib.attrNames enforced
+                      )
+                    } \
+                    $conf/qBittorrent.conf
+                  grep -q '^\[Preferences\]$' $conf/qBittorrent.conf || printf '\n[Preferences]\n' >> $conf/qBittorrent.conf
+                  sed -i '/^\[Preferences\]$/a ${
+                    lib.concatStringsSep "\\n" (
+                      lib.mapAttrsToList (k: v: "${lib.replaceStrings [ "\\" ] [ "\\\\" ] k}=${v}") enforced
+                    )
+                  }' \
+                    $conf/qBittorrent.conf
+                  # Always the current version of our search plugin.
+                  install -Dm644 ${./media-search/filelist.py} ${nova3}/engines/filelist.py
+                '';
+              }
+            );
             ReadWritePaths = [ media ];
           };
         };

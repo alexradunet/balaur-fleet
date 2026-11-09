@@ -83,10 +83,6 @@ in
       services.printing.enable = true;
       nixpkgs.config.allowUnfree = true;
 
-      # Drops the offline manual and its "NixOS Manual" launcher. It duplicates
-      # the web one, and building nixos-manual-html is a slice of every rebuild.
-      documentation.nixos.enable = false;
-
       # The value this machine's first install wrote. Never "upgrade" it by hand.
       system.stateVersion = "26.05";
       # The EFI partition is at /boot and the install uses systemd-boot, which is

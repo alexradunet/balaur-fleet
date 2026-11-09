@@ -1,5 +1,5 @@
 # Lenovo Yoga Duet 7 13ITL6 (Tiger Lake i5-1135G7 / i7-1165G7, Intel IPU6 cameras, NVMe, AX201 Wi-Fi).
-# Disks and kernel modules come from hardware-configuration.nix (see default.nix).
+# Disks and kernel modules come from hardware-configuration.nix (see the host file).
 {
   flake.modules.nixos.yoga-duet-7 =
     { ... }:

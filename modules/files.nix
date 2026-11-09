@@ -238,7 +238,7 @@ in
           # fight the 2775 the volume needs and lock the admin out of their own
           # synced folder. dataDir is only the home and the default folder path,
           # and the folder below sets its path explicitly, so point it at the state
-          # directory instead and leave the volume to balaur-files-perms.
+          # directory instead and leave the volume to balaur-files-volume.
           dataDir = "/var/lib/syncthing";
           configDir = "/var/lib/syncthing";
           guiAddress = "0.0.0.0:8384";

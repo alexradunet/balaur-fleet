@@ -460,12 +460,19 @@
               # Lists, reminders and memory lived in duet-assistant before the rename
               # (2026-11-08). Carried over once, while the new directory is still
               # empty; delete this line once every machine has run it.
-              ExecStartPre = pkgs.writeShellScript "balaur-assistant-migrate-state" ''
-                old="''${XDG_STATE_HOME:-$HOME/.local/state}/duet-assistant"
-                if [ -d "$old" ] && [ -z "$(ls -A "$STATE_DIRECTORY")" ]; then
-                  rmdir "$STATE_DIRECTORY" && mv "$old" "$STATE_DIRECTORY"
-                fi
-              '';
+              ExecStartPre = lib.getExe (
+                pkgs.writeShellApplication {
+                  name = "balaur-assistant-migrate-state";
+                  runtimeInputs = [ pkgs.coreutils ];
+                  text = ''
+                    old="''${XDG_STATE_HOME:-$HOME/.local/state}/duet-assistant"
+                    if [ -d "$old" ] && [ -z "$(ls -A "$STATE_DIRECTORY")" ]; then
+                      rmdir "$STATE_DIRECTORY"
+                      mv "$old" "$STATE_DIRECTORY"
+                    fi
+                  '';
+                }
+              );
               ExecStart = lib.getExe package;
               Restart = "always";
               RestartSec = 3;

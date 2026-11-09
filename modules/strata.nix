@@ -83,89 +83,135 @@
       );
 
       # `strata` for the admin: the upstream CLI, as the strata user, in its state.
-      cli = pkgs.writeShellScriptBin "strata" ''
-        cd ${state}
-        if [ "$(id -un)" = strata ]; then
-          exec env ${envArgs} ${control}/share/strata-control/bin/strata "$@"
-        elif [ "$(id -u)" = 0 ]; then
-          exec ${pkgs.util-linux}/bin/runuser -u strata -- env ${envArgs} ${control}/share/strata-control/bin/strata "$@"
-        else
-          echo "strata runs as the strata user: use sudo strata $*" >&2
-          exit 1
-        fi
-      '';
+      cli = pkgs.writeShellApplication {
+        name = "strata";
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.util-linux
+        ];
+        text = ''
+          cd ${state}
+          if [ "$(id -un)" = strata ]; then
+            exec env ${envArgs} ${control}/share/strata-control/bin/strata "$@"
+          elif [ "$(id -u)" = 0 ]; then
+            exec runuser -u strata -- env ${envArgs} ${control}/share/strata-control/bin/strata "$@"
+          else
+            echo "strata runs as the strata user: use sudo strata $*" >&2
+            exit 1
+          fi
+        '';
+      };
 
       # The card is there only when the OCuLink dock was on at boot.
-      gpuPresent = pkgs.writeShellScript "strata-gpu-present" ''
-        for d in /sys/bus/pci/drivers/nvidia/0000:*; do [ -e "$d" ] && exit 0; done
-        echo "no NVIDIA card bound (dock off at boot?): not starting" >&2
-        exit 1
-      '';
+      gpuPresent = pkgs.writeShellApplication {
+        name = "strata-gpu-present";
+        text = ''
+          for d in /sys/bus/pci/drivers/nvidia/0000:*; do
+            if [ -e "$d" ]; then exit 0; fi
+          done
+          echo "no NVIDIA card bound (dock off at boot?): not starting" >&2
+          exit 1
+        '';
+      };
 
       # The one-time setup, unattended: download the engine and the model, serve
       # once to prove they work, save the profile strata.service serves, start it.
-      setup = pkgs.writeShellScript "strata-setup" ''
-        set -eu
-        export PATH=${path}
-        marker=$(mktemp)
-        trap 'rm -f "$marker"' EXIT
-        echo "downloading the engine and ${cfg.family} ${cfg.model} (tens of GB) and loading it once"
-        if ! ${cli}/bin/strata launch --family ${cfg.family} --model ${cfg.model} --access local \
-               --port ${toString cfg.port} --drafting ${cfg.drafting} --no-api-key --yes --no-tui; then
-          # Its logs are the strata user's own (0600): put what matters in the journal.
-          echo "---- launch failed; the GPU as the strata user sees it:"
-          ${pkgs.util-linux}/bin/runuser -u strata -- nvidia-smi -L || true
-          env | grep -iE '^(CUDA|NVIDIA|NIX_LD|LD_)' || true
-          for f in $(ls -t ${state}/.local/state/strata/launch/*.engine.log 2>/dev/null | head -1); do
-            echo "---- the end of $f:"; tail -n 60 "$f"
-          done
-          exit 1
-        fi
-        for _ in $(seq 360); do
-          if ${pkgs.curl}/bin/curl -fsS -m 5 http://127.0.0.1:${toString cfg.port}/health 2>/dev/null \
-               | ${pkgs.jq}/bin/jq -e '.loaded != false' >/dev/null; then
-            loaded=1; break
-          fi
-          sleep 10
-        done
-        ${cli}/bin/strata launch --stop || true
-        [ "''${loaded:-}" = 1 ] || { echo "the model did not load within an hour" >&2; exit 1; }
-        config=$(find ${state} -name 'strata-*.json' -newer "$marker" -not -path '*/profiles/*' -printf '%T@ %p\n' \
-                 | sort -rn | head -1 | cut -d' ' -f2-)
-        [ -n "$config" ] || { echo "no run config written under ${state}" >&2; exit 1; }
-        echo "saving profile ${cfg.profile} from $config"
-        ${cli}/bin/strata profile create ${cfg.profile} --from-config "$config"
-        systemctl start --no-block strata.service
-      '';
-
-      yield = pkgs.writeShellScript "strata-yield" ''
-        flag=/run/strata-yield/yielded
-        quiet=0
-        while true; do
-          # A Steam game (Steam's `reaper` runs beside each one), anything on Wine or
-          # Proton (`wineserver`: Battle.net and Proton games) or umu. Process names,
-          # not command lines: a shell or editor merely showing these words must not count.
-          if ${pkgs.procps}/bin/pgrep -x 'reaper|wineserver|umu-run' >/dev/null; then
-            quiet=0
-            case "$(${pkgs.systemd}/bin/systemctl is-active strata.service)" in active|activating|reloading)
-              echo "a game started: stopping Strata"
-              touch "$flag"
-              ${pkgs.systemd}/bin/systemctl stop strata.service
-              ;;
-            esac
-          elif [ -e "$flag" ]; then
-            # A minute without a game, so a launcher restarting a game does not
-            # reload a 40 GB model in between.
-            quiet=$((quiet + 5))
-            if [ "$quiet" -ge 60 ]; then
-              echo "no game for a minute: starting Strata"
-              rm -f "$flag"
-              ${pkgs.systemd}/bin/systemctl start --no-block strata.service
+      setup = pkgs.writeShellApplication {
+        name = "strata-setup";
+        runtimeInputs = [
+          cli
+          pkgs.coreutils
+          pkgs.curl
+          pkgs.findutils
+          pkgs.gnugrep
+          pkgs.jq
+          pkgs.systemd
+          pkgs.util-linux
+        ];
+        text = ''
+          # nvidia-smi, for the launcher's GPU checks, is in the system profile.
+          export PATH="$PATH:/run/current-system/sw/bin"
+          marker=$(mktemp)
+          trap 'rm -f "$marker"' EXIT
+          echo "downloading the engine and ${cfg.family} ${cfg.model} (tens of GB) and loading it once"
+          if ! strata launch --family ${cfg.family} --model ${cfg.model} --access local \
+                 --port ${toString cfg.port} --drafting ${cfg.drafting} --no-api-key --yes --no-tui; then
+            # Its logs are the strata user's own (0600): put what matters in the journal.
+            echo "---- launch failed; the GPU as the strata user sees it:"
+            runuser -u strata -- nvidia-smi -L || true
+            env | grep -iE '^(CUDA|NVIDIA|NIX_LD|LD_)' || true
+            log=$(find ${state}/.local/state/strata/launch -name '*.engine.log' -printf '%T@ %p\n' 2>/dev/null \
+                  | sort -rn | head -1 | cut -d' ' -f2- || true)
+            if [ -n "$log" ]; then
+              echo "---- the end of $log:"
+              tail -n 60 "$log"
             fi
+            exit 1
           fi
-          sleep 5
-        done
-      '';
+          loaded=0
+          for _ in $(seq 360); do
+            if curl -fsS -m 5 http://127.0.0.1:${toString cfg.port}/health 2>/dev/null \
+                 | jq -e '.loaded != false' >/dev/null; then
+              loaded=1
+              break
+            fi
+            sleep 10
+          done
+          strata launch --stop || true
+          if [ "$loaded" != 1 ]; then
+            echo "the model did not load within an hour" >&2
+            exit 1
+          fi
+          config=$(find ${state} -name 'strata-*.json' -newer "$marker" -not -path '*/profiles/*' -printf '%T@ %p\n' \
+                   | sort -rn | head -1 | cut -d' ' -f2- || true)
+          if [ -z "$config" ]; then
+            echo "no run config written under ${state}" >&2
+            exit 1
+          fi
+          echo "saving profile ${cfg.profile} from $config"
+          strata profile create ${cfg.profile} --from-config "$config"
+          systemctl start --no-block strata.service
+        '';
+      };
+
+      yield = pkgs.writeShellApplication {
+        name = "strata-yield";
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.procps
+          pkgs.systemd
+        ];
+        text = ''
+          flag=/run/strata-yield/yielded
+          quiet=0
+          while true; do
+            # A Steam game (Steam's `reaper` runs beside each one), anything on Wine or
+            # Proton (`wineserver`: Battle.net and Proton games) or umu. Process names,
+            # not command lines: a shell or editor merely showing these words must not count.
+            if pgrep -x 'reaper|wineserver|umu-run' >/dev/null; then
+              quiet=0
+              state=$(systemctl is-active strata.service || true)
+              case "$state" in
+                active | activating | reloading)
+                  echo "a game started: stopping Strata"
+                  touch "$flag"
+                  systemctl stop strata.service
+                  ;;
+              esac
+            elif [ -e "$flag" ]; then
+              # A minute without a game, so a launcher restarting a game does not
+              # reload a 40 GB model in between.
+              quiet=$((quiet + 5))
+              if [ "$quiet" -ge 60 ]; then
+                echo "no game for a minute: starting Strata"
+                rm -f "$flag"
+                systemctl start --no-block strata.service
+              fi
+            fi
+            sleep 5
+          done
+        '';
+      };
     in
     {
       options.balaur.strata = {
@@ -276,7 +322,7 @@
             User = "strata";
             Group = "strata";
             WorkingDirectory = state;
-            ExecCondition = gpuPresent;
+            ExecCondition = lib.getExe gpuPresent;
             ExecStart = "${control}/share/strata-control/bin/strata serve --profile ${cfg.profile} --host 0.0.0.0 --port ${toString cfg.port}";
             Restart = "on-failure";
             RestartSec = 30;
@@ -305,8 +351,8 @@
           ];
           serviceConfig = {
             Type = "exec";
-            ExecCondition = gpuPresent;
-            ExecStart = setup;
+            ExecCondition = lib.getExe gpuPresent;
+            ExecStart = lib.getExe setup;
             TimeoutStartSec = "infinity";
           };
         };
@@ -327,7 +373,7 @@
           description = "Stop Strata while a game runs";
           wantedBy = [ "multi-user.target" ];
           serviceConfig = {
-            ExecStart = yield;
+            ExecStart = lib.getExe yield;
             RuntimeDirectory = "strata-yield";
             RuntimeDirectoryPreserve = true;
             Restart = "always";

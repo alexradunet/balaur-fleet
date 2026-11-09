@@ -11,22 +11,34 @@
     let
       cfg = config.balaur.power;
 
-      chargeLimit = pkgs.writeShellScript "duet-charge-limit" ''
-        limit=${toString cfg.chargeLimit}
-        done=0
-        # Generic ACPI battery API (ThinkPad-style and newer ideapad firmware).
-        for f in /sys/class/power_supply/BAT*/charge_control_end_threshold; do
-          [ -w "$f" ] && echo "$limit" > "$f" && done=1
-        done
-        # Lenovo IdeaPad/Yoga "conservation mode": a fixed ~60-80% cap.
-        if [ "$done" = 0 ]; then
-          for f in /sys/bus/platform/drivers/ideapad_acpi/*/conservation_mode; do
-            [ -w "$f" ] && echo 1 > "$f" && done=1
+      chargeLimit = pkgs.writeShellApplication {
+        name = "duet-charge-limit";
+        text = ''
+          limit=${toString cfg.chargeLimit}
+          applied=0
+          # Generic ACPI battery API (ThinkPad-style and newer ideapad firmware).
+          for f in /sys/class/power_supply/BAT*/charge_control_end_threshold; do
+            if [ -w "$f" ]; then
+              echo "$limit" >"$f"
+              applied=1
+            fi
           done
-        fi
-        [ "$done" = 1 ] && echo "charge limit applied" || echo "no charge-limit control found; skipping"
-        exit 0
-      '';
+          # Lenovo IdeaPad/Yoga "conservation mode": a fixed ~60-80% cap.
+          if [ "$applied" = 0 ]; then
+            for f in /sys/bus/platform/drivers/ideapad_acpi/*/conservation_mode; do
+              if [ -w "$f" ]; then
+                echo 1 >"$f"
+                applied=1
+              fi
+            done
+          fi
+          if [ "$applied" = 1 ]; then
+            echo "charge limit applied"
+          else
+            echo "no charge-limit control found; skipping"
+          fi
+        '';
+      };
     in
     {
       options.balaur = {
@@ -77,7 +89,7 @@
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
-            ExecStart = chargeLimit;
+            ExecStart = lib.getExe chargeLimit;
           };
         };
       };

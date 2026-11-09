@@ -282,7 +282,6 @@
                   "htop.desktop"
                   "gvim.desktop"
                   "vim.desktop"
-                  "nixos-manual.desktop"
                   "gtk3-demo.desktop"
                   "gtk3-icon-browser.desktop"
                   "gtk3-widget-factory.desktop"

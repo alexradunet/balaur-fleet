@@ -152,11 +152,16 @@ in
         # in its state file; --creds writes it and leaves the paired clients alone.
         (lib.optionalAttrs useSops {
           sops.secrets.sunshine-password.owner = user;
-          systemd.user.services.sunshine.serviceConfig.ExecStartPre =
-            "${pkgs.writeShellScript "sunshine-set-login" ''
-              ${config.services.sunshine.package}/bin/sunshine --creds ${user} \
-                "$(cat ${config.sops.secrets.sunshine-password.path})" >/dev/null
-            ''}";
+          systemd.user.services.sunshine.serviceConfig.ExecStartPre = lib.getExe (
+            pkgs.writeShellApplication {
+              name = "sunshine-set-login";
+              runtimeInputs = [ pkgs.coreutils ];
+              text = ''
+                ${lib.getExe config.services.sunshine.package} --creds ${user} \
+                  "$(cat ${config.sops.secrets.sunshine-password.path})" >/dev/null
+              '';
+            }
+          );
         })
       ];
     };

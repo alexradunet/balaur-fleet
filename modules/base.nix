@@ -157,6 +157,10 @@ in
         boot.loader.systemd-boot = {
           enable = true;
           configurationLimit = 10;
+          # No editing the kernel command line at the boot menu: on the Duet anyone
+          # at the household screen could otherwise boot into a root shell
+          # (init=/bin/sh). Older generations stay one arrow key away.
+          editor = false;
         };
         boot.loader.efi.canTouchEfiVariables = true;
 
@@ -169,6 +173,10 @@ in
           "loglevel=3"
           "udev.log_level=3"
         ];
+
+        # Firmware updates from LVFS (`fwupdmgr get-updates`; GNOME Software shows
+        # them too). Every machine here is real hardware; the daemon starts on demand.
+        services.fwupd.enable = true;
 
         zramSwap.enable = true;
         services.fstrim.enable = true;
@@ -212,6 +220,14 @@ in
             "@wheel"
           ];
         };
+        # Flakes only: no root channel to drift from flake.lock. NixOS already pins
+        # the registry's and NIX_PATH's `nixpkgs` to the system's own.
+        nix.channel.enable = false;
+
+        # Drops the offline manual and its "NixOS Manual" launcher. It duplicates
+        # nixos.org/manual, and building nixos-manual-html is a slice of every rebuild.
+        documentation.nixos.enable = false;
+
         # Deduplicate the store once a week, not by hashing every build's outputs
         # as they land (auto-optimise-store): same result, less CPU while building.
         nix.optimise.automatic = true;
