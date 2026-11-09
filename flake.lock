@@ -3,11 +3,11 @@
     "aminte": {
       "flake": false,
       "locked": {
-        "lastModified": 1794255606,
-        "narHash": "sha256-0p0YJRyqbAMHnoG6D1Awpy+rIbeKWa5Z7Xu736099Bc=",
+        "lastModified": 1794261042,
+        "narHash": "sha256-NrzE6gYh+/Urn+KC5nllutS/PK88WSKSQUgkraW7Tb0=",
         "owner": "alexradunet",
         "repo": "aminte",
-        "rev": "066ce18496009c333d04008e3251128621444b1d",
+        "rev": "615368613365af559cc76f845689eeff136c2476",
         "type": "github"
       },
       "original": {

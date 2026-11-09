@@ -48,17 +48,12 @@ let
     (part {
       name = "aminte-web";
       modRoot = "extensions/web";
-      vendorHash = "sha256-qufZU9Gk0bQpWcP68PlMc9C7pwQkV+OHiofLDdXpbUM=";
-    })
-    (part {
-      name = "aminte-ticktick";
-      modRoot = "extensions/ticktick";
-      vendorHash = "sha256-Ba77vKH41YndzoWunFj9MzxrZYa9aUXXkp/B+iDKFjk=";
+      vendorHash = "sha256-CrQJE2wTcQMUVmNgZql2Qw4hTIX70+IvqDwM31ui4PU=";
     })
     (part {
       name = "aminte-mcp";
       modRoot = "extensions/mcp";
-      vendorHash = "sha256-QPDJQkGLTJWTTVrmGd0wQQEjC7/PiZU1fDIl3WOnPBw=";
+      vendorHash = "sha256-CYn9VvuETdp7CGMxAf2fSQQrfAswfjHec8IIQOyW9ys=";
     })
     (part {
       name = "aminte-agentic-init";

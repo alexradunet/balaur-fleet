@@ -1,7 +1,7 @@
 # aminte (github.com/alexradunet/aminte): the life log, one SQLite file, life.db.
 # Two aspects:
 #
-#   aminte       runs `aminte serve` with its extensions (web, ticktick), on one
+#   aminte       runs `aminte serve` with its extensions (web), on one
 #                machine: the always-on one, balaur. The browser is
 #                https://aminte.<balaur.web.domain>, tailnet only.
 #   aminte-dev   the binaries and `aminte-prod`, for the machine you develop on.
@@ -84,16 +84,13 @@ in
           type = lib.types.listOf (
             lib.types.enum [
               "web"
-              "ticktick"
             ]
           );
           default = [
             "web"
-            "ticktick"
           ];
           description = ''
             The extensions `serve` runs beside the core. One that is not set up yet
-            (ticktick before `aminte ticktick login`)
             exits 78 and is not started again; the others are unaffected.
           '';
         };
