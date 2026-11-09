@@ -42,6 +42,18 @@ in
       hasBattlenet = lib.any (p: (p.pname or p.name or "") == "battlenet") config.environment.systemPackages;
     in
     {
+      options.balaur.gameStreaming.lanClients = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        example = [ "192.168.50.106" ];
+        description = ''
+          LAN addresses of clients that cannot join the tailnet (a TV running
+          Moonlight), let through to the streaming ports and nothing else. They
+          need a fixed address in the router, and so does this host, which they
+          dial on the LAN.
+        '';
+      };
+
       config = lib.mkMerge [
         {
           services.sunshine = {
@@ -52,6 +64,10 @@ in
             capSysAdmin = true;
             # Ports stay closed on the LAN; the tailnet is trusted (see above).
             openFirewall = false;
+            # NVENC needs CUDA, and Sunshine runs with a capability, so the loader
+            # ignores LD_LIBRARY_PATH: only the CUDA build carries the driver's
+            # library path (/run/opengl-driver/lib) in the binary itself.
+            package = lib.mkIf nvidia (pkgs.sunshine.override { cudaSupport = true; cudaPackages = pkgs.cudaPackages; });
             settings = {
               sunshine_name = host;
               capture = "kms";
@@ -76,6 +92,14 @@ in
                 detached = [ "setsid battlenet" ];
               };
           };
+        }
+
+        # Streaming ports (not the web UI) for the LAN clients, by source address.
+        {
+          networking.firewall.extraCommands = lib.concatMapStrings (src: ''
+            iptables -A nixos-fw -s ${src} -p tcp -m multiport --dports 47984,47989,48010 -j nixos-fw-accept
+            iptables -A nixos-fw -s ${src} -p udp -m multiport --dports 47998:48000,48002,48010 -j nixos-fw-accept
+          '') config.balaur.gameStreaming.lanClients;
         }
 
         # The web UI's login, from the sops file. Sunshine keeps it as a salted hash

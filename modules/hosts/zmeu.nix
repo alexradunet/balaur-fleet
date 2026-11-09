@@ -98,6 +98,9 @@ in
       nix.daemonCPUSchedPolicy = "idle";
       nix.daemonIOSchedClass = "idle";
 
+    # The living-room TV runs Moonlight but is not on the tailnet (game-streaming).
+    balaur.gameStreaming.lanClients = [ "192.168.50.106" ];
+
       # The second NVMe: the old Windows disk, kept for the personal media on it.
       # Read-only until its future is decided; nofail, so the machine boots without it.
       fileSystems."/mnt/old-ssd" = {
