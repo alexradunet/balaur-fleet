@@ -31,15 +31,29 @@ skipped). The **dendritic pattern** works like this:
 - `nixos-rebuild build --flake .#<host>`, then `nix store diff-closures /run/current-system ./result`.
 - A change to a shared aspect (base, fleet, home, network, dev) affects every host:
   evaluate them all.
-- Deploying to another machine over the tailnet: `nixos-rebuild switch --flake .#<host> --target-host <host> --sudo --ask-sudo-password`.
-  This builds locally and copies the closure over, so do fleet work on **laptop**, the
-  cockpit: it is much the stronger machine, and balaur is also the household screen, where a
-  long build competes with the people using it. balaur is a deploy target, not a workstation.
-  After pushing, fast-forward balaur's own clone so the next session there is not stale.
-- A machine with the `auto-deploy` aspect (so far: zmeu) follows `main` on GitHub by
-  itself: within ~5 minutes of a push it switches to the new commit and fast-forwards its
-  clone. No `--target-host` for it; `journalctl -u balaur-auto-deploy` shows what it did.
-  A secret change must be on GitHub (`sops updatekeys` pushed) before anything that needs it.
+
+## Deploying: push, and every machine follows
+
+`main` on GitHub is the fleet's one source of truth; every machine is a copy of it.
+The `auto-deploy` aspect (on every machine) checks `main` every 5 minutes and, on a
+new commit, switches to its own configuration at that commit and fast-forwards its
+clone. So work from whichever machine you are at — laptop, zmeu or balaur — and
+deploying is `git push`. Nobody runs `--target-host` any more.
+
+- Each machine builds its own system, and the heavy builds go to the fleet's builders
+  (zmeu first; fleet.nix). So editing on balaur is fine: the Duet only evaluates.
+- Test before pushing, on the machine you are at: `nixos-rebuild build --flake .#<host>`,
+  or `sudo nixos-rebuild switch` from the working tree. A manual switch stays until
+  the next push.
+- `journalctl -u balaur-auto-deploy` shows what a machine did; `sudo systemctl start
+  balaur-auto-deploy` checks now instead of waiting. A commit that fails to build is
+  tried once per machine; push a fix.
+- Pushing needs `gh auth login` once per machine (the remote is HTTPS).
+- A secret change must reach GitHub (`sops updatekeys` pushed) in the same push as, or
+  before, anything that needs it, or the machines switch to a config they cannot decrypt.
+- A clone with local commits or changes is not fast-forwarded; `git pull --rebase`.
+- By hand, when needed (a machine without auto-deploy yet, or one that cannot reach
+  GitHub): `nixos-rebuild switch --flake .#<host> --target-host <host> --sudo --ask-sudo-password`.
 
 ## Adding a machine (run on the new machine, in a clone of this repo)
 
@@ -62,7 +76,7 @@ skipped). The **dendritic pattern** works like this:
      `networking.hostName`, `time.timeZone`, `system.stateVersion`, `balaur.user`.
    - Hardware specifics go in a `modules/hardware/<model>.nix` aspect (see `yoga-duet-7.nix`
      for Intel, `yoga-pro-7.nix` for AMD).
-5. Choose aspects with the user. Every machine gets `base fleet home network`, and usually `dev`.
+5. Choose aspects with the user. Every machine gets `base fleet home network auto-deploy`, and usually `dev`.
    A machine with a screen gets `gnome` plus exactly one of `tablet` or `desktop`.
    Don't give a normal laptop the Duet-only ones:
    - `always-on`: never sleeps, ignores the lid.
@@ -80,8 +94,11 @@ skipped). The **dendritic pattern** works like this:
 6. `nixos-rebuild build --flake .#<hostname>`. Then `sudo nixos-rebuild boot --flake .#<hostname>`
    and reboot. The first switch to a new layout is safer at boot, and older generations
    stay in the boot menu.
-7. Commit and push. Then rebuild the other machines so they learn the new host
-   (SSH known_hosts, authorized keys): `nixos-rebuild switch --flake .#balaur --target-host balaur --sudo --ask-sudo-password`.
+7. Add the new machine to `.sops.yaml` (`ssh-to-age` of its host key) and run
+   `sops updatekeys secrets/balaur.yaml` on a machine that has the admin key, before it
+   gets `secrets`. Commit and push: the other machines learn the new host (SSH
+   known_hosts, authorized keys, Syncthing, builders) by themselves. `gh auth login` on
+   it, so you can push from there too.
 
 ## The user
 

@@ -43,7 +43,6 @@ in
         gaming
         steam
         game-streaming
-        # Follows main on GitHub by itself; the first machine to, before the rest.
         auto-deploy
         # Decrypts with its SSH host key, a recipient in .sops.yaml.
         secrets

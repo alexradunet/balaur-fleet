@@ -41,6 +41,7 @@ in
       aminte
       assistant
       dev
+      auto-deploy
       camera
       gnome
       tablet
