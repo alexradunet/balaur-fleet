@@ -99,8 +99,17 @@
         marker=$(mktemp)
         trap 'rm -f "$marker"' EXIT
         echo "downloading the engine and ${cfg.family} ${cfg.model} (tens of GB) and loading it once"
-        ${cli}/bin/strata launch --family ${cfg.family} --model ${cfg.model} --access local \
-          --port ${toString cfg.port} --no-api-key --yes --no-tui
+        if ! ${cli}/bin/strata launch --family ${cfg.family} --model ${cfg.model} --access local \
+               --port ${toString cfg.port} --no-api-key --yes --no-tui; then
+          # Its logs are the strata user's own (0600): put what matters in the journal.
+          echo "---- launch failed; the GPU as the strata user sees it:"
+          ${pkgs.util-linux}/bin/runuser -u strata -- nvidia-smi -L || true
+          env | grep -iE '^(CUDA|NVIDIA|NIX_LD|LD_)' || true
+          for f in $(ls -t ${state}/.local/state/strata/launch/*.engine.log 2>/dev/null | head -1); do
+            echo "---- the end of $f:"; tail -n 60 "$f"
+          done
+          exit 1
+        fi
         for _ in $(seq 360); do
           if ${pkgs.curl}/bin/curl -fsS -m 5 http://127.0.0.1:${toString cfg.port}/health 2>/dev/null \
                | ${pkgs.jq}/bin/jq -e '.loaded != false' >/dev/null; then
@@ -235,6 +244,13 @@
             ExecStart = setup;
             TimeoutStartSec = "infinity";
           };
+        };
+
+        # Retries a failed setup an hour later (and first, a minute after a deploy
+        # that brings it); once the profile exists the service's condition skips it.
+        systemd.timers.strata-setup = {
+          wantedBy = [ "timers.target" ];
+          timerConfig = { OnActiveSec = "1min"; OnUnitInactiveSec = "1h"; };
         };
 
         systemd.services.strata-yield = lib.mkIf cfg.yieldToGames {
