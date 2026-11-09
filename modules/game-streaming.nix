@@ -41,14 +41,22 @@ let
 in
 {
   flake.modules.nixos.game-streaming =
-    { config, lib, pkgs, options, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      options,
+      ...
+    }:
     let
       host = config.networking.hostName;
       ip = fleet.${host}.tailnetIp or null;
       user = config.balaur.user;
       useSops = options ? sops;
       nvidia = lib.elem "nvidia" config.services.xserver.videoDrivers;
-      hasBattlenet = lib.any (p: (p.pname or p.name or "") == "battlenet") config.environment.systemPackages;
+      hasBattlenet = lib.any (
+        p: (p.pname or p.name or "") == "battlenet"
+      ) config.environment.systemPackages;
     in
     {
       options.balaur.gameStreaming.lanClients = lib.mkOption {
@@ -76,7 +84,12 @@ in
             # NVENC needs CUDA, and Sunshine runs with a capability, so the loader
             # ignores LD_LIBRARY_PATH: only the CUDA build carries the driver's
             # library path (/run/opengl-driver/lib) in the binary itself.
-            package = lib.mkIf nvidia (pkgs.sunshine.override { cudaSupport = true; cudaPackages = pkgs.cudaPackages; });
+            package = lib.mkIf nvidia (
+              pkgs.sunshine.override {
+                cudaSupport = true;
+                cudaPackages = pkgs.cudaPackages;
+              }
+            );
             settings = {
               sunshine_name = host;
               capture = "kms";
@@ -85,34 +98,46 @@ in
               encoder = if nvidia then "nvenc" else "vaapi";
               # The web UI only accepts requests from localhost unless told
               # otherwise; we open it as https://<host>:47990 from the tailnet.
-              csrf_allowed_origins = lib.concatMapStringsSep "," (h: "https://${h}:47990")
-                ([ host ] ++ lib.optional (ip != null) ip);
+              csrf_allowed_origins = lib.concatMapStringsSep "," (h: "https://${h}:47990") (
+                [ host ] ++ lib.optional (ip != null) ip
+              );
             };
-            applications.apps =
-              [{ name = "Desktop"; image-path = "desktop.png"; }]
-              ++ lib.optional config.programs.steam.enable {
-                name = "Steam Big Picture";
-                image-path = "steam.png";
-                detached = [ "setsid steam steam://open/bigpicture" ];
-                prep-cmd = [{ do = ""; undo = "setsid steam steam://close/bigpicture"; }];
+            applications.apps = [
+              {
+                name = "Desktop";
+                image-path = "desktop.png";
               }
-              ++ lib.optional hasBattlenet {
-                name = "Battle.net";
-                detached = [ "setsid battlenet" ];
-              };
+            ]
+            ++ lib.optional config.programs.steam.enable {
+              name = "Steam Big Picture";
+              image-path = "steam.png";
+              detached = [ "setsid steam steam://open/bigpicture" ];
+              prep-cmd = [
+                {
+                  do = "";
+                  undo = "setsid steam steam://close/bigpicture";
+                }
+              ];
+            }
+            ++ lib.optional hasBattlenet {
+              name = "Battle.net";
+              detached = [ "setsid battlenet" ];
+            };
           };
 
           # Its web UI (pairing, the PIN) on the home page and in the app. It serves
           # only TLS, self-signed: no subdomain behind Caddy, the browser warns once.
-          balaur.services = [{
-            name = "Sunshine";
-            description = "Game streaming: pair Moonlight";
-            icon = "🎮";
-            port = 47990;
-            scheme = "https";
-            unit = "user:sunshine.service";
-            group = "Games";
-          }];
+          balaur.services = [
+            {
+              name = "Sunshine";
+              description = "Game streaming: pair Moonlight";
+              icon = "🎮";
+              port = 47990;
+              scheme = "https";
+              unit = "user:sunshine.service";
+              group = "Games";
+            }
+          ];
         }
 
         # Streaming ports (not the web UI) for the LAN clients, by source address.
@@ -127,10 +152,11 @@ in
         # in its state file; --creds writes it and leaves the paired clients alone.
         (lib.optionalAttrs useSops {
           sops.secrets.sunshine-password.owner = user;
-          systemd.user.services.sunshine.serviceConfig.ExecStartPre = "${pkgs.writeShellScript "sunshine-set-login" ''
-            ${config.services.sunshine.package}/bin/sunshine --creds ${user} \
-              "$(cat ${config.sops.secrets.sunshine-password.path})" >/dev/null
-          ''}";
+          systemd.user.services.sunshine.serviceConfig.ExecStartPre =
+            "${pkgs.writeShellScript "sunshine-set-login" ''
+              ${config.services.sunshine.package}/bin/sunshine --creds ${user} \
+                "$(cat ${config.sops.secrets.sunshine-password.path})" >/dev/null
+            ''}";
         })
       ];
     };

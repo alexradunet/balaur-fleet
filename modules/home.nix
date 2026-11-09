@@ -34,7 +34,10 @@ in
   flake.modules.homeManager.shell = {
     programs.bash = {
       enable = true;
-      historyControl = [ "ignoredups" "erasedups" ];
+      historyControl = [
+        "ignoredups"
+        "erasedups"
+      ];
       historySize = 10000;
     };
   };

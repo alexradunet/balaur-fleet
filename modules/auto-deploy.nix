@@ -21,7 +21,12 @@
 # By hand: `sudo systemctl start balaur-auto-deploy` checks right away.
 {
   flake.modules.nixos.auto-deploy =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur.autoDeploy;
       host = config.networking.hostName;
@@ -73,10 +78,13 @@
           };
 
           # The same environment nixpkgs' system.autoUpgrade runs nixos-rebuild in.
-          environment = config.nix.envVars // {
-            inherit (config.environment.sessionVariables) NIX_PATH;
-            HOME = "/root";
-          } // config.networking.proxy.envVars;
+          environment =
+            config.nix.envVars
+            // {
+              inherit (config.environment.sessionVariables) NIX_PATH;
+              HOME = "/root";
+            }
+            // config.networking.proxy.envVars;
           path = with pkgs; [
             coreutils
             gnutar
@@ -105,7 +113,9 @@
 
             ${lib.optionalString (cfg.clone != null) ''
               if [ -d ${lib.escapeShellArg cfg.clone}/.git ]; then
-                runuser -u ${user} -- env HOME=${config.users.users.${user}.home} git -C ${lib.escapeShellArg cfg.clone} pull --ff-only --quiet \
+                runuser -u ${user} -- env HOME=${
+                  config.users.users.${user}.home
+                } git -C ${lib.escapeShellArg cfg.clone} pull --ff-only --quiet \
                   || echo "left ${cfg.clone} alone: it has local changes or commits"
               fi
             ''}

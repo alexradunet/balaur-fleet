@@ -25,7 +25,12 @@ let
 in
 {
   flake.modules.nixos.torrents =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur;
       media = "${toString cfg.storage.root}/media";
@@ -37,29 +42,36 @@ in
 
       filelistLogin = pkgs.writeShellApplication {
         name = "balaur-filelist-login";
-        runtimeInputs = [ pkgs.coreutils pkgs.python3 pkgs.util-linux ];
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.python3
+          pkgs.util-linux
+        ];
         text = ''
           if [ "$(id -u)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
           ${
-            if cfg.torrents.manageFilelistCredentials then ''
-              read -rp "FileList username: " user
-              read -rsp "FileList passkey (profile page; hidden): " passkey; echo
-              # Create the file private first, then fill it; the passkey goes via stdin,
-              # so it never shows up in the process list or in a temporary file.
-              install -o ${config.services.qbittorrent.user} -g ${config.services.qbittorrent.group} -m 600 /dev/null ${credentials}
-              printf '%s\n%s\n' "$user" "$passkey" | python3 -c '
-              import json, sys
-              u, p = sys.stdin.read().splitlines()[:2]
-              json.dump({"username": u.strip(), "passkey": p.strip()}, sys.stdout)' > ${credentials}
-              echo "Saved."
-            '' else ''
-              # Nothing to type: sops renders the credentials from the repo. Asking
-              # for them here would only invite someone to type a passkey that gets
-              # thrown away. This is a test of what is actually deployed.
-              echo "This machine takes the FileList credentials from sops. To change them:"
-              echo "    sops secrets/balaur.yaml      (filelist-username, filelist-passkey)"
-              echo "  then rebuild. Testing the search with what is deployed now:"
-            ''
+            if cfg.torrents.manageFilelistCredentials then
+              ''
+                read -rp "FileList username: " user
+                read -rsp "FileList passkey (profile page; hidden): " passkey; echo
+                # Create the file private first, then fill it; the passkey goes via stdin,
+                # so it never shows up in the process list or in a temporary file.
+                install -o ${config.services.qbittorrent.user} -g ${config.services.qbittorrent.group} -m 600 /dev/null ${credentials}
+                printf '%s\n%s\n' "$user" "$passkey" | python3 -c '
+                import json, sys
+                u, p = sys.stdin.read().splitlines()[:2]
+                json.dump({"username": u.strip(), "passkey": p.strip()}, sys.stdout)' > ${credentials}
+                echo "Saved."
+              ''
+            else
+              ''
+                # Nothing to type: sops renders the credentials from the repo. Asking
+                # for them here would only invite someone to type a passkey that gets
+                # thrown away. This is a test of what is actually deployed.
+                echo "This machine takes the FileList credentials from sops. To change them:"
+                echo "    sops secrets/balaur.yaml      (filelist-username, filelist-passkey)"
+                echo "  then rebuild. Testing the search with what is deployed now:"
+              ''
           }
           echo "Test search for \"''${1:-ubuntu}\" (as qBittorrent runs it), first 5 results:"
           cd ${nova3}
@@ -96,19 +108,35 @@ in
       # (curl) sends none. Unlike the seed above, these are set on every start,
       # so they also reach a profile that already exists.
       me = config.networking.hostName;
-      serverDomains = lib.concatStringsSep ";" ([ me "${me}.local" "localhost" "127.0.0.1" ]
-        ++ lib.filter (a: a != null) [ (fleet.${me}.lanIp or null) (fleet.${me}.tailnetIp or null) ]
+      serverDomains = lib.concatStringsSep ";" (
+        [
+          me
+          "${me}.local"
+          "localhost"
+          "127.0.0.1"
+        ]
+        ++ lib.filter (a: a != null) [
+          (fleet.${me}.lanIp or null)
+          (fleet.${me}.tailnetIp or null)
+        ]
         # Behind the `web` aspect's Caddy, which passes the browser's Host through.
-        ++ lib.optional (cfg ? web) "torrents.${cfg.web.domain}");
+        ++ lib.optional (cfg ? web) "torrents.${cfg.web.domain}"
+      );
       enforced = {
         "WebUI\\CSRFProtection" = "true";
         "WebUI\\HostHeaderValidation" = "true";
         "WebUI\\ServerDomains" = serverDomains;
       };
-      qbCategories = pkgs.writeText "categories.json" (builtins.toJSON {
-        movies = { save_path = "${media}/movies"; };
-        shows = { save_path = "${media}/shows"; };
-      });
+      qbCategories = pkgs.writeText "categories.json" (
+        builtins.toJSON {
+          movies = {
+            save_path = "${media}/movies";
+          };
+          shows = {
+            save_path = "${media}/shows";
+          };
+        }
+      );
     in
     {
       options.balaur.torrents = {
@@ -152,10 +180,18 @@ in
               [ -e $conf/categories.json ] || ${pkgs.coreutils}/bin/install -Dm644 ${qbCategories} $conf/categories.json
               # The web UI's protections, whatever the file said before.
               ${pkgs.gnused}/bin/sed -i \
-                ${lib.concatMapStringsSep " " (k: "-e '/^${lib.replaceStrings [ "\\" ] [ "\\\\" ] k}=/d'") (lib.attrNames enforced)} \
+                ${
+                  lib.concatMapStringsSep " " (k: "-e '/^${lib.replaceStrings [ "\\" ] [ "\\\\" ] k}=/d'") (
+                    lib.attrNames enforced
+                  )
+                } \
                 $conf/qBittorrent.conf
               ${pkgs.gnugrep}/bin/grep -q '^\[Preferences\]$' $conf/qBittorrent.conf || printf '\n[Preferences]\n' >> $conf/qBittorrent.conf
-              ${pkgs.gnused}/bin/sed -i '/^\[Preferences\]$/a ${lib.concatStringsSep "\\n" (lib.mapAttrsToList (k: v: "${lib.replaceStrings [ "\\" ] [ "\\\\" ] k}=${v}") enforced)}' \
+              ${pkgs.gnused}/bin/sed -i '/^\[Preferences\]$/a ${
+                lib.concatStringsSep "\\n" (
+                  lib.mapAttrsToList (k: v: "${lib.replaceStrings [ "\\" ] [ "\\\\" ] k}=${v}") enforced
+                )
+              }' \
                 $conf/qBittorrent.conf
               # Always the current version of our search plugin.
               ${pkgs.coreutils}/bin/install -Dm644 ${./media-search/filelist.py} ${nova3}/engines/filelist.py
@@ -174,7 +210,10 @@ in
         ];
 
         # 8080 on the LAN; tailscale0 is a trusted interface already (network.nix).
-        networking.firewall.allowedTCPPorts = [ webuiPort torrentPort ];
+        networking.firewall.allowedTCPPorts = [
+          webuiPort
+          torrentPort
+        ];
         networking.firewall.allowedUDPPorts = [ torrentPort ];
 
         balaur.services = [
@@ -194,7 +233,12 @@ in
 
   # ---------------------------------------------------------------------------
   flake.modules.nixos.torrents-client =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       me = config.networking.hostName;
       targets = lib.filterAttrs (_: h: h.torrentsPort != null) fleet;
@@ -203,13 +247,17 @@ in
       # The machine's fleet `address` (its tailnet name), the same route at home
       # and away (fleet.nix). Ourselves: no network at all.
       addrs = name: h: if name == me then [ "127.0.0.1" ] else [ h.address ];
-      targetSpecs = lib.mapAttrsToList
-        (name: h: "${name}|${lib.concatStringsSep "," (addrs name h)}|${toString h.torrentsPort}")
-        targets;
+      targetSpecs = lib.mapAttrsToList (
+        name: h: "${name}|${lib.concatStringsSep "," (addrs name h)}|${toString h.torrentsPort}"
+      ) targets;
 
       sendTorrent = pkgs.writeShellApplication {
         name = "balaur-torrent";
-        runtimeInputs = [ pkgs.coreutils pkgs.curl pkgs.zenity ];
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.curl
+          pkgs.zenity
+        ];
         text = ''
           specs=(${lib.escapeShellArgs targetSpecs})
           usage() {
@@ -299,12 +347,18 @@ in
         exec = "${lib.getExe sendTorrent} %u";
         icon = "qbittorrent";
         categories = [ "Network" ];
-        mimeTypes = [ "x-scheme-handler/magnet" "application/x-bittorrent" ];
+        mimeTypes = [
+          "x-scheme-handler/magnet"
+          "application/x-bittorrent"
+        ];
         noDisplay = true;
       };
     in
     {
-      environment.systemPackages = [ sendTorrent magnetHandler ];
+      environment.systemPackages = [
+        sendTorrent
+        magnetHandler
+      ];
     };
 
   # Host wiring (modules/home.nix explains the pattern):

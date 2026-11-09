@@ -34,7 +34,12 @@
 # simply finds no local tier.
 {
   flake.modules.nixos.strata =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur.strata;
       state = "/var/lib/strata";
@@ -66,11 +71,16 @@
         NIX_LD = "/run/current-system/sw/share/nix-ld/lib/ld.so";
         NIX_LD_LIBRARY_PATH = "/run/opengl-driver/lib:/run/current-system/sw/share/nix-ld/lib";
         # DNS-rebinding guard: the names the fleet dials it by (an IP always passes).
-        STRATA_ALLOWED_HOSTS = lib.concatStringsSep "," [ config.networking.hostName "localhost" ];
+        STRATA_ALLOWED_HOSTS = lib.concatStringsSep "," [
+          config.networking.hostName
+          "localhost"
+        ];
       };
       # nvidia-smi (in the system profile), for its GPU checks.
       path = "${pkgs.coreutils}/bin:/run/current-system/sw/bin";
-      envArgs = lib.concatStringsSep " " (lib.mapAttrsToList (k: v: "${k}=${lib.escapeShellArg v}") (env // { PATH = path; }));
+      envArgs = lib.concatStringsSep " " (
+        lib.mapAttrsToList (k: v: "${k}=${lib.escapeShellArg v}") (env // { PATH = path; })
+      );
 
       # `strata` for the admin: the upstream CLI, as the strata user, in its state.
       cli = pkgs.writeShellScriptBin "strata" ''
@@ -170,7 +180,12 @@
           description = "The model family strata-setup downloads (`strata launch --family`).";
         };
         drafting = lib.mkOption {
-          type = lib.types.enum [ "auto" "mtp" "dflash2" "off" ];
+          type = lib.types.enum [
+            "auto"
+            "mtp"
+            "dflash2"
+            "off"
+          ];
           # Strata 0.2.13 + q2_0: auto picks DFlash2, which needs a native pack
           # (published for q4_0 only), and with no MTP layer to fall back on the
           # engine stops at start ("--draft-fallback none ... the start ends here").
@@ -209,7 +224,10 @@
           isSystemUser = true;
           group = "strata";
           home = state;
-          extraGroups = [ "video" "render" ];
+          extraGroups = [
+            "video"
+            "render"
+          ];
         };
         users.groups.strata = { };
         systemd.tmpfiles.rules = [ "d ${state} 0750 strata strata -" ];
@@ -217,7 +235,10 @@
         # The prebuilt Python and engine need a dynamic loader and a few libraries.
         programs.nix-ld = {
           enable = true;
-          libraries = with pkgs; [ stdenv.cc.cc.lib zlib ];
+          libraries = with pkgs; [
+            stdenv.cc.cc.lib
+            zlib
+          ];
         };
 
         environment.systemPackages = [ cli ];
@@ -225,23 +246,31 @@
         # On the home page and in the app. It is an API with no web page of its
         # own: the link opens /health (the model, whether it is loaded). Stopped
         # while a game runs, so "No answer" then is expected.
-        balaur.services = [{
-          name = "Strata";
-          description = "Local LLM on the GPU";
-          icon = "🧠";
-          port = cfg.port;
-          path = "/health";
-          unit = "strata.service";
-          group = "System";
-        }];
+        balaur.services = [
+          {
+            name = "Strata";
+            description = "Local LLM on the GPU";
+            icon = "🧠";
+            port = cfg.port;
+            path = "/health";
+            unit = "strata.service";
+            group = "System";
+          }
+        ];
 
         systemd.services.strata = {
           description = "Strata: the fleet's local LLM (:${toString cfg.port})";
           wantedBy = [ "multi-user.target" ];
-          after = [ "network-online.target" "systemd-modules-load.service" ];
+          after = [
+            "network-online.target"
+            "systemd-modules-load.service"
+          ];
           wants = [ "network-online.target" ];
           environment = env;
-          path = [ pkgs.coreutils "/run/current-system/sw" ];
+          path = [
+            pkgs.coreutils
+            "/run/current-system/sw"
+          ];
           unitConfig.ConditionPathExists = "${state}/.config/strata/profiles/${cfg.profile}.json";
           serviceConfig = {
             User = "strata";
@@ -269,7 +298,11 @@
           after = [ "network-online.target" ];
           wants = [ "network-online.target" ];
           unitConfig.ConditionPathExists = "!${state}/.config/strata/profiles/${cfg.profile}.json";
-          path = [ pkgs.systemd pkgs.findutils pkgs.coreutils ];
+          path = [
+            pkgs.systemd
+            pkgs.findutils
+            pkgs.coreutils
+          ];
           serviceConfig = {
             Type = "exec";
             ExecCondition = gpuPresent;
@@ -282,7 +315,10 @@
         # that brings it); once the profile exists the service's condition skips it.
         systemd.timers.strata-setup = {
           wantedBy = [ "timers.target" ];
-          timerConfig = { OnActiveSec = "1min"; OnUnitInactiveSec = "1h"; };
+          timerConfig = {
+            OnActiveSec = "1min";
+            OnUnitInactiveSec = "1h";
+          };
           # A new setup script (other settings) restarts the timer: retried in a minute.
           restartTriggers = [ setup ];
         };

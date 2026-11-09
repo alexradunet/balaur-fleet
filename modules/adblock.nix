@@ -15,19 +15,39 @@ let
 in
 {
   flake.modules.nixos.adblock =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur;
       # The `web` aspect's domains (web.nix), answered here with that machine's
       # tailnet address: at home they resolve even with the internet down, without
       # a router filtering private answers, and without waiting out a cached
       # "no such name". The public A records at the registrar say the same.
-      webHosts = lib.filterAttrs (host: h: h.tailnetIp != null && nixosConfigs ? ${host}
-        && nixosConfigs.${host}.config.balaur ? web) fleet;
-      rewrites = lib.concatLists (lib.mapAttrsToList (host: h:
-        let domain = nixosConfigs.${host}.config.balaur.web.domain; in
-        map (d: { domain = d; answer = h.tailnetIp; enabled = true; }) [ domain "*.${domain}" ])
-        webHosts);
+      webHosts = lib.filterAttrs (
+        host: h: h.tailnetIp != null && nixosConfigs ? ${host} && nixosConfigs.${host}.config.balaur ? web
+      ) fleet;
+      rewrites = lib.concatLists (
+        lib.mapAttrsToList (
+          host: h:
+          let
+            domain = nixosConfigs.${host}.config.balaur.web.domain;
+          in
+          map
+            (d: {
+              domain = d;
+              answer = h.tailnetIp;
+              enabled = true;
+            })
+            [
+              domain
+              "*.${domain}"
+            ]
+        ) webHosts
+      );
       webPort = 3000;
     in
     {
@@ -42,8 +62,14 @@ in
             port = 53;
             # Encrypted, European upstreams: Quad9 (Swiss non-profit) and DNS4EU (EU, unfiltered:
             # blocking is done here). The plain IPs only resolve the DoH hostnames.
-            upstream_dns = [ "https://dns.quad9.net/dns-query" "https://unfiltered.joindns4.eu/dns-query" ];
-            bootstrap_dns = [ "9.9.9.9" "86.54.11.100" ];
+            upstream_dns = [
+              "https://dns.quad9.net/dns-query"
+              "https://unfiltered.joindns4.eu/dns-query"
+            ];
+            bootstrap_dns = [
+              "9.9.9.9"
+              "86.54.11.100"
+            ];
             upstream_mode = "load_balance";
             cache_size = 4194304;
           };
@@ -53,8 +79,18 @@ in
             inherit rewrites;
           };
           filters = [
-            { enabled = true; id = 1; name = "AdGuard DNS filter"; url = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt"; }
-            { enabled = true; id = 2; name = "AdAway default blocklist"; url = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt"; }
+            {
+              enabled = true;
+              id = 1;
+              name = "AdGuard DNS filter";
+              url = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt";
+            }
+            {
+              enabled = true;
+              id = 2;
+              name = "AdAway default blocklist";
+              url = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt";
+            }
           ];
           # Samsung TVs: home-screen ads and viewing-data tracking (ACR). Deliberately
           # NOT blocked: samsungcloudsolution.* (blocking it breaks app installs and
@@ -70,19 +106,24 @@ in
       };
 
       networking.firewall = {
-        allowedTCPPorts = [ 53 webPort ];
+        allowedTCPPorts = [
+          53
+          webPort
+        ];
         allowedUDPPorts = [ 53 ];
       };
 
-      balaur.services = [{
-        name = "AdGuard Home";
-        description = "Blocks ads & trackers for the network";
-        icon = "🛡️";
-        port = webPort;
-        subdomain = "adguard";
-        unit = "adguardhome.service";
-        appIcon = "${pkgs.adguardhome.src}/client_v2/public/assets/favicon.svg";
-        group = "Network";
-      }];
+      balaur.services = [
+        {
+          name = "AdGuard Home";
+          description = "Blocks ads & trackers for the network";
+          icon = "🛡️";
+          port = webPort;
+          subdomain = "adguard";
+          unit = "adguardhome.service";
+          appIcon = "${pkgs.adguardhome.src}/client_v2/public/assets/favicon.svg";
+          group = "Network";
+        }
+      ];
     };
 }

@@ -22,31 +22,34 @@ stdenv.mkDerivation {
   # --fuzz=0: if a kernel bump moves the code, fail the build instead of
   # silently applying a hunk in the wrong place.
   patches = [ ./camera-yoga-duet-ov5678.patch ];
-  patchFlags = [ "-p1" "--fuzz=0" ];
+  patchFlags = [
+    "-p1"
+    "--fuzz=0"
+  ];
 
   nativeBuildInputs = kernel.moduleBuildDependencies;
   hardeningDisable = [ "pic" ];
   enableParallelBuilding = true;
 
   postPatch = ''
-    moduleDir="$PWD/duet-camera"
-    mkdir -p "$moduleDir/include/linux/platform_data/x86"
+        moduleDir="$PWD/duet-camera"
+        mkdir -p "$moduleDir/include/linux/platform_data/x86"
 
-    cp drivers/media/i2c/ov5675.c "$moduleDir/"
-    cp drivers/media/pci/intel/ipu-bridge.c "$moduleDir/"
-    cp drivers/platform/x86/intel/int3472/{discrete.c,discrete_quirks.c,clk_and_regulator.c,led.c} "$moduleDir/"
-    cp include/linux/platform_data/x86/int3472.h "$moduleDir/include/linux/platform_data/x86/"
+        cp drivers/media/i2c/ov5675.c "$moduleDir/"
+        cp drivers/media/pci/intel/ipu-bridge.c "$moduleDir/"
+        cp drivers/platform/x86/intel/int3472/{discrete.c,discrete_quirks.c,clk_and_regulator.c,led.c} "$moduleDir/"
+        cp include/linux/platform_data/x86/int3472.h "$moduleDir/include/linux/platform_data/x86/"
 
-    cat > "$moduleDir/Makefile" <<'EOF2'
-obj-m += ipu-bridge.o
-obj-m += ov5675.o
-obj-m += intel_skl_int3472_discrete.o
-intel_skl_int3472_discrete-y := discrete.o discrete_quirks.o clk_and_regulator.o led.o
+        cat > "$moduleDir/Makefile" <<'EOF2'
+    obj-m += ipu-bridge.o
+    obj-m += ov5675.o
+    obj-m += intel_skl_int3472_discrete.o
+    intel_skl_int3472_discrete-y := discrete.o discrete_quirks.o clk_and_regulator.o led.o
 
-# Force every INT3472 translation unit to use the patched structure layout and
-# supply-name limit before the stock kernel header can be included.
-ccflags-y += -include $(src)/include/linux/platform_data/x86/int3472.h
-EOF2
+    # Force every INT3472 translation unit to use the patched structure layout and
+    # supply-name limit before the stock kernel header can be included.
+    ccflags-y += -include $(src)/include/linux/platform_data/x86/int3472.h
+    EOF2
   '';
 
   buildPhase = ''

@@ -15,7 +15,12 @@
 # The kernel changes are kept in pkgs/ so they can be dropped once upstream has them.
 {
   flake.modules.nixos.camera =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur;
       cameraModules = config.boot.kernelPackages.callPackage ../pkgs/camera-modules.nix { };
@@ -31,7 +36,12 @@
       motionFile = "/run/duet-camera-relay/motion";
       presence = pkgs.writeShellApplication {
         name = "duet-presence";
-        runtimeInputs = [ pkgs.inotify-tools pkgs.glib pkgs.gnome-session pkgs.coreutils ];
+        runtimeInputs = [
+          pkgs.inotify-tools
+          pkgs.glib
+          pkgs.gnome-session
+          pkgs.coreutils
+        ];
         text = ''
           timeout=${toString cfg.camera.screenTimeout}
           quiet="$XDG_RUNTIME_DIR/duet-presence-quiet"
@@ -74,14 +84,22 @@
 
       cameraCheck = pkgs.writeShellApplication {
         name = "duet-camera-check";
-        runtimeInputs = [ pkgs.coreutils pkgs.nodejs pkgs.v4l-utils ];
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.nodejs
+          pkgs.v4l-utils
+        ];
         text = builtins.readFile ./camera-check.sh;
       };
 
       # Raw + processed snapshot from the running relay, for tuning (`duet-camera analyze`).
       cameraSnapshot = pkgs.writeShellApplication {
         name = "duet-camera-snapshot";
-        runtimeInputs = [ pkgs.coreutils pkgs.findutils pkgs.systemd ];
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.findutils
+          pkgs.systemd
+        ];
         text = ''
           systemctl kill -s USR1 duet-camera-relay.service
           sleep 2
@@ -95,7 +113,10 @@
       options.balaur = {
         camera = {
           backend = lib.mkOption {
-            type = lib.types.enum [ "rgbir" "libcamera" ];
+            type = lib.types.enum [
+              "rgbir"
+              "libcamera"
+            ];
             default = "rgbir";
             description = ''
               How raw sensor frames become a webcam.
@@ -126,7 +147,11 @@
             default = { };
             example = {
               cfa = "GIGI/RGBG/GIGI/BGRG";
-              irCoeffs = [ 1.0 0.9 1.1 ];
+              irCoeffs = [
+                1.0
+                0.9
+                1.1
+              ];
               flipV = true;
             };
             description = ''
@@ -144,7 +169,10 @@
 
       config = {
         # Compiles three modules, not the kernel.
-        boot.extraModulePackages = [ cameraModules v4l2loopback ];
+        boot.extraModulePackages = [
+          cameraModules
+          v4l2loopback
+        ];
         boot.kernelModules = [ "v4l2loopback" ];
         # No devices at load time: the relay creates its own.
         boot.extraModprobeConfig = "options v4l2loopback devices=0";
@@ -158,14 +186,19 @@
         systemd.services.duet-camera-relay = {
           description = "Front camera: raw sensor to V4L2 webcam relay (${cfg.camera.backend})";
           wantedBy = [ "multi-user.target" ];
-          after = [ "systemd-modules-load.service" "systemd-logind.service" ];
+          after = [
+            "systemd-modules-load.service"
+            "systemd-logind.service"
+          ];
           restartTriggers = [ config.environment.etc."duet-camera.json".source ];
 
           environment = {
             V4L2_DEVICE_FILE = "/run/duet-camera-relay/device";
-          } // lib.optionalAttrs motionWake {
+          }
+          // lib.optionalAttrs motionWake {
             DUET_MOTION_FILE = motionFile;
-          } // lib.optionalAttrs (!rgbir) {
+          }
+          // lib.optionalAttrs (!rgbir) {
             GST_PLUGIN_PATH = lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstPlugins;
           };
 
@@ -182,16 +215,19 @@
           '';
 
           script =
-            if rgbir then ''
-              exec ${lib.getExe duetCamera} run -output "$(cat "$V4L2_DEVICE_FILE")"
-            '' else ''
-              device="$(cat "$V4L2_DEVICE_FILE")"
-              exec ${lib.getBin pkgs.gst_all_1.gstreamer}/bin/gst-launch-1.0 -q \
-                libcamerasrc ! \
-                videoconvert ! \
-                'video/x-raw,format=YUY2,width=1280,height=720,framerate=30/1' ! \
-                v4l2sink device="$device" sync=false
-            '';
+            if rgbir then
+              ''
+                exec ${lib.getExe duetCamera} run -output "$(cat "$V4L2_DEVICE_FILE")"
+              ''
+            else
+              ''
+                device="$(cat "$V4L2_DEVICE_FILE")"
+                exec ${lib.getBin pkgs.gst_all_1.gstreamer}/bin/gst-launch-1.0 -q \
+                  libcamerasrc ! \
+                  videoconvert ! \
+                  'video/x-raw,format=YUY2,width=1280,height=720,framerate=30/1' ! \
+                  v4l2sink device="$device" sync=false
+              '';
 
           postStop = ''
             if test -s "$V4L2_DEVICE_FILE"; then
@@ -210,7 +246,8 @@
             # Snapshots and the live-tuning overlay (tuning.json) live here.
             StateDirectory = "duet-camera";
             StateDirectoryMode = "0755";
-          } // lib.optionalAttrs rgbir {
+          }
+          // lib.optionalAttrs rgbir {
             # Re-reads /etc/duet-camera.json + /var/lib/duet-camera/tuning.json without a restart.
             ExecReload = "${pkgs.coreutils}/bin/kill -HUP $MAINPID";
           };
@@ -241,14 +278,16 @@
           cameraCheck
         ];
 
-        balaur.services = [{
-          name = "Camera";
-          description = "Front camera relay";
-          icon = "📷";
-          unit = "duet-camera-relay.service";
-          desktopId = "org.gnome.Snapshot.desktop"; # GNOME's camera app shows the webcam
-          group = "Home";
-        }];
+        balaur.services = [
+          {
+            name = "Camera";
+            description = "Front camera relay";
+            icon = "📷";
+            unit = "duet-camera-relay.service";
+            desktopId = "org.gnome.Snapshot.desktop"; # GNOME's camera app shows the webcam
+            group = "Home";
+          }
+        ];
       };
     };
 }

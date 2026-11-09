@@ -18,7 +18,13 @@
 # extension's orb and mic toggle).
 {
   flake.modules.nixos.assistant =
-    { config, options, lib, pkgs, ... }:
+    {
+      config,
+      options,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur;
       as = cfg.assistant;
@@ -47,22 +53,40 @@
 
       # Defaults for the daemon; the model, server and voices can be changed in the
       # Balaur app (GSettings org.balaur.Assistant), which then take precedence.
-      configFile = pkgs.writeText "balaur-assistant.json" (builtins.toJSON {
-        inherit (as) name defaultLanguage;
-        audio = { input = inputDevice; output = "pulse"; card = "0"; };
-        wake = { uri = "127.0.0.1:${toString wakePort}"; words = [ as.wakeWord ]; };
-        stt.model = as.stt.model;
-        tts = {
-          inherit (as.tts) model;
-          voices = lib.filterAttrs (_: v: v != null) as.tts.voices;
-        };
-        search.model = lib.optionalString as.webSearch.enable as.webSearch.model;
-        llm = { inherit (as.llm) baseUrl model provider server; };
-        location = { inherit (cfg.location) name latitude longitude; };
-        newsFeeds = as.newsFeeds;
-      });
+      configFile = pkgs.writeText "balaur-assistant.json" (
+        builtins.toJSON {
+          inherit (as) name defaultLanguage;
+          audio = {
+            input = inputDevice;
+            output = "pulse";
+            card = "0";
+          };
+          wake = {
+            uri = "127.0.0.1:${toString wakePort}";
+            words = [ as.wakeWord ];
+          };
+          stt.model = as.stt.model;
+          tts = {
+            inherit (as.tts) model;
+            voices = lib.filterAttrs (_: v: v != null) as.tts.voices;
+          };
+          search.model = lib.optionalString as.webSearch.enable as.webSearch.model;
+          llm = {
+            inherit (as.llm)
+              baseUrl
+              model
+              provider
+              server
+              ;
+          };
+          location = { inherit (cfg.location) name latitude longitude; };
+          newsFeeds = as.newsFeeds;
+        }
+      );
 
-      inSession = cmd: ''runuser -u ${user} -- env XDG_RUNTIME_DIR="/run/user/$(id -u ${user})" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u ${user})/bus" ${cmd}'';
+      inSession =
+        cmd:
+        ''runuser -u ${user} -- env XDG_RUNTIME_DIR="/run/user/$(id -u ${user})" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u ${user})/bus" ${cmd}'';
 
       # The API key from a terminal: state only, never in the repo or the store. Read
       # from stdin so it never shows up in the process list; checked against the API,
@@ -70,27 +94,36 @@
       # do the same from the screen (they keep keys in the GNOME Keyring instead).
       login = pkgs.writeShellApplication {
         name = "balaur-assistant-login";
-        runtimeInputs = [ pkgs.coreutils pkgs.curl pkgs.jq pkgs.systemd pkgs.util-linux ];
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.curl
+          pkgs.jq
+          pkgs.systemd
+          pkgs.util-linux
+        ];
         text = ''
           if [ "$(id -u)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
           base=${lib.escapeShellArg as.llm.baseUrl}
           read -rsp "API key for $base (hidden): " key; echo
           [ -n "$key" ] || { echo "empty key, nothing given" >&2; exit 1; }
           ${
-            if as.llm.manageApiKeyFile then ''
-              key_file=${lib.escapeShellArg (toString as.llm.apiKeyFile)}
-              install -d -m 711 "$(dirname "$key_file")"
-              # Readable by the assistant's group, which the household account is in.
-              install -m 640 -g balaur-assistant /dev/null "$key_file"
-              printf '%s' "$key" > "$key_file"
-              saved="Saved."
-            '' else ''
-              # Something else owns this file — sops-nix, on this host. Still check
-              # the key and list the voices, which is half of what this is for.
-              saved="NOT saved: this machine takes the key from sops. Put it in the repo with
-    sops secrets/balaur.yaml      (the assistant-llm-key entry)
-  then rebuild. Checking the key you typed anyway:"
-            ''
+            if as.llm.manageApiKeyFile then
+              ''
+                key_file=${lib.escapeShellArg (toString as.llm.apiKeyFile)}
+                install -d -m 711 "$(dirname "$key_file")"
+                # Readable by the assistant's group, which the household account is in.
+                install -m 640 -g balaur-assistant /dev/null "$key_file"
+                printf '%s' "$key" > "$key_file"
+                saved="Saved."
+              ''
+            else
+              ''
+                            # Something else owns this file — sops-nix, on this host. Still check
+                            # the key and list the voices, which is half of what this is for.
+                            saved="NOT saved: this machine takes the key from sops. Put it in the repo with
+                  sops secrets/balaur.yaml      (the assistant-llm-key entry)
+                then rebuild. Checking the key you typed anyway:"
+              ''
           }
           api() { printf 'header = "Authorization: Bearer %s"\n' "$key" | curl -sS -m 15 -K - "$base$1"; }
           if api /models | jq -e '.data | length > 0' >/dev/null 2>&1; then
@@ -112,7 +145,12 @@
       # time, to tune balaur.assistant.wakeThreshold and audio.micGain with real voices.
       wakeTest = pkgs.writeShellApplication {
         name = "balaur-wake-test";
-        runtimeInputs = [ pkgs.coreutils pkgs.util-linux pkgs.glib.bin pkgs.pulseaudio ];
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.util-linux
+          pkgs.glib.bin
+          pkgs.pulseaudio
+        ];
         text = ''
           if [ "$(id -u)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
           py=${pkgs.python3.withPackages (ps: [ ps.pyopen-wakeword ])}/bin/python3
@@ -125,7 +163,9 @@
             exec "$py" ${./assistant/wake-test.py} "''${3:-${as.wakeWord}}" "$rec" ${toString as.wakeThreshold} "''${2:-1}"
           fi
           model=${as.wakeWord}
-          prompt="say \"${lib.replaceStrings [ "_" ] [ " " ] as.wakeWord}\" a few times, as you normally would"
+          prompt="say \"${
+            lib.replaceStrings [ "_" ] [ " " ] as.wakeWord
+          }\" a few times, as you normally would"
           if [ "''${1:-}" = all ]; then
             model=all; shift
             prompt="say each twice, a few seconds apart: \"Hey Jarvis\", \"Alexa\", \"Hey Mycroft\", \"Okay Nabu\", \"Hey Rhasspy\""
@@ -133,8 +173,9 @@
           secs="''${1:-$( [ $model = all ] && echo 40 || echo 15 )}"
           # Muted, the assistant doesn't answer the wake words said for the test.
           setmute() {
-            ${inSession ''gdbus call --session --dest org.balaur.Assistant --object-path /org/balaur/Assistant \
-              --method org.freedesktop.DBus.Properties.Set org.balaur.Assistant1 Muted "<$1>"''} >/dev/null || true
+            ${inSession ''
+              gdbus call --session --dest org.balaur.Assistant --object-path /org/balaur/Assistant \
+                            --method org.freedesktop.DBus.Properties.Set org.balaur.Assistant1 Muted "<$1>"''} >/dev/null || true
           }
           trap 'setmute false' EXIT
           setmute true
@@ -167,7 +208,10 @@
           };
 
           defaultLanguage = lib.mkOption {
-            type = lib.types.enum [ "ro" "en" ];
+            type = lib.types.enum [
+              "ro"
+              "en"
+            ];
             default = "ro";
             description = "Language used when it cannot tell which one was spoken.";
           };
@@ -217,7 +261,11 @@
             };
             apiKeyFile = lib.mkOption {
               type = lib.types.path;
-              default = if useSops then config.sops.secrets.${keySecret}.path else "/var/lib/secrets/balaur-assistant-llm-key";
+              default =
+                if useSops then
+                  config.sops.secrets.${keySecret}.path
+                else
+                  "/var/lib/secrets/balaur-assistant-llm-key";
               defaultText = lib.literalMD "the `assistant-llm-key` sops secret with the `secrets` aspect, else `/var/lib/secrets/balaur-assistant-llm-key`";
               description = ''
                 File with the Mistral API key: the fallback when the GNOME Keyring
@@ -298,7 +346,9 @@
           };
 
           webSearch = {
-            enable = lib.mkEnableOption "web search for the assistant, through Mistral's web_search tool" // { default = true; };
+            enable = lib.mkEnableOption "web search for the assistant, through Mistral's web_search tool" // {
+              default = true;
+            };
             model = lib.mkOption {
               type = lib.types.str;
               default = "mistral-medium-latest";
@@ -309,152 +359,215 @@
           newsFeeds = lib.mkOption {
             description = "RSS/Atom feeds for the news tool.";
             default = [
-              { name = "Digi24"; url = "https://www.digi24.ro/rss"; lang = "ro"; }
-              { name = "HotNews"; url = "https://hotnews.ro/feed"; lang = "ro"; }
-              { name = "G4Media"; url = "https://www.g4media.ro/feed"; lang = "ro"; }
-              { name = "BBC World"; url = "https://feeds.bbci.co.uk/news/world/rss.xml"; lang = "en"; }
-              { name = "The Guardian"; url = "https://www.theguardian.com/world/rss"; lang = "en"; }
+              {
+                name = "Digi24";
+                url = "https://www.digi24.ro/rss";
+                lang = "ro";
+              }
+              {
+                name = "HotNews";
+                url = "https://hotnews.ro/feed";
+                lang = "ro";
+              }
+              {
+                name = "G4Media";
+                url = "https://www.g4media.ro/feed";
+                lang = "ro";
+              }
+              {
+                name = "BBC World";
+                url = "https://feeds.bbci.co.uk/news/world/rss.xml";
+                lang = "en";
+              }
+              {
+                name = "The Guardian";
+                url = "https://www.theguardian.com/world/rss";
+                lang = "en";
+              }
             ];
-            type = lib.types.listOf (lib.types.submodule {
-              options = {
-                name = lib.mkOption { type = lib.types.str; };
-                url = lib.mkOption { type = lib.types.str; };
-                lang = lib.mkOption { type = lib.types.enum [ "ro" "en" ]; };
-              };
-            });
+            type = lib.types.listOf (
+              lib.types.submodule {
+                options = {
+                  name = lib.mkOption { type = lib.types.str; };
+                  url = lib.mkOption { type = lib.types.str; };
+                  lang = lib.mkOption {
+                    type = lib.types.enum [
+                      "ro"
+                      "en"
+                    ];
+                  };
+                };
+              }
+            );
           };
         };
       };
 
-      config = lib.mkMerge [ {
-        # The daemon's desktop file (GNOME only shows notifications from known apps)
-        # and its GSettings schema (model, server, voices; edited in the Balaur app).
-        environment.systemPackages = [ package login wakeTest ];
-        services.desktopManager.gnome.sessionPath = [ package ];
+      config = lib.mkMerge [
+        {
+          # The daemon's desktop file (GNOME only shows notifications from known apps)
+          # and its GSettings schema (model, server, voices; edited in the Balaur app).
+          environment.systemPackages = [
+            package
+            login
+            wakeTest
+          ];
+          services.desktopManager.gnome.sessionPath = [ package ];
 
-        # ---- the wake word: the one local piece (upstream NixOS module), localhost only ----
-        services.wyoming.openwakeword = {
-          enable = true;
-          uri = "tcp://127.0.0.1:${toString wakePort}";
-          threshold = as.wakeThreshold;
-          customModelsDirectories = [ wakewordDir ];
-        };
-        # It must keep up with the microphone even when the box is busy.
-        systemd.services.wyoming-openwakeword.serviceConfig.CPUWeight = 1000;
-
-        systemd.tmpfiles.rules = [
-          # Drop custom wake word models (*.tflite) here; readable by the openWakeWord service.
-          "d ${wakewordDir} 0755 root root -"
-        ] ++ lib.optionals as.llm.manageApiKeyFile [
-          # The API key file: root's, readable by the assistant's group. Skipped
-          # when something else provides it — claiming /run/secrets here would
-          # fight sops-nix for the directory.
-          "d ${dirOf (toString as.llm.apiKeyFile)} 0711 root root -"
-          "z ${toString as.llm.apiKeyFile} 0640 root balaur-assistant -"
-        ];
-        users.groups.balaur-assistant = { };
-        users.users.${user}.extraGroups = [ "balaur-assistant" ];
-
-        # ---- the assistant: a service of the household session ----
-        systemd.user.services.balaur-assistant = {
-          description = "Balaur voice assistant";
-          wantedBy = [ "graphical-session.target" ];
-          partOf = [ "graphical-session.target" ];
-          after = [ "graphical-session.target" "pipewire-pulse.service" "wireplumber.service" ];
-          environment = {
-            BALAUR_ASSISTANT_CONFIG = configFile;
-            # The Mistral key when the GNOME Keyring has none (`sudo balaur-assistant-login`).
-            BALAUR_ASSISTANT_KEY_FILE = toString as.llm.apiKeyFile;
-            # Timers, reminders and "what time is it" use local time.
-            TZ = config.time.timeZone;
+          # ---- the wake word: the one local piece (upstream NixOS module), localhost only ----
+          services.wyoming.openwakeword = {
+            enable = true;
+            uri = "tcp://127.0.0.1:${toString wakePort}";
+            threshold = as.wakeThreshold;
+            customModelsDirectories = [ wakewordDir ];
           };
-          unitConfig.ConditionUser = user;
-          serviceConfig = {
-            # Lists, reminders and memory lived in duet-assistant before the rename
-            # (2026-11-08). Carried over once, while the new directory is still
-            # empty; delete this line once every machine has run it.
-            ExecStartPre = pkgs.writeShellScript "balaur-assistant-migrate-state" ''
-              old="''${XDG_STATE_HOME:-$HOME/.local/state}/duet-assistant"
-              if [ -d "$old" ] && [ -z "$(ls -A "$STATE_DIRECTORY")" ]; then
-                rmdir "$STATE_DIRECTORY" && mv "$old" "$STATE_DIRECTORY"
-              fi
-            '';
-            ExecStart = lib.getExe package;
-            Restart = "always";
-            RestartSec = 3;
-            CPUWeight = 1000;
-            StateDirectory = "balaur-assistant";
-            NoNewPrivileges = true;
-            RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" ];
-            LockPersonality = true;
-            SystemCallArchitectures = "native";
-            SystemCallFilter = [ "@system-service" "~@privileged" ];
-            UMask = "0077";
-            # No MemoryDenyWriteExecute: GJS and Node compile JavaScript to machine code.
-          };
-        };
+          # It must keep up with the microphone even when the box is busy.
+          systemd.services.wyoming-openwakeword.serviceConfig.CPUWeight = 1000;
 
-        services.pipewire.extraConfig.pipewire = lib.mkIf customMic {
-          "60-balaur-mic"."context.objects" = [{
-            factory = "adapter";
-            args = {
-              "factory.name" = "api.alsa.pcm.source";
-              "node.name" = micNode;
-              "node.description" = "Microphone array";
-              "media.class" = "Audio/Source";
-              "api.alsa.path" = micHw;
-              "audio.format" = "S16LE";
-              "audio.rate" = 16000;
-              "audio.channels" = 2;
-              "audio.position" = [ "FL" "FR" ];
-              # The default microphone for every app, ahead of the 48 kHz DMIC and the headset jack.
-              "priority.session" = 2200;
-              "priority.driver" = 2200;
+          systemd.tmpfiles.rules = [
+            # Drop custom wake word models (*.tflite) here; readable by the openWakeWord service.
+            "d ${wakewordDir} 0755 root root -"
+          ]
+          ++ lib.optionals as.llm.manageApiKeyFile [
+            # The API key file: root's, readable by the assistant's group. Skipped
+            # when something else provides it — claiming /run/secrets here would
+            # fight sops-nix for the directory.
+            "d ${dirOf (toString as.llm.apiKeyFile)} 0711 root root -"
+            "z ${toString as.llm.apiKeyFile} 0640 root balaur-assistant -"
+          ];
+          users.groups.balaur-assistant = { };
+          users.users.${user}.extraGroups = [ "balaur-assistant" ];
+
+          # ---- the assistant: a service of the household session ----
+          systemd.user.services.balaur-assistant = {
+            description = "Balaur voice assistant";
+            wantedBy = [ "graphical-session.target" ];
+            partOf = [ "graphical-session.target" ];
+            after = [
+              "graphical-session.target"
+              "pipewire-pulse.service"
+              "wireplumber.service"
+            ];
+            environment = {
+              BALAUR_ASSISTANT_CONFIG = configFile;
+              # The Mistral key when the GNOME Keyring has none (`sudo balaur-assistant-login`).
+              BALAUR_ASSISTANT_KEY_FILE = toString as.llm.apiKeyFile;
+              # Timers, reminders and "what time is it" use local time.
+              TZ = config.time.timeZone;
             };
-          }];
-        };
+            unitConfig.ConditionUser = user;
+            serviceConfig = {
+              # Lists, reminders and memory lived in duet-assistant before the rename
+              # (2026-11-08). Carried over once, while the new directory is still
+              # empty; delete this line once every machine has run it.
+              ExecStartPre = pkgs.writeShellScript "balaur-assistant-migrate-state" ''
+                old="''${XDG_STATE_HOME:-$HOME/.local/state}/duet-assistant"
+                if [ -d "$old" ] && [ -z "$(ls -A "$STATE_DIRECTORY")" ]; then
+                  rmdir "$STATE_DIRECTORY" && mv "$old" "$STATE_DIRECTORY"
+                fi
+              '';
+              ExecStart = lib.getExe package;
+              Restart = "always";
+              RestartSec = 3;
+              CPUWeight = 1000;
+              StateDirectory = "balaur-assistant";
+              NoNewPrivileges = true;
+              RestrictAddressFamilies = [
+                "AF_UNIX"
+                "AF_INET"
+                "AF_INET6"
+              ];
+              LockPersonality = true;
+              SystemCallArchitectures = "native";
+              SystemCallFilter = [
+                "@system-service"
+                "~@privileged"
+              ];
+              UMask = "0077";
+              # No MemoryDenyWriteExecute: GJS and Node compile JavaScript to machine code.
+            };
+          };
 
-        # The array's gain is the card's Dmic0 control. Our 16 kHz source has no
-        # volume of its own, so set audio.micGain on the card at each login, once
-        # WirePlumber has set the card up (it restores the mixer as it does). Nothing
-        # else opens the 48 kHz "Digital Microphone", whose volume would move it.
-        systemd.user.services.balaur-mic-gain = lib.mkIf customMic {
-          description = "Microphone array gain";
-          wantedBy = [ "pipewire-pulse.service" ];
-          after = [ "pipewire-pulse.service" "wireplumber.service" ];
-          before = [ "balaur-assistant.service" ];
-          unitConfig.ConditionUser = user;
-          serviceConfig.Type = "oneshot";
-          path = [ pkgs.pulseaudio pkgs.alsa-utils pkgs.gnugrep pkgs.coreutils ];
-          script = ''
-            for _ in $(seq 20); do
-              pactl list short sources | grep -q HiFi__Mic1__source && break
+          services.pipewire.extraConfig.pipewire = lib.mkIf customMic {
+            "60-balaur-mic"."context.objects" = [
+              {
+                factory = "adapter";
+                args = {
+                  "factory.name" = "api.alsa.pcm.source";
+                  "node.name" = micNode;
+                  "node.description" = "Microphone array";
+                  "media.class" = "Audio/Source";
+                  "api.alsa.path" = micHw;
+                  "audio.format" = "S16LE";
+                  "audio.rate" = 16000;
+                  "audio.channels" = 2;
+                  "audio.position" = [
+                    "FL"
+                    "FR"
+                  ];
+                  # The default microphone for every app, ahead of the 48 kHz DMIC and the headset jack.
+                  "priority.session" = 2200;
+                  "priority.driver" = 2200;
+                };
+              }
+            ];
+          };
+
+          # The array's gain is the card's Dmic0 control. Our 16 kHz source has no
+          # volume of its own, so set audio.micGain on the card at each login, once
+          # WirePlumber has set the card up (it restores the mixer as it does). Nothing
+          # else opens the 48 kHz "Digital Microphone", whose volume would move it.
+          systemd.user.services.balaur-mic-gain = lib.mkIf customMic {
+            description = "Microphone array gain";
+            wantedBy = [ "pipewire-pulse.service" ];
+            after = [
+              "pipewire-pulse.service"
+              "wireplumber.service"
+            ];
+            before = [ "balaur-assistant.service" ];
+            unitConfig.ConditionUser = user;
+            serviceConfig.Type = "oneshot";
+            path = [
+              pkgs.pulseaudio
+              pkgs.alsa-utils
+              pkgs.gnugrep
+              pkgs.coreutils
+            ];
+            script = ''
+              for _ in $(seq 20); do
+                pactl list short sources | grep -q HiFi__Mic1__source && break
+                sleep 1
+              done
               sleep 1
-            done
-            sleep 1
-            amixer -q -c 0 sset Dmic0 cap ${toString as.audio.micGain}
-          '';
-        };
+              amixer -q -c 0 sset Dmic0 cap ${toString as.audio.micGain}
+            '';
+          };
 
-        balaur.services = [{
-          name = "Assistant";
-          description = "Voice assistant · say “${lib.concatMapStringsSep " " (w: lib.toUpper (lib.substring 0 1 w) + lib.substring 1 (-1) w) (lib.splitString "_" as.wakeWord)}”";
-          icon = "🎙";
-          unit = "user:balaur-assistant.service";
-          desktopId = "org.balaur.Balaur.desktop";
-          group = "Home";
-        }];
-      }
+          balaur.services = [
+            {
+              name = "Assistant";
+              description = "Voice assistant · say “${
+                lib.concatMapStringsSep " " (w: lib.toUpper (lib.substring 0 1 w) + lib.substring 1 (-1) w) (
+                  lib.splitString "_" as.wakeWord
+                )
+              }”";
+              icon = "🎙";
+              unit = "user:balaur-assistant.service";
+              desktopId = "org.balaur.Balaur.desktop";
+              group = "Home";
+            }
+          ];
+        }
 
-      # The key from the repo: root's, readable by the assistant's group, which the
-      # assistant's account is in. Declared only when sops-nix is there to read it.
-      (lib.optionalAttrs useSops {
-        sops.secrets.${keySecret} = {
-          owner = "root";
-          group = "balaur-assistant";
-          mode = "0640";
-        };
-      })
+        # The key from the repo: root's, readable by the assistant's group, which the
+        # assistant's account is in. Declared only when sops-nix is there to read it.
+        (lib.optionalAttrs useSops {
+          sops.secrets.${keySecret} = {
+            owner = "root";
+            group = "balaur-assistant";
+            mode = "0640";
+          };
+        })
       ];
     };
 }

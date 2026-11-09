@@ -35,7 +35,13 @@ let
 in
 {
   flake.modules.nixos.agent =
-    { config, options, lib, pkgs, ... }:
+    {
+      config,
+      options,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur;
       me = config.networking.hostName;
@@ -47,26 +53,54 @@ in
       # The other machines that have an agent to ask.
       peers = lib.filter (h: h != me && known h && (hostConfig h).balaur ? agent) (lib.attrNames fleet);
 
-      models = pkgs.writeText "pi-models.json" (builtins.toJSON {
-        providers.balaur = {
-          baseUrl = aiUrl;
-          api = "openai-completions";
-          apiKey = "balaur"; # not a secret: the entryway takes no key (ai.nix)
-          # 128k is Strata's window on zmeu (n_ctx 131072) and no more than Mistral's.
-          models = map (m: m // { contextWindow = 128000; maxTokens = 16384; }) [
-            { id = "balaur"; name = "Balaur (the entryway's route: local GPU first, Mistral second)"; }
-            { id = "balaur-local"; name = "Balaur local (the fleet's GPU only)"; input = [ "text" "image" ]; }
-            { id = "balaur-remote"; name = "Balaur remote (Mistral only)"; }
-          ];
-        };
-      });
+      models = pkgs.writeText "pi-models.json" (
+        builtins.toJSON {
+          providers.balaur = {
+            baseUrl = aiUrl;
+            api = "openai-completions";
+            apiKey = "balaur"; # not a secret: the entryway takes no key (ai.nix)
+            # 128k is Strata's window on zmeu (n_ctx 131072) and no more than Mistral's.
+            models =
+              map
+                (
+                  m:
+                  m
+                  // {
+                    contextWindow = 128000;
+                    maxTokens = 16384;
+                  }
+                )
+                [
+                  {
+                    id = "balaur";
+                    name = "Balaur (the entryway's route: local GPU first, Mistral second)";
+                  }
+                  {
+                    id = "balaur-local";
+                    name = "Balaur local (the fleet's GPU only)";
+                    input = [
+                      "text"
+                      "image"
+                    ];
+                  }
+                  {
+                    id = "balaur-remote";
+                    name = "Balaur remote (Mistral only)";
+                  }
+                ];
+          };
+        }
+      );
 
-      settings = pkgs.writeText "pi-settings.json" (builtins.toJSON {
-        defaultProvider = "balaur";
-        defaultModel = cfg.agent.model;
-      });
+      settings = pkgs.writeText "pi-settings.json" (
+        builtins.toJSON {
+          defaultProvider = "balaur";
+          defaultModel = cfg.agent.model;
+        }
+      );
 
-      machine = h:
+      machine =
+        h:
         let
           e = fleet.${h};
           services = lib.optionals (known h) (hostConfig h).balaur.services;
@@ -75,11 +109,16 @@ in
           ### ${h}${lib.optionalString (h == me) " (this machine)"}
 
           ${e.description}
-          Address: `${if h == me then "127.0.0.1" else e.address}`${lib.optionalString (h != me && e.tailnetIp != null) " (tailnet ${e.tailnetIp})"}.${
-            lib.optionalString (lib.elem h peers) " Its agent: `balaur-ask ${h} \"...\"`."}
+          Address: `${if h == me then "127.0.0.1" else e.address}`${
+            lib.optionalString (h != me && e.tailnetIp != null) " (tailnet ${e.tailnetIp})"
+          }.${lib.optionalString (lib.elem h peers) " Its agent: `balaur-ask ${h} \"...\"`."}
 
-          ${lib.concatMapStrings (s: "- ${s.name}${lib.optionalString (s.description != "") ": ${s.description}"}${
-            lib.optionalString (s.unit != "") " (`${s.unit}`)"}\n") services}
+          ${lib.concatMapStrings (
+            s:
+            "- ${s.name}${lib.optionalString (s.description != "") ": ${s.description}"}${
+              lib.optionalString (s.unit != "") " (`${s.unit}`)"
+            }\n"
+          ) services}
         '';
 
       instructions = pkgs.writeText "pi-AGENTS.md" ''
@@ -147,7 +186,9 @@ in
           fi
           host=$1; shift
           case $host in
-          ${lib.concatMapStrings (h: "  ${h}) dir=${lib.escapeShellArg (hostConfig h).balaur.agent.clone} ;;\n") peers}
+          ${lib.concatMapStrings (
+            h: "  ${h}) dir=${lib.escapeShellArg (hostConfig h).balaur.agent.clone} ;;\n"
+          ) peers}
             *) echo "balaur-ask: no agent on '$host'" >&2; usage ;;
           esac
           question="The agent of ${me} asks you, the agent of $host. Find out and report; change nothing and commit nothing.
@@ -163,14 +204,20 @@ in
     {
       options.balaur.agent = {
         model = lib.mkOption {
-          type = lib.types.enum [ "balaur" "balaur-local" "balaur-remote" ];
+          type = lib.types.enum [
+            "balaur"
+            "balaur-local"
+            "balaur-remote"
+          ];
           default = "balaur";
           description = "The entryway's model pi starts with (ai.nix).";
         };
         clone = lib.mkOption {
           type = lib.types.str;
           default =
-            let c = cfg.autoDeploy.clone or null; in
+            let
+              c = cfg.autoDeploy.clone or null;
+            in
             if c != null then c else "/home/${cfg.user}/Projects/balaur-fleet";
           defaultText = lib.literalMD "auto-deploy's clone, else `~/Projects/balaur-fleet` of the admin";
           description = "The checkout of the fleet's repository the agent works in.";
@@ -179,7 +226,10 @@ in
 
       config = lib.mkMerge [
         {
-          environment.systemPackages = [ pi ask ];
+          environment.systemPackages = [
+            pi
+            ask
+          ];
 
           # Nix owns the version, and nothing reports home.
           environment.sessionVariables = {

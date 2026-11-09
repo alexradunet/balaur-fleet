@@ -25,13 +25,20 @@
           device = "/dev/dri/renderD128";
         };
       };
-      users.users.jellyfin.extraGroups = [ "media" "render" "video" ];
+      users.users.jellyfin.extraGroups = [
+        "media"
+        "render"
+        "video"
+      ];
 
       # Quick Sync: this aspect assumes an Intel iGPU, which is what the one
       # machine serving media has. An AMD host would want radeonsi here instead.
       hardware.graphics = {
         enable = true;
-        extraPackages = [ pkgs.intel-media-driver pkgs.vpl-gpu-rt ];
+        extraPackages = [
+          pkgs.intel-media-driver
+          pkgs.vpl-gpu-rt
+        ];
       };
 
       systemd.tmpfiles.rules = [

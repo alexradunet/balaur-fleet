@@ -1,4 +1,10 @@
-{ lib, stdenvNoCC, gjs, libsoup_3, tzdata }:
+{
+  lib,
+  stdenvNoCC,
+  gjs,
+  libsoup_3,
+  tzdata,
+}:
 
 # GNOME Shell extension balaur@balaur.local (gnome/shell-extension/): the voice
 # assistant's orb overlay, the Quick Settings microphone toggle and the ambient

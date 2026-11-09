@@ -38,7 +38,12 @@ let
 in
 {
   flake.modules.nixos.aminte =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur;
       aminte = pkgs.callPackage ../pkgs/aminte.nix { inherit src; };
@@ -51,7 +56,10 @@ in
 
       publishLatest = pkgs.writeShellApplication {
         name = "aminte-publish-latest";
-        runtimeInputs = [ pkgs.coreutils pkgs.gnugrep ];
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.gnugrep
+        ];
         text = ''
           # The newest good snapshot (the same pattern aminte-snapshot prunes by).
           export LC_ALL=C
@@ -74,8 +82,16 @@ in
     {
       options.balaur.aminte = {
         extensions = lib.mkOption {
-          type = lib.types.listOf (lib.types.enum [ "web" "ticktick" ]);
-          default = [ "web" "ticktick" ];
+          type = lib.types.listOf (
+            lib.types.enum [
+              "web"
+              "ticktick"
+            ]
+          );
+          default = [
+            "web"
+            "ticktick"
+          ];
           description = ''
             The extensions `serve` runs beside the core. One that is not set up yet
             (ticktick before `aminte ticktick login`)
@@ -108,7 +124,8 @@ in
           environment = {
             HOME = state; # the extensions keep their state in ~/.config/aminte-NAME
             AMINTE_WEB_LISTEN = "127.0.0.1:${toString webPort}";
-          } // lib.optionalAttrs (domain != null) {
+          }
+          // lib.optionalAttrs (domain != null) {
             AMINTE_WEB_ORIGINS = "https://aminte.${domain}";
           };
           preStart = ''
@@ -118,11 +135,22 @@ in
           serviceConfig = {
             User = "aminte";
             Group = "aminte";
-            ExecStart = lib.escapeShellArgs ([
-              (lib.getExe aminte) "--db" db "serve"
-              "--token-file" (toString cfg.aminte.tokenFile)
-              "--snapshots" snapshots
-            ] ++ lib.concatMap (e: [ "--with" e ]) cfg.aminte.extensions);
+            ExecStart = lib.escapeShellArgs (
+              [
+                (lib.getExe aminte)
+                "--db"
+                db
+                "serve"
+                "--token-file"
+                (toString cfg.aminte.tokenFile)
+                "--snapshots"
+                snapshots
+              ]
+              ++ lib.concatMap (e: [
+                "--with"
+                e
+              ]) cfg.aminte.extensions
+            );
             StateDirectory = "aminte";
             StateDirectoryMode = "0700";
             UMask = "0077";
@@ -148,7 +176,10 @@ in
         systemd.services.aminte-snapshot = {
           description = "aminte nightly snapshot of life.db";
           onFailure = [ "aminte-snapshot-failed.service" ];
-          path = [ pkgs.coreutils pkgs.gnugrep ];
+          path = [
+            pkgs.coreutils
+            pkgs.gnugrep
+          ];
           environment = {
             HOME = state;
             AMINTE_BIN = lib.getExe aminte;
@@ -186,26 +217,36 @@ in
           };
         };
 
-        balaur.services = [{
-          name = "Aminte";
-          description = "The life log";
-          icon = "📓";
-          port = webPort;
-          subdomain = "aminte";
-          unit = "aminte.service";
-          group = "Personal";
-        }];
+        balaur.services = [
+          {
+            name = "Aminte";
+            description = "The life log";
+            icon = "📓";
+            port = webPort;
+            subdomain = "aminte";
+            unit = "aminte.service";
+            group = "Personal";
+          }
+        ];
       };
     };
 
   flake.modules.nixos.aminte-dev =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur.aminte-dev;
       aminte = pkgs.callPackage ../pkgs/aminte.nix { inherit src; };
       prod = pkgs.writeShellApplication {
         name = "aminte-prod";
-        runtimeInputs = [ pkgs.openssh pkgs.coreutils ];
+        runtimeInputs = [
+          pkgs.openssh
+          pkgs.coreutils
+        ];
         text = ''
           # Run a command against prod's aminte on ${cfg.host}, through an SSH tunnel
           # that stays open in the background (one per login session).
@@ -243,6 +284,9 @@ in
         };
       };
 
-      config.environment.systemPackages = [ aminte prod ];
+      config.environment.systemPackages = [
+        aminte
+        prod
+      ];
     };
 }

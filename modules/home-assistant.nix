@@ -12,7 +12,12 @@
 # up ("No module named ..."): add it here and push.
 {
   flake.modules.nixos.home-assistant =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       port = 8123;
       hass = config.services.home-assistant;
@@ -60,7 +65,10 @@
             server_port = port;
             # Caddy (the `web` aspect) on the same machine.
             use_x_forwarded_for = true;
-            trusted_proxies = [ "127.0.0.1" "::1" ];
+            trusted_proxies = [
+              "127.0.0.1"
+              "::1"
+            ];
           };
           # What the UI's editors write; a generated configuration.yaml cannot hold it.
           "automation ui" = "!include automations.yaml";
@@ -71,21 +79,26 @@
 
       # The files the editors above write into; Home Assistant will not start if
       # an included one is missing.
-      systemd.tmpfiles.rules = map (f: "f ${hass.configDir}/${f} 0644 hass hass - []")
-        [ "automations.yaml" "scenes.yaml" "scripts.yaml" ];
+      systemd.tmpfiles.rules = map (f: "f ${hass.configDir}/${f} 0644 hass hass - []") [
+        "automations.yaml"
+        "scenes.yaml"
+        "scripts.yaml"
+      ];
 
       # The LAN too (tailscale0 is trusted already): the phone's companion app at home.
       networking.firewall.allowedTCPPorts = [ port ];
 
-      balaur.services = [{
-        name = "Home Assistant";
-        description = "Lights, devices & automations";
-        icon = "🏠";
-        inherit port;
-        subdomain = "home";
-        unit = "home-assistant.service";
-        appIcon = "${hass.package.frontend}/${hass.package.python3Packages.python.sitePackages}/hass_frontend/static/icons/favicon-192x192.png";
-        group = "Home";
-      }];
+      balaur.services = [
+        {
+          name = "Home Assistant";
+          description = "Lights, devices & automations";
+          icon = "🏠";
+          inherit port;
+          subdomain = "home";
+          unit = "home-assistant.service";
+          appIcon = "${hass.package.frontend}/${hass.package.python3Packages.python.sitePackages}/hass_frontend/static/icons/favicon-192x192.png";
+          group = "Home";
+        }
+      ];
     };
 }

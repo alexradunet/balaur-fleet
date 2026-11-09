@@ -18,7 +18,12 @@ let
 in
 {
   flake.modules.nixos.files =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur;
       root = toString cfg.storage.root;
@@ -42,7 +47,11 @@ in
 
       makeImage = pkgs.writeShellApplication {
         name = "balaur-files-image";
-        runtimeInputs = [ pkgs.coreutils pkgs.e2fsprogs pkgs.util-linux ];
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.e2fsprogs
+          pkgs.util-linux
+        ];
         text = ''
           install -d -m 0755 "$(dirname ${image})"
 
@@ -137,7 +146,10 @@ in
           # Syncthing requires the mount separately, so it stays off rather than
           # writing into the bare mount point and filling the root disk.
           # (systemd creates the mount point itself, so no x-mount.mkdir.)
-          options = [ "loop" "nofail" ];
+          options = [
+            "loop"
+            "nofail"
+          ];
         };
 
         # Everything the mounted volume needs before Syncthing may touch it. It has
@@ -158,7 +170,11 @@ in
             Type = "oneshot";
             RemainAfterExit = true;
           };
-          path = [ pkgs.coreutils pkgs.util-linux pkgs.e2fsprogs ];
+          path = [
+            pkgs.coreutils
+            pkgs.util-linux
+            pkgs.e2fsprogs
+          ];
           script = ''
             # Belt and braces: never act on a directory of the root filesystem.
             if ! mountpoint -q ${mountPoint}; then

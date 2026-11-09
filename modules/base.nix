@@ -1,7 +1,12 @@
 # Baseline: boot, users, SSH, Nix, housekeeping.
 {
   flake.modules.nixos.base =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur;
     in
@@ -42,9 +47,19 @@
 
         # Where the home is: the weather (the assistant's tool, the ambient screen).
         location = {
-          name = lib.mkOption { type = lib.types.str; default = "Bucharest"; description = "Home location, for weather and context."; };
-          latitude = lib.mkOption { type = lib.types.float; default = 44.4268; };
-          longitude = lib.mkOption { type = lib.types.float; default = 26.1025; };
+          name = lib.mkOption {
+            type = lib.types.str;
+            default = "Bucharest";
+            description = "Home location, for weather and context.";
+          };
+          latitude = lib.mkOption {
+            type = lib.types.float;
+            default = 44.4268;
+          };
+          longitude = lib.mkOption {
+            type = lib.types.float;
+            default = 26.1025;
+          };
         };
 
         storage.root = lib.mkOption {
@@ -60,49 +75,73 @@
             /etc/balaur/services.json by the `fleet` aspect, together with the web UIs
             of the other machines). Feature modules append to this.
           '';
-          type = lib.types.listOf (lib.types.submodule ({ config, ... }: {
-            options = {
-              name = lib.mkOption { type = lib.types.str; };
-              description = lib.mkOption { type = lib.types.str; default = ""; };
-              icon = lib.mkOption { type = lib.types.str; default = "•"; description = "An icon name, a file, or an emoji."; };
-              port = lib.mkOption { type = lib.types.nullOr lib.types.port; default = null; description = "Its web UI on this machine, if any."; };
-              path = lib.mkOption { type = lib.types.str; default = ""; };
-              scheme = lib.mkOption {
-                type = lib.types.enum [ "http" "https" ];
-                default = "http";
-                description = "How its web UI on `port` is spoken to: https for one that serves only TLS itself (Sunshine).";
-              };
-              subdomain = lib.mkOption {
-                type = lib.types.nullOr lib.types.str;
-                default = null;
-                example = "jellyfin";
-                description = "Where the `web` aspect, on a machine that has it, serves this web UI: https://<subdomain>.<balaur.web.domain>.";
-              };
-              unit = lib.mkOption {
-                type = lib.types.str;
-                default = "";
-                description = "systemd unit whose state the app shows; `user:<unit>` for a unit of the household session (the voice assistant).";
-              };
-              group = lib.mkOption { type = lib.types.str; default = "Other"; };
-              appIcon = lib.mkOption {
-                type = lib.types.nullOr lib.types.str;
-                default = null;
-                description = "Icon (name or file) for installing the service's web UI as a GNOME web app (GNOME Web's application mode); null = no app.";
-              };
-              desktopId = lib.mkOption {
-                type = lib.types.nullOr lib.types.str;
-                default = null;
-                description = "The GNOME app that opens this service (a desktop file id); a web app from appIcon fills it in.";
-              };
-              webAppId = lib.mkOption {
-                type = lib.types.str;
-                internal = true;
-                readOnly = true;
-                default = "balaur-web-" + lib.toLower (lib.replaceStrings [ " " ] [ "-" ] config.name);
-                description = "Desktop file id (without .desktop) of its web app, where `tablet` installs one.";
-              };
-            };
-          }));
+          type = lib.types.listOf (
+            lib.types.submodule (
+              { config, ... }: {
+                options = {
+                  name = lib.mkOption { type = lib.types.str; };
+                  description = lib.mkOption {
+                    type = lib.types.str;
+                    default = "";
+                  };
+                  icon = lib.mkOption {
+                    type = lib.types.str;
+                    default = "•";
+                    description = "An icon name, a file, or an emoji.";
+                  };
+                  port = lib.mkOption {
+                    type = lib.types.nullOr lib.types.port;
+                    default = null;
+                    description = "Its web UI on this machine, if any.";
+                  };
+                  path = lib.mkOption {
+                    type = lib.types.str;
+                    default = "";
+                  };
+                  scheme = lib.mkOption {
+                    type = lib.types.enum [
+                      "http"
+                      "https"
+                    ];
+                    default = "http";
+                    description = "How its web UI on `port` is spoken to: https for one that serves only TLS itself (Sunshine).";
+                  };
+                  subdomain = lib.mkOption {
+                    type = lib.types.nullOr lib.types.str;
+                    default = null;
+                    example = "jellyfin";
+                    description = "Where the `web` aspect, on a machine that has it, serves this web UI: https://<subdomain>.<balaur.web.domain>.";
+                  };
+                  unit = lib.mkOption {
+                    type = lib.types.str;
+                    default = "";
+                    description = "systemd unit whose state the app shows; `user:<unit>` for a unit of the household session (the voice assistant).";
+                  };
+                  group = lib.mkOption {
+                    type = lib.types.str;
+                    default = "Other";
+                  };
+                  appIcon = lib.mkOption {
+                    type = lib.types.nullOr lib.types.str;
+                    default = null;
+                    description = "Icon (name or file) for installing the service's web UI as a GNOME web app (GNOME Web's application mode); null = no app.";
+                  };
+                  desktopId = lib.mkOption {
+                    type = lib.types.nullOr lib.types.str;
+                    default = null;
+                    description = "The GNOME app that opens this service (a desktop file id); a web app from appIcon fills it in.";
+                  };
+                  webAppId = lib.mkOption {
+                    type = lib.types.str;
+                    internal = true;
+                    readOnly = true;
+                    default = "balaur-web-" + lib.toLower (lib.replaceStrings [ " " ] [ "-" ] config.name);
+                    description = "Desktop file id (without .desktop) of its web app, where `tablet` installs one.";
+                  };
+                };
+              }
+            )
+          );
         };
       };
 
@@ -117,7 +156,11 @@
         boot.plymouth.enable = true;
         boot.consoleLogLevel = 0;
         boot.initrd.verbose = false;
-        boot.kernelParams = [ "quiet" "loglevel=3" "udev.log_level=3" ];
+        boot.kernelParams = [
+          "quiet"
+          "loglevel=3"
+          "udev.log_level=3"
+        ];
 
         zramSwap.enable = true;
         services.fstrim.enable = true;
@@ -126,7 +169,11 @@
         users.mutableUsers = true;
         users.users.${cfg.user} = {
           isNormalUser = true;
-          extraGroups = [ "wheel" "networkmanager" "media" ];
+          extraGroups = [
+            "wheel"
+            "networkmanager"
+            "media"
+          ];
           openssh.authorizedKeys.keys = cfg.sshKeys;
         };
         users.groups.media = { };
@@ -143,12 +190,19 @@
           };
         };
 
-        warnings = lib.optional (cfg.sshKeys == [ ] && !cfg.ssh.passwordAuth && !config.services.tailscale.enable)
-          "SSH password login is off, no sshKeys are set and Tailscale is disabled: remote login is impossible.";
+        warnings =
+          lib.optional (cfg.sshKeys == [ ] && !cfg.ssh.passwordAuth && !config.services.tailscale.enable)
+            "SSH password login is off, no sshKeys are set and Tailscale is disabled: remote login is impossible.";
 
         nix.settings = {
-          experimental-features = [ "nix-command" "flakes" ];
-          trusted-users = [ "root" "@wheel" ];
+          experimental-features = [
+            "nix-command"
+            "flakes"
+          ];
+          trusted-users = [
+            "root"
+            "@wheel"
+          ];
         };
         # Deduplicate the store once a week, not by hashing every build's outputs
         # as they land (auto-optimise-store): same result, less CPU while building.

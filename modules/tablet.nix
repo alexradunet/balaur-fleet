@@ -15,7 +15,12 @@
 # PipeWire and the Firefox policies.
 {
   flake.modules.nixos.tablet =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur;
       user = cfg.tablet.user;
@@ -37,7 +42,9 @@
       webAppId = s: s.webAppId;
       serviceUrl = s: if s.port == null then null else "http://127.0.0.1:${toString s.port}${s.path}";
       hasWebApp = s: s.port != null && s.appIcon != null;
-      webApps = map (s: pkgs.makeDesktopItem {
+      webApps = map (
+        s:
+        pkgs.makeDesktopItem {
           name = webAppId s;
           desktopName = s.name;
           comment = s.description;
@@ -45,8 +52,8 @@
           exec = "${pkgs.epiphany}/bin/epiphany --application-mode=${webAppId s}.desktop ${serviceUrl s}";
           startupWMClass = "org.gnome.Epiphany.WebApp_${builtins.hashString "sha1" s.name}";
           categories = [ "Network" ];
-        })
-        (lib.filter hasWebApp cfg.services);
+        }
+      ) (lib.filter hasWebApp cfg.services);
 
       # Working on the box itself (keyboard attached): a terminal logged in as the
       # admin account, where the repo and Claude Code live. Asks that account's
@@ -57,7 +64,10 @@
         comment = "A shell as ${cfg.user}: the repo, Claude Code, nixos-rebuild";
         icon = "org.gnome.Ptyxis";
         exec = "${pkgs.ptyxis}/bin/ptyxis --new-window -x \"su - ${cfg.user}\"";
-        categories = [ "System" "TerminalEmulator" ];
+        categories = [
+          "System"
+          "TerminalEmulator"
+        ];
       };
 
       # The ambient screen (Shell extension, ambient.js): clock, weather, timers,
@@ -69,18 +79,26 @@
       ambientJson = builtins.toJSON {
         inherit (ambient) idleSeconds;
         location = { inherit (cfg.location) name latitude longitude; };
-        photos = if jellyfin then {
-          server = "http://127.0.0.1:8096";
-          keyFile = photosKey;
-          inherit (ambient.photos) intervalSeconds;
-        } else null;
+        photos =
+          if jellyfin then
+            {
+              server = "http://127.0.0.1:8096";
+              keyFile = photosKey;
+              inherit (ambient.photos) intervalSeconds;
+            }
+          else
+            null;
       };
 
       # A Jellyfin API key for the photos, from a terminal (state only, never in the
       # repo or the store; read from stdin). Also adds the Photos library if missing.
       photosLogin = pkgs.writeShellApplication {
         name = "balaur-photos-login";
-        runtimeInputs = [ pkgs.coreutils pkgs.curl pkgs.jq ];
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.curl
+          pkgs.jq
+        ];
         text = ''
           if [ "$(id -u)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
           echo "Jellyfin (http://balaur:8096) > Dashboard > API Keys > + (name it Balaur), then paste it here."
@@ -147,7 +165,10 @@
         # ---- GNOME, trimmed to what a wall tablet needs ----
         # GDM, the GNOME session, PipeWire and the Firefox policies are the shared
         # `gnome` aspect; this one only takes away what a wall screen doesn't need.
-        services.displayManager.autoLogin = { enable = true; inherit user; };
+        services.displayManager.autoLogin = {
+          enable = true;
+          inherit user;
+        };
 
         services.gnome = {
           core-apps.enable = false; # the app grid is curated below
@@ -164,22 +185,32 @@
           gnome-browser-connector.enable = false;
         };
         services.dleyna.enable = false;
-        environment.gnome.excludePackages = with pkgs; [ gnome-tour gnome-user-docs yelp orca ];
-
-        environment.systemPackages = with pkgs; [
-          balaurApp
-          balaurExtension
-          devTerminal
-          epiphany # GNOME Web: runs the web apps below
-        ] ++ lib.optional jellyfin photosLogin ++ webApps ++ [
-          ptyxis # terminal (as the household account)
-          jellyfin-desktop # Jellyfin client (video, and the target for "play on Duet")
-          gelly # Jellyfin music, GNOME-native
-          nautilus
-          loupe
-          gnome-calculator
-          snapshot # GNOME camera: shows the front camera (the relay's webcam)
+        environment.gnome.excludePackages = with pkgs; [
+          gnome-tour
+          gnome-user-docs
+          yelp
+          orca
         ];
+
+        environment.systemPackages =
+          with pkgs;
+          [
+            balaurApp
+            balaurExtension
+            devTerminal
+            epiphany # GNOME Web: runs the web apps below
+          ]
+          ++ lib.optional jellyfin photosLogin
+          ++ webApps
+          ++ [
+            ptyxis # terminal (as the household account)
+            jellyfin-desktop # Jellyfin client (video, and the target for "play on Duet")
+            gelly # Jellyfin music, GNOME-native
+            nautilus
+            loupe
+            gnome-calculator
+            snapshot # GNOME camera: shows the front camera (the relay's webcam)
+          ];
 
         # Rotation.
         hardware.sensor.iio.enable = true;
@@ -188,67 +219,94 @@
         users.users.${user} = {
           isNormalUser = true;
           description = "Home";
-          extraGroups = [ "video" "audio" ];
+          extraGroups = [
+            "video"
+            "audio"
+          ];
           hashedPassword = "!"; # never asked: GDM logs it in, and it never locks
         };
 
         # ---- defaults for the session (locked: the household can't flip them by accident) ----
-        programs.dconf.profiles.user.databases = [{
-          settings = {
-            # Blank after balaur.camera.screenTimeout idle (movement in front of the
-            # camera counts as activity, camera.nix); never dim, lock or sleep.
-            "org/gnome/desktop/session".idle-delay = mkUint32 screenTimeout;
-            "org/gnome/desktop/screensaver" = { lock-enabled = false; idle-activation-enabled = screenTimeout > 0; };
-            "org/gnome/desktop/lockdown".disable-lock-screen = true;
-            "org/gnome/settings-daemon/plugins/power" = {
-              sleep-inactive-ac-type = "nothing";
-              sleep-inactive-battery-type = "nothing";
-              idle-dim = false;
-              ambient-enabled = false;
-              power-button-action = "nothing"; # a long press still powers off (always-on.nix)
-            };
-            "org/gnome/desktop/notifications".show-in-lock-screen = false;
+        programs.dconf.profiles.user.databases = [
+          {
+            settings = {
+              # Blank after balaur.camera.screenTimeout idle (movement in front of the
+              # camera counts as activity, camera.nix); never dim, lock or sleep.
+              "org/gnome/desktop/session".idle-delay = mkUint32 screenTimeout;
+              "org/gnome/desktop/screensaver" = {
+                lock-enabled = false;
+                idle-activation-enabled = screenTimeout > 0;
+              };
+              "org/gnome/desktop/lockdown".disable-lock-screen = true;
+              "org/gnome/settings-daemon/plugins/power" = {
+                sleep-inactive-ac-type = "nothing";
+                sleep-inactive-battery-type = "nothing";
+                idle-dim = false;
+                ambient-enabled = false;
+                power-button-action = "nothing"; # a long press still powers off (always-on.nix)
+              };
+              "org/gnome/desktop/notifications".show-in-lock-screen = false;
 
-            # Touch tablet.
-            "org/gnome/desktop/input-sources".sources = [ (mkTuple [ "xkb" "us" ]) (mkTuple [ "xkb" "ro+std" ]) ];
-            "org/gnome/desktop/a11y/applications".screen-keyboard-enabled = false; # false = automatic, on touch
-            "org/gnome/settings-daemon/peripherals/touchscreen".orientation-lock = false;
-            "org/gnome/desktop/interface" = {
-              clock-show-weekday = true;
-              show-battery-percentage = true;
-              color-scheme = "prefer-dark";
-            };
-
-            # The home screen.
-            "org/gnome/shell" = {
-              favorite-apps = favorites;
-              welcome-dialog-last-shown-version = "999";
-              enabled-extensions = [ balaurExtension.passthru.extensionUuid ];
-            };
-            "org/gnome/mutter".dynamic-workspaces = true;
-            # Tools for whoever administers the box, out of the household's way.
-            "org/gnome/desktop/app-folders".folder-children = [ "Admin" ];
-            "org/gnome/desktop/app-folders/folders/Admin" = {
-              name = "Admin";
-              apps = [
-                "btop.desktop" "htop.desktop" "gvim.desktop" "vim.desktop" "nixos-manual.desktop"
-                "gtk3-demo.desktop" "gtk3-icon-browser.desktop" "gtk3-widget-factory.desktop"
-                "qv4l2.desktop" "qvidcap.desktop" "org.freedesktop.IBus.Setup.desktop"
-                "org.gnome.Extensions.desktop" "org.gnome.ColorProfileViewer.desktop"
-                "balaur-dev-terminal.desktop" "org.gnome.Ptyxis.desktop"
+              # Touch tablet.
+              "org/gnome/desktop/input-sources".sources = [
+                (mkTuple [
+                  "xkb"
+                  "us"
+                ])
+                (mkTuple [
+                  "xkb"
+                  "ro+std"
+                ])
               ];
+              "org/gnome/desktop/a11y/applications".screen-keyboard-enabled = false; # false = automatic, on touch
+              "org/gnome/settings-daemon/peripherals/touchscreen".orientation-lock = false;
+              "org/gnome/desktop/interface" = {
+                clock-show-weekday = true;
+                show-battery-percentage = true;
+                color-scheme = "prefer-dark";
+              };
+
+              # The home screen.
+              "org/gnome/shell" = {
+                favorite-apps = favorites;
+                welcome-dialog-last-shown-version = "999";
+                enabled-extensions = [ balaurExtension.passthru.extensionUuid ];
+              };
+              "org/gnome/mutter".dynamic-workspaces = true;
+              # Tools for whoever administers the box, out of the household's way.
+              "org/gnome/desktop/app-folders".folder-children = [ "Admin" ];
+              "org/gnome/desktop/app-folders/folders/Admin" = {
+                name = "Admin";
+                apps = [
+                  "btop.desktop"
+                  "htop.desktop"
+                  "gvim.desktop"
+                  "vim.desktop"
+                  "nixos-manual.desktop"
+                  "gtk3-demo.desktop"
+                  "gtk3-icon-browser.desktop"
+                  "gtk3-widget-factory.desktop"
+                  "qv4l2.desktop"
+                  "qvidcap.desktop"
+                  "org.freedesktop.IBus.Setup.desktop"
+                  "org.gnome.Extensions.desktop"
+                  "org.gnome.ColorProfileViewer.desktop"
+                  "balaur-dev-terminal.desktop"
+                  "org.gnome.Ptyxis.desktop"
+                ];
+              };
             };
-          };
-          locks = [
-            "/org/gnome/desktop/session/idle-delay"
-            "/org/gnome/desktop/screensaver/lock-enabled"
-            "/org/gnome/desktop/lockdown/disable-lock-screen"
-            "/org/gnome/settings-daemon/plugins/power/sleep-inactive-ac-type"
-            "/org/gnome/settings-daemon/plugins/power/sleep-inactive-battery-type"
-            "/org/gnome/settings-daemon/plugins/power/idle-dim"
-            "/org/gnome/settings-daemon/plugins/power/ambient-enabled"
-          ];
-        }];
+            locks = [
+              "/org/gnome/desktop/session/idle-delay"
+              "/org/gnome/desktop/screensaver/lock-enabled"
+              "/org/gnome/desktop/lockdown/disable-lock-screen"
+              "/org/gnome/settings-daemon/plugins/power/sleep-inactive-ac-type"
+              "/org/gnome/settings-daemon/plugins/power/sleep-inactive-battery-type"
+              "/org/gnome/settings-daemon/plugins/power/idle-dim"
+              "/org/gnome/settings-daemon/plugins/power/ambient-enabled"
+            ];
+          }
+        ];
 
         environment.etc."balaur/ambient.json".text = ambientJson;
       };

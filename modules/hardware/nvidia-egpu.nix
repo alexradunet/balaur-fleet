@@ -15,7 +15,10 @@
     {
       # Loads the NVIDIA kernel modules and userspace. GNOME runs on Wayland, which
       # talks to every GPU through KMS, so the iGPU keeps working as well.
-      services.xserver.videoDrivers = [ "modesetting" "nvidia" ];
+      services.xserver.videoDrivers = [
+        "modesetting"
+        "nvidia"
+      ];
 
       hardware.nvidia = {
         # Blackwell (RTX 50xx) only runs on the open kernel modules.

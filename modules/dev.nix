@@ -14,7 +14,8 @@
       environment.systemPackages = [
         agents.claude-code # `claude`
         agents.herdr # workspace manager for agent sessions (herdr.dev)
-      ] ++ (with pkgs; [
+      ]
+      ++ (with pkgs; [
         gh
         ripgrep
         fd

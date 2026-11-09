@@ -24,103 +24,105 @@ in
   flake.modules.nixos.balaur =
     { config, ... }:
     {
-    imports = with aspects; [
-      yoga-duet-7
-      base
-      fleet
-      home
-      secrets
-      always-on
-      network
-      files
-      torrents
-      torrents-client
-      media
-      adblock
-      web
-      aminte
-      home-assistant
-      assistant
-      dev
-      auto-deploy
-      # The fleet's AI entryway for every machine (http://balaur:4000/v1, page at
-      # https://ai.balaur.space): zmeu's GPU first, Mistral second.
-      ai-gateway
-      ai
-      # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
-      agent
-      camera
-      gnome
-      tablet
-    ]
-    # Its own disk/boot layout, copied from /etc/nixos (see docs/SETUP.md).
-    ++ [ ../../hosts/balaur/hardware-configuration.nix ];
+      imports =
+        with aspects;
+        [
+          yoga-duet-7
+          base
+          fleet
+          home
+          secrets
+          always-on
+          network
+          files
+          torrents
+          torrents-client
+          media
+          adblock
+          web
+          aminte
+          home-assistant
+          assistant
+          dev
+          auto-deploy
+          # The fleet's AI entryway for every machine (http://balaur:4000/v1, page at
+          # https://ai.balaur.space): zmeu's GPU first, Mistral second.
+          ai-gateway
+          ai
+          # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
+          agent
+          camera
+          gnome
+          tablet
+        ]
+        # Its own disk/boot layout, copied from /etc/nixos (see docs/SETUP.md).
+        ++ [ ../../hosts/balaur/hardware-configuration.nix ];
 
-    networking.hostName = "balaur";
-    time.timeZone = "Europe/Bucharest";
-    i18n.defaultLocale = "en_US.UTF-8";
+      networking.hostName = "balaur";
+      time.timeZone = "Europe/Bucharest";
+      i18n.defaultLocale = "en_US.UTF-8";
 
-    # The value this machine's first install wrote (/etc/nixos/configuration.nix).
-    # Never "upgrade" it by hand.
-    system.stateVersion = "26.05";
+      # The value this machine's first install wrote (/etc/nixos/configuration.nix).
+      # Never "upgrade" it by hand.
+      system.stateVersion = "26.05";
 
-    balaur = {
-      # An EXISTING login on the Duet (its password is kept as is). If this differed from `whoami`, NixOS would
-      # create a new user and drop yours, so set it before the first rebuild.
-      user = "alex";
+      balaur = {
+        # An EXISTING login on the Duet (its password is kept as is). If this differed from `whoami`, NixOS would
+        # create a new user and drop yours, so set it before the first rebuild.
+        user = "alex";
 
-      # The living-room Samsung (UE65AU7172, Tizen 6) is at 192.168.50.106, this machine at
-      # 192.168.50.233 (both reserved in the router); AdGuard (the adblock aspect) blocks its ads.
+        # The living-room Samsung (UE65AU7172, Tizen 6) is at 192.168.50.106, this machine at
+        # 192.168.50.233 (both reserved in the router); AdGuard (the adblock aspect) blocks its ads.
 
-      # Voice assistant: "Hey Jarvis", Romanian + English; Mistral for speech, a pi SDK agent for the rest.
-      # Mistral, the voices and the sops key are the aspect's defaults (assistant.nix).
-      assistant = {
-        # This machine's microphone array at 16 kHz (`arecord -l`: DMIC16kHz). Without
-        # it PipeWire picks the 48 kHz DMIC, whose processing leaves a voice far too
-        # quiet for the wake word. A laptop with an ordinary mic leaves this null.
-        audio.input = "plughw:0,7";
-        # "Hey Jarvis" in our voices scores 0.2-0.9 (`sudo balaur-wake-test`); room noise
-        # never passed 0.05. 0.35 catches most attempts; raise it if the TV wakes it.
-        wakeThreshold = 0.35;
+        # Voice assistant: "Hey Jarvis", Romanian + English; Mistral for speech, a pi SDK agent for the rest.
+        # Mistral, the voices and the sops key are the aspect's defaults (assistant.nix).
+        assistant = {
+          # This machine's microphone array at 16 kHz (`arecord -l`: DMIC16kHz). Without
+          # it PipeWire picks the 48 kHz DMIC, whose processing leaves a voice far too
+          # quiet for the wake word. A laptop with an ordinary mic leaves this null.
+          audio.input = "plughw:0,7";
+          # "Hey Jarvis" in our voices scores 0.2-0.9 (`sudo balaur-wake-test`); room noise
+          # never passed 0.05. 0.35 catches most attempts; raise it if the TV wakes it.
+          wakeThreshold = 0.35;
+        };
+
+        # The colour-filter layout was measured on this laptop (docs/SETUP.md, Stage 10).
+        # camera.tuning.cfa = "GIGI/BGRG/GIGI/RGBG"; # only if red and blue come out swapped (default: GIGI/RGBG/GIGI/BGRG)
       };
 
-      # The colour-filter layout was measured on this laptop (docs/SETUP.md, Stage 10).
-      # camera.tuning.cfa = "GIGI/BGRG/GIGI/RGBG"; # only if red and blue come out swapped (default: GIGI/RGBG/GIGI/BGRG)
-    };
-
-    # FileList's username and passkey are two readable entries in the sops file;
-    # the search plugin wants them as one JSON object, so sops renders it.
-    sops.secrets."filelist-username" = { };
-    sops.secrets."filelist-passkey" = { };
-    sops.templates."filelist.json" = {
-      owner = config.services.qbittorrent.user;
-      mode = "0400";
-      content = builtins.toJSON {
-        username = config.sops.placeholder."filelist-username";
-        passkey = config.sops.placeholder."filelist-passkey";
+      # FileList's username and passkey are two readable entries in the sops file;
+      # the search plugin wants them as one JSON object, so sops renders it.
+      sops.secrets."filelist-username" = { };
+      sops.secrets."filelist-passkey" = { };
+      sops.templates."filelist.json" = {
+        owner = config.services.qbittorrent.user;
+        mode = "0400";
+        content = builtins.toJSON {
+          username = config.sops.placeholder."filelist-username";
+          passkey = config.sops.placeholder."filelist-passkey";
+        };
       };
-    };
-    balaur.torrents = {
-      filelistCredentialsFile = config.sops.templates."filelist.json".path;
-      manageFilelistCredentials = false;
-    };
+      balaur.torrents = {
+        filelistCredentialsFile = config.sops.templates."filelist.json".path;
+        manageFilelistCredentials = false;
+      };
 
-    # https://balaur.space: its A record at Gandi points at this machine's tailnet
-    # address. The certificate's DNS challenge uses a Gandi personal access token
-    # (Domain > "Manage domain technical configurations", balaur.space only).
-    sops.secrets."gandi-token" = { };
-    sops.templates."gandi.env".content = ''
-      GANDIV5_PERSONAL_ACCESS_TOKEN=${config.sops.placeholder."gandi-token"}
-    '';
-    balaur.web = {
-      domain = "balaur.space";
-      dnsProvider = "gandiv5";
-      dnsCredentialsFile = config.sops.templates."gandi.env".path;
-    };
+      # https://balaur.space: its A record at Gandi points at this machine's tailnet
+      # address. The certificate's DNS challenge uses a Gandi personal access token
+      # (Domain > "Manage domain technical configurations", balaur.space only).
+      sops.secrets."gandi-token" = { };
+      sops.templates."gandi.env".content = ''
+        GANDIV5_PERSONAL_ACCESS_TOKEN=${config.sops.placeholder."gandi-token"}
+      '';
+      balaur.web = {
+        domain = "balaur.space";
+        dnsProvider = "gandiv5";
+        dnsCredentialsFile = config.sops.templates."gandi.env".path;
+      };
 
-    # aminte's bearer token: the browser's login at https://aminte.balaur.space, and
-    # the laptop's `aminte-prod` reads the same one (modules/aminte.nix).
-    sops.secrets."aminte-token".owner = "aminte";
-    balaur.aminte.tokenFile = config.sops.secrets."aminte-token".path;
-  };
+      # aminte's bearer token: the browser's login at https://aminte.balaur.space, and
+      # the laptop's `aminte-prod` reads the same one (modules/aminte.nix).
+      sops.secrets."aminte-token".owner = "aminte";
+      balaur.aminte.tokenFile = config.sops.secrets."aminte-token".path;
+    };
 }

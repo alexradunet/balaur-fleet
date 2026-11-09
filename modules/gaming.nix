@@ -28,7 +28,13 @@
 
       battlenet = pkgs.writeShellApplication {
         name = "battlenet";
-        runtimeInputs = with pkgs; [ umu-launcher curl coreutils libnotify zenity ];
+        runtimeInputs = with pkgs; [
+          umu-launcher
+          curl
+          coreutils
+          libnotify
+          zenity
+        ];
         runtimeEnv = {
           GAMEID = "umu-default";
           PROTONPATH = "${pkgs.proton-ge-bin.steamcompattool}";
@@ -107,7 +113,10 @@
 
       wowAddons = pkgs.writeShellApplication {
         name = "wow-addons";
-        runtimeInputs = [ instawow pkgs.coreutils ];
+        runtimeInputs = [
+          instawow
+          pkgs.coreutils
+        ];
         text = ''
           prefix=${prefix}
           game="$prefix/drive_c/Program Files (x86)/World of Warcraft/_forever_"

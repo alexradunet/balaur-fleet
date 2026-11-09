@@ -12,7 +12,10 @@ buildGoModule {
   # Standard library only, so there is nothing to vendor.
   vendorHash = null;
   env.CGO_ENABLED = "0";
-  ldflags = [ "-s" "-w" ];
+  ldflags = [
+    "-s"
+    "-w"
+  ];
 
   meta = {
     description = "RGB-IR camera pipeline for the Yoga Duet 7 front sensor (raw IPU6 frames to a webcam)";

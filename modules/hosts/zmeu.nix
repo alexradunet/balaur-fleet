@@ -18,7 +18,10 @@ in
     # 12 cores / 24 threads against the laptop's 8 / 16, so the others send it their
     # builds first. 12 jobs leaves half the threads; the daemon also runs at idle
     # priority here (below), so a game always comes first.
-    builder = { maxJobs = 12; speedFactor = 4; };
+    builder = {
+      maxJobs = 12;
+      speedFactor = 4;
+    };
   };
 
   flake.nixosConfigurations.zmeu = inputs.nixpkgs.lib.nixosSystem {
@@ -28,37 +31,38 @@ in
   flake.modules.nixos.zmeu =
     { config, ... }:
     {
-      imports = (with aspects; [
-        gmktec-evo-x1
-        nvidia-egpu
-        base
-        fleet
-        home
-        network
-        gnome
-        desktop
-        dev
-        files
-        torrents-client
-        gaming
-        steam
-        game-streaming
-        auto-deploy
-        # The fleet's local LLM on the 5060 Ti (stopped while a game runs), and the
-        # fleet's AI entryway (on balaur) as a client.
-        strata
-        ai
-        # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
-        agent
-        # Decrypts with its SSH host key, a recipient in .sops.yaml.
-        secrets
-        # Runs as alex (no `tablet` here), on PipeWire's default microphone.
-        # Retune wakeThreshold for that microphone with `sudo balaur-wake-test`.
-        assistant
-      ])
-      # Its own disk/boot layout, copied from /etc/nixos (see CLAUDE.md, "Adding a
-      # machine"). It must be `git add`ed or flakes cannot see it.
-      ++ [ ../../hosts/zmeu/hardware-configuration.nix ];
+      imports =
+        (with aspects; [
+          gmktec-evo-x1
+          nvidia-egpu
+          base
+          fleet
+          home
+          network
+          gnome
+          desktop
+          dev
+          files
+          torrents-client
+          gaming
+          steam
+          game-streaming
+          auto-deploy
+          # The fleet's local LLM on the 5060 Ti (stopped while a game runs), and the
+          # fleet's AI entryway (on balaur) as a client.
+          strata
+          ai
+          # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
+          agent
+          # Decrypts with its SSH host key, a recipient in .sops.yaml.
+          secrets
+          # Runs as alex (no `tablet` here), on PipeWire's default microphone.
+          # Retune wakeThreshold for that microphone with `sudo balaur-wake-test`.
+          assistant
+        ])
+        # Its own disk/boot layout, copied from /etc/nixos (see CLAUDE.md, "Adding a
+        # machine"). It must be `git add`ed or flakes cannot see it.
+        ++ [ ../../hosts/zmeu/hardware-configuration.nix ];
 
       networking.hostName = "zmeu";
       time.timeZone = "Europe/Bucharest";
@@ -88,7 +92,10 @@ in
       # Sunshine runs in the admin's session, so log in at boot instead of waiting
       # at GDM. The screen still locks when idle, and a locked screen can be
       # unlocked over Moonlight.
-      services.displayManager.autoLogin = { enable = true; user = config.balaur.user; };
+      services.displayManager.autoLogin = {
+        enable = true;
+        user = config.balaur.user;
+      };
       # A mini-PC on mains power, and a builder: never suspend, or Moonlight and
       # the other machines' builds would find it asleep.
       systemd.targets = {
@@ -104,19 +111,28 @@ in
       nix.daemonCPUSchedPolicy = "idle";
       nix.daemonIOSchedClass = "idle";
 
-    # The living-room TV runs Moonlight but is not on the tailnet (game-streaming).
-    balaur.gameStreaming.lanClients = [ "192.168.50.106" ];
+      # The living-room TV runs Moonlight but is not on the tailnet (game-streaming).
+      balaur.gameStreaming.lanClients = [ "192.168.50.106" ];
 
       # The second NVMe: the old Windows disk, kept for the personal media on it.
       # Read-only until its future is decided; nofail, so the machine boots without it.
       fileSystems."/mnt/old-ssd" = {
         device = "/dev/disk/by-uuid/1C6CA5E96CA5BE40";
         fsType = "ntfs3";
-        options = [ "ro" "nofail" "uid=1000" "gid=100" "x-gvfs-show" ];
+        options = [
+          "ro"
+          "nofail"
+          "uid=1000"
+          "gid=100"
+          "x-gvfs-show"
+        ];
       };
 
       # The admin's own GNOME bits on top of the shared shell/git (modules/home.nix).
-      home-manager.users.${config.balaur.user}.imports = [ hm.desktop hm.torrents-client ];
+      home-manager.users.${config.balaur.user}.imports = [
+        hm.desktop
+        hm.torrents-client
+      ];
 
       balaur = {
         # The existing login on this machine; its password is kept as is.

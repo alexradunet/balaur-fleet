@@ -1,7 +1,12 @@
 # balaur-agent: the voice assistant's brain, a pi SDK session (gnome/agent/),
 # spawned by the GJS daemon (pkgs/balaur-assistant-gjs.nix) over JSON lines.
 # TypeScript run directly by Node 22 (type stripping): no build step.
-{ lib, buildNpmPackage, nodejs_22, makeWrapper }:
+{
+  lib,
+  buildNpmPackage,
+  nodejs_22,
+  makeWrapper,
+}:
 
 buildNpmPackage {
   pname = "balaur-agent";

@@ -41,7 +41,9 @@ in
     let
       me = config.networking.hostName;
       hostConfig = h: if h == me then config else nixosConfigs.${h}.config;
-      gateways = lib.filter (h: (h == me || nixosConfigs ? ${h}) && (hostConfig h).balaur ? ai-gateway) (lib.attrNames fleet);
+      gateways = lib.filter (h: (h == me || nixosConfigs ? ${h}) && (hostConfig h).balaur ? ai-gateway) (
+        lib.attrNames fleet
+      );
       gw = lib.head gateways;
     in
     {
@@ -49,8 +51,12 @@ in
         type = lib.types.str;
         readOnly = true;
         default =
-          assert lib.assertMsg (gateways != [ ]) "the `ai` aspect needs a machine with `ai-gateway` in the fleet";
-          "http://${if gw == me then "127.0.0.1" else fleet.${gw}.address}:${toString (hostConfig gw).balaur.ai-gateway.port}/v1";
+          assert lib.assertMsg (
+            gateways != [ ]
+          ) "the `ai` aspect needs a machine with `ai-gateway` in the fleet";
+          "http://${
+            if gw == me then "127.0.0.1" else fleet.${gw}.address
+          }:${toString (hostConfig gw).balaur.ai-gateway.port}/v1";
         description = "The fleet's AI entryway, as this machine reaches it (OpenAI-compatible base URL).";
       };
 
@@ -65,7 +71,13 @@ in
     };
 
   flake.modules.nixos.ai-gateway =
-    { config, options, lib, pkgs, ... }:
+    {
+      config,
+      options,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur.ai-gateway;
       me = config.networking.hostName;
@@ -76,26 +88,40 @@ in
       # The fleet's GPU machines. Reading another host's config is lazy and only
       # touches its `balaur.strata`, so hosts reading each other is no loop.
       hostConfig = h: if h == me then config else nixosConfigs.${h}.config;
-      gpuHosts = lib.filter (h: (h == me || nixosConfigs ? ${h}) && (hostConfig h).balaur ? strata) (lib.attrNames fleet);
+      gpuHosts = lib.filter (h: (h == me || nixosConfigs ? ${h}) && (hostConfig h).balaur ? strata) (
+        lib.attrNames fleet
+      );
       local = map (h: {
         name = h;
-        url = "http://${if h == me then "127.0.0.1" else fleet.${h}.address}:${toString (hostConfig h).balaur.strata.port}/v1";
+        url = "http://${
+          if h == me then "127.0.0.1" else fleet.${h}.address
+        }:${toString (hostConfig h).balaur.strata.port}/v1";
         model = "strata"; # Strata serves whatever model it loaded, under any name
       }) gpuHosts;
 
-      routerConfig = pkgs.writeText "balaur-ai.json" (builtins.toJSON {
-        name = "balaur";
-        listen = "0.0.0.0"; # loopback and the tailnet; the firewall keeps it off the LAN
-        inherit (cfg) port;
-        inherit local;
-        remote = { url = cfg.remote.baseUrl; model = cfg.remote.model; keyCredential = "remote-key"; };
-        # The names its page is opened under (a browser's Origin), so another
-        # site's page cannot use it through a browser on the tailnet.
-        origins = [ me fleet.${me}.address ] ++ lib.optional (domain != null) "ai.${domain}";
-        # Long enough for a big prompt's prefill on a 12-16 GB card, which runs
-        # at a couple of hundred tokens a second.
-        readTimeout = 600;
-      });
+      routerConfig = pkgs.writeText "balaur-ai.json" (
+        builtins.toJSON {
+          name = "balaur";
+          listen = "0.0.0.0"; # loopback and the tailnet; the firewall keeps it off the LAN
+          inherit (cfg) port;
+          inherit local;
+          remote = {
+            url = cfg.remote.baseUrl;
+            model = cfg.remote.model;
+            keyCredential = "remote-key";
+          };
+          # The names its page is opened under (a browser's Origin), so another
+          # site's page cannot use it through a browser on the tailnet.
+          origins = [
+            me
+            fleet.${me}.address
+          ]
+          ++ lib.optional (domain != null) "ai.${domain}";
+          # Long enough for a big prompt's prefill on a 12-16 GB card, which runs
+          # at a couple of hundred tokens a second.
+          readTimeout = 600;
+        }
+      );
     in
     {
       options.balaur.ai-gateway = {
@@ -117,7 +143,11 @@ in
           };
           apiKeyFile = lib.mkOption {
             type = lib.types.path;
-            default = if useSops then config.sops.secrets.${keySecret}.path else "/var/lib/secrets/balaur-assistant-llm-key";
+            default =
+              if useSops then
+                config.sops.secrets.${keySecret}.path
+              else
+                "/var/lib/secrets/balaur-assistant-llm-key";
             defaultText = lib.literalMD "the `assistant-llm-key` sops secret with the `secrets` aspect, else the assistant's own key file";
             description = "File with the remote API key. Read by systemd (LoadCredential), so its owner does not matter.";
           };
@@ -130,7 +160,10 @@ in
             description = "Balaur AI entryway: local GPU first, Mistral second (:${toString cfg.port})";
             wantedBy = [ "multi-user.target" ];
             wants = [ "network-online.target" ];
-            after = [ "network-online.target" "tailscaled.service" ];
+            after = [
+              "network-online.target"
+              "tailscaled.service"
+            ];
             serviceConfig = {
               ExecStart = "${pkgs.python3}/bin/python3 -I ${./ai/router.py} ${routerConfig}";
               LoadCredential = [ "remote-key:${toString cfg.remote.apiKeyFile}" ];
@@ -150,22 +183,28 @@ in
               ProtectKernelTunables = true;
               ProtectKernelModules = true;
               ProtectControlGroups = true;
-              RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
+              RestrictAddressFamilies = [
+                "AF_INET"
+                "AF_INET6"
+                "AF_UNIX"
+              ];
               RestrictNamespaces = true;
               LockPersonality = true;
               SystemCallArchitectures = "native";
             };
           };
 
-          balaur.services = [{
-            name = "AI";
-            description = "Local GPU first, Mistral second";
-            icon = "✨";
-            port = cfg.port;
-            subdomain = "ai";
-            unit = "balaur-ai.service";
-            group = "System";
-          }];
+          balaur.services = [
+            {
+              name = "AI";
+              description = "Local GPU first, Mistral second";
+              icon = "✨";
+              port = cfg.port;
+              subdomain = "ai";
+              unit = "balaur-ai.service";
+              group = "System";
+            }
+          ];
         }
         # Declared here too so the gateway works without the assistant; sops-nix
         # merges this with the assistant's own declaration of the same secret.

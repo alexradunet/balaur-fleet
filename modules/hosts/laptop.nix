@@ -20,7 +20,10 @@ in
     # The cockpit is also the fleet's builder: 8 cores / 16 threads against the
     # Duet's 4 / 8, and the Duet is busy being the living-room screen. 8 jobs
     # leaves half the threads for whoever is actually using this laptop.
-    builder = { maxJobs = 8; speedFactor = 2; };
+    builder = {
+      maxJobs = 8;
+      speedFactor = 2;
+    };
   };
 
   flake.nixosConfigurations.laptop = inputs.nixpkgs.lib.nixosSystem {
@@ -30,35 +33,36 @@ in
   flake.modules.nixos.laptop =
     { config, pkgs, ... }:
     {
-      imports = (with aspects; [
-        yoga-pro-7
-        base
-        fleet
-        home
-        secrets
-        network
-        gnome
-        desktop
-        dev
-        files
-        # torrents (the qBittorrent server) stays on balaur; this is just the
-        # client, so a magnet clicked here can be sent there.
-        torrents-client
-        # aminte runs on balaur; this is the dev side (aminte-prod, the binaries).
-        aminte-dev
-        assistant
-        gaming
-        # Moonlight, to play what zmeu streams (Sunshine there).
-        game-streaming-client
-        auto-deploy
-        # The fleet's AI entryway on balaur: zmeu's GPU first, Mistral second.
-        ai
-        # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
-        agent
-      ])
-      # Its own disk/boot layout, copied from /etc/nixos (see CLAUDE.md, "Adding a
-      # machine"). It must be `git add`ed or flakes cannot see it.
-      ++ [ ../../hosts/laptop/hardware-configuration.nix ];
+      imports =
+        (with aspects; [
+          yoga-pro-7
+          base
+          fleet
+          home
+          secrets
+          network
+          gnome
+          desktop
+          dev
+          files
+          # torrents (the qBittorrent server) stays on balaur; this is just the
+          # client, so a magnet clicked here can be sent there.
+          torrents-client
+          # aminte runs on balaur; this is the dev side (aminte-prod, the binaries).
+          aminte-dev
+          assistant
+          gaming
+          # Moonlight, to play what zmeu streams (Sunshine there).
+          game-streaming-client
+          auto-deploy
+          # The fleet's AI entryway on balaur: zmeu's GPU first, Mistral second.
+          ai
+          # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
+          agent
+        ])
+        # Its own disk/boot layout, copied from /etc/nixos (see CLAUDE.md, "Adding a
+        # machine"). It must be `git add`ed or flakes cannot see it.
+        ++ [ ../../hosts/laptop/hardware-configuration.nix ];
 
       networking.hostName = "laptop";
       time.timeZone = "Europe/Bucharest";
@@ -89,7 +93,10 @@ in
       # what `base` sets: no boot.loader override needed here.
 
       # The admin's own GNOME bits on top of the shared shell/git (modules/home.nix).
-      home-manager.users.${config.balaur.user}.imports = [ hm.desktop hm.torrents-client ];
+      home-manager.users.${config.balaur.user}.imports = [
+        hm.desktop
+        hm.torrents-client
+      ];
 
       # The same token as balaur's aminte, for `aminte-prod` (modules/aminte.nix).
       sops.secrets."aminte-token".owner = config.balaur.user;

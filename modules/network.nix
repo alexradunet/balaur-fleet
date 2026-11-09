@@ -56,14 +56,15 @@
         # Reach the admin UIs over the tailnet as well as the LAN.
         networking.firewall.trustedInterfaces = [ "tailscale0" ];
 
-        balaur.services =
-          [{
+        balaur.services = [
+          {
             name = "Tailscale";
             description = "Private remote access";
             icon = "🔒";
             unit = "tailscaled.service";
             group = "Network";
-          }];
+          }
+        ];
       };
     };
 }

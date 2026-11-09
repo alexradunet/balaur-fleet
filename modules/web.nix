@@ -24,7 +24,12 @@ let
 in
 {
   flake.modules.nixos.web =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur.web;
       me = config.networking.hostName;
@@ -32,17 +37,19 @@ in
 
       # Every machine's web UIs, this one first. Ours from our own config, the
       # others' from theirs (lazy: nothing in balaur.services reads this page).
-      servicesOf = host:
-        if host == me then config.balaur.services
-        else nixosConfigs.${host}.config.balaur.services;
+      servicesOf =
+        host: if host == me then config.balaur.services else nixosConfigs.${host}.config.balaur.services;
       hosts = [ me ] ++ lib.filter (h: h != me && fleet ? ${h}) (lib.attrNames nixosConfigs);
       address = host: fleet.${host}.address or host;
       # This machine's web UIs with a subdomain get https://<subdomain>.<domain>
       # through Caddy; the other machines' keep their plain address.
       proxied = lib.filter (s: s.port != null && s.subdomain != null) config.balaur.services;
-      url = host: s:
-        if host == me && s.subdomain != null then "https://${s.subdomain}.${cfg.domain}${s.path}"
-        else "${s.scheme}://${address host}:${toString s.port}${s.path}";
+      url =
+        host: s:
+        if host == me && s.subdomain != null then
+          "https://${s.subdomain}.${cfg.domain}${s.path}"
+        else
+          "${s.scheme}://${address host}:${toString s.port}${s.path}";
       # Emoji show as they are; icon names and files mean nothing to a browser.
       icon = s: if builtins.match "[[:alnum:]/._-]+" s.icon != null then "•" else s.icon;
       card = host: s: ''
@@ -51,9 +58,12 @@ in
           <span class="text"><span class="name">${esc s.name}</span>
           <span class="desc">${esc s.description}</span></span>
         </a>'';
-      section = host:
-        let web = lib.filter (s: s.port != null) (servicesOf host);
-        in lib.optionalString (web != [ ]) ''
+      section =
+        host:
+        let
+          web = lib.filter (s: s.port != null) (servicesOf host);
+        in
+        lib.optionalString (web != [ ]) ''
           <section>
             <h2>On ${esc host}</h2>
             <div class="grid">
@@ -113,17 +123,26 @@ in
         </html>
       '';
 
-      manifest = pkgs.writeText "manifest.webmanifest" (builtins.toJSON {
-        name = "Balaur";
-        short_name = "Balaur";
-        description = "The home's services";
-        start_url = "/";
-        scope = "/";
-        display = "standalone";
-        background_color = "#fafafa";
-        theme_color = "#3584e4";
-        icons = [{ src = "/icon.svg"; sizes = "any"; type = "image/svg+xml"; purpose = "any"; }];
-      });
+      manifest = pkgs.writeText "manifest.webmanifest" (
+        builtins.toJSON {
+          name = "Balaur";
+          short_name = "Balaur";
+          description = "The home's services";
+          start_url = "/";
+          scope = "/";
+          display = "standalone";
+          background_color = "#fafafa";
+          theme_color = "#3584e4";
+          icons = [
+            {
+              src = "/icon.svg";
+              sizes = "any";
+              type = "image/svg+xml";
+              purpose = "any";
+            }
+          ];
+        }
+      );
 
       site = pkgs.runCommand "balaur-web" { } ''
         mkdir $out
@@ -173,20 +192,28 @@ in
                 header Cache-Control "no-cache"
               '';
             };
-          } // lib.listToAttrs (map (s: lib.nameValuePair "${s.subdomain}.${cfg.domain}" {
-            useACMEHost = cfg.domain;
-            extraConfig = "reverse_proxy 127.0.0.1:${toString s.port}";
-          }) proxied);
+          }
+          // lib.listToAttrs (
+            map (
+              s:
+              lib.nameValuePair "${s.subdomain}.${cfg.domain}" {
+                useACMEHost = cfg.domain;
+                extraConfig = "reverse_proxy 127.0.0.1:${toString s.port}";
+              }
+            ) proxied
+          );
         };
         # No firewall change: 443 is reached over tailscale0, which `network` trusts.
 
-        balaur.services = [{
-          name = "Balaur on the web";
-          description = "https://${cfg.domain}";
-          icon = "🌐";
-          unit = "caddy.service";
-          group = "Network";
-        }];
+        balaur.services = [
+          {
+            name = "Balaur on the web";
+            description = "https://${cfg.domain}";
+            icon = "🌐";
+            unit = "caddy.service";
+            group = "Network";
+          }
+        ];
       };
     };
 }

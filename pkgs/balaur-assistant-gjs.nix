@@ -6,9 +6,22 @@
 # Outputs: bin/balaur-assistant, libexec/balaur-assistant-tests,
 # share/applications/org.balaur.Assistant.desktop (so GNOME accepts its
 # notifications), share/glib-2.0/schemas (org.balaur.Assistant + gschemas.compiled).
-{ lib, stdenv, callPackage, gjs, glib, gobject-introspection, wrapGAppsNoGuiHook
-, libsoup_3, libsecret, gst_all_1, pipewire, wireplumber, alsa-utils
-, balaur-agent ? callPackage ./balaur-agent.nix { } }:
+{
+  lib,
+  stdenv,
+  callPackage,
+  gjs,
+  glib,
+  gobject-introspection,
+  wrapGAppsNoGuiHook,
+  libsoup_3,
+  libsecret,
+  gst_all_1,
+  pipewire,
+  wireplumber,
+  alsa-utils,
+  balaur-agent ? callPackage ./balaur-agent.nix { },
+}:
 
 stdenv.mkDerivation {
   pname = "balaur-assistant-gjs";
@@ -19,10 +32,19 @@ stdenv.mkDerivation {
     fileset = ../gnome/assistant;
   };
 
-  nativeBuildInputs = [ wrapGAppsNoGuiHook gobject-introspection glib ];
+  nativeBuildInputs = [
+    wrapGAppsNoGuiHook
+    gobject-introspection
+    glib
+  ];
   buildInputs = [
-    gjs glib libsoup_3 libsecret
-    gst_all_1.gstreamer gst_all_1.gst-plugins-base gst_all_1.gst-plugins-good
+    gjs
+    glib
+    libsoup_3
+    libsecret
+    gst_all_1.gstreamer
+    gst_all_1.gst-plugins-base
+    gst_all_1.gst-plugins-good
     pipewire # its GStreamer plugin: pipewiresrc, pipewiresink
   ];
 
@@ -55,7 +77,12 @@ stdenv.mkDerivation {
   preFixup = ''
     gappsWrapperArgs+=(
       --prefix XDG_DATA_DIRS : "$out/share"
-      --prefix PATH : "${lib.makeBinPath [ wireplumber alsa-utils ]}"
+      --prefix PATH : "${
+        lib.makeBinPath [
+          wireplumber
+          alsa-utils
+        ]
+      }"
       --set-default BALAUR_AGENT "${lib.getExe balaur-agent}"
     )
   '';

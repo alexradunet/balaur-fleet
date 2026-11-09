@@ -2,7 +2,12 @@
 # treat the battery as a UPS (clean shutdown when it runs low), cap its charge.
 {
   flake.modules.nixos.always-on =
-    { config, lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur.power;
 
