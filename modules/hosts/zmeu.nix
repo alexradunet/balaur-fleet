@@ -13,7 +13,7 @@ in
     tailnetIp = "100.118.216.118";
     sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILAacHQ+NIgv8wtFGuzdu3jF52vZJtv9H9p8fqK6F6sb";
     lanIp = null; # DHCP, was 192.168.50.215 on Wi-Fi; not reserved in the router
-    # userKeys: none yet; the admin works from laptop, whose key every machine trusts.
+    userKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICC9pHQla6NLPAlOhbVp204calGMamI9kDCoTLWyUhaH" ];
     syncthingId = "PT5TONV-F2LVWWX-UDUINFG-GRL5DS5-QXBARW3-7LCUJDQ-PCDWATW-IG5PTQJ";
     # 12 cores / 24 threads against the laptop's 8 / 16, so the others send it their
     # builds first. 12 jobs leaves half the threads; the daemon also runs at idle

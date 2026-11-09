@@ -1,4 +1,4 @@
-# Network: NetworkManager, mDNS (balaur.local), Tailscale (+ SSH).
+# Network: NetworkManager, mDNS (balaur.local), Tailscale.
 {
   flake.modules.nixos.network =
     { config, lib, ... }:
@@ -38,10 +38,21 @@
           # and "server" turns on IP forwarding on every machine. Set it on the
           # host that becomes one.
           authKeyFile = net.tailscale.authKeyFile;
-          # Tailscale SSH: login via tailnet identity, no authorized_keys needed, so it
-          # still works as a recovery path if the key setup is broken.
-          extraSetFlags = [ "--ssh" ];
+          # No Tailscale SSH. It takes port 22 on the tailnet address before OpenSSH
+          # sees the connection and decides by the admin console's policy instead, so
+          # any device on the tailnet (the VPS, the phone) could log in as any user,
+          # nixremote included, with neither a key from the registry nor its
+          # build-protocol-only restriction. With it off, OpenSSH answers on
+          # tailscale0 (trusted below) and the fleet registry decides: `userKeys`
+          # for people, host keys for builds (fleet.nix).
+          # The way back in if keys ever break is auto-deploy: push a fix and every
+          # machine applies it without anyone logging in.
+          # `=false`, not just dropping `--ssh`: `tailscale set` keeps what it is not told.
+          extraSetFlags = [ "--ssh=false" ];
         };
+        # Stays active after setting, so a change to the flags re-runs it on a switch
+        # instead of only at the next boot.
+        systemd.services.tailscaled-set.serviceConfig.RemainAfterExit = true;
         # Reach the admin UIs over the tailnet as well as the LAN.
         networking.firewall.trustedInterfaces = [ "tailscale0" ];
 

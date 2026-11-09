@@ -14,7 +14,7 @@ in
     sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKgXcAskVb3sHgL8Z0VlVpSYHB2yDirUQ3GV5xfDvKQo";
     syncthingId = "MEDQJ5M-PGUYPER-IEGEHM4-NZMCWBM-LKCJVXL-W72PFVP-5OJUMTG-4X3CQAS";
     torrentsPort = 8080;
-    # userKeys: none; the admin works from laptop, whose key every machine trusts.
+    userKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE0ZoRQpfEL3tB7gO5XBC9B9eG9qvlgcGpExvmhVoMMI" ];
   };
 
   flake.nixosConfigurations.balaur = inputs.nixpkgs.lib.nixosSystem {

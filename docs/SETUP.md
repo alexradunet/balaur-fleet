@@ -78,7 +78,7 @@ Set, using what you learned in stage 0:
   };
 ```
 
-- **SSH is key-only** (`balaur.ssh.passwordAuth` defaults to false). Add the machine's `userKeys` to its `fleet.<host>` entry, or keep `sudo tailscale up` working first: Tailscale SSH is the way in until a key is there. To bootstrap with a password instead, set `balaur.ssh.passwordAuth = true` for the first rebuild.
+- **SSH is key-only** (`balaur.ssh.passwordAuth` defaults to false). Add the machine's `userKeys` to its `fleet.<host>` entry (with a keyboard at the machine until then; Tailscale SSH is off). To bootstrap with a password instead, set `balaur.ssh.passwordAuth = true` for the first rebuild.
 - If stage 0 showed the EFI partition at `/boot/efi`, also add at the top level of the file:
   `boot.loader.efi.efiSysMountPoint = "/boot/efi";`
 
@@ -130,8 +130,7 @@ Open the URL it prints (on any device), approve the machine. Then, from another 
 your tailnet:
 
 ```bash
-ssh balaur            # Tailscale SSH: identity-based, no password needed
-ssh alex@balaur      # normal sshd over the tailnet: asks for your password
+ssh balaur            # OpenSSH over the tailnet, with your key from the fleet registry
 ```
 
 LAN SSH works too (password): `ssh alex@balaur.local` (or use the IP from `ip -br a`).

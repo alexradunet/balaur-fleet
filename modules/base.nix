@@ -24,9 +24,9 @@
           default = false;
           description = ''
             Allow SSH logins with the account password (LAN and tailnet). Off: the
-            fleet registry's `userKeys` are authorized everywhere, and Tailscale SSH
-            is the way back in if keys ever break. Turn it on only to bootstrap a
-            machine that has neither.
+            fleet registry's `userKeys` are authorized everywhere, and auto-deploy
+            is the way back in if keys ever break (push a fix). Turn it on only to
+            bootstrap a machine that has no key in the registry yet.
           '';
         };
 
