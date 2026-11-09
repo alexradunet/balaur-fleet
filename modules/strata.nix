@@ -17,10 +17,11 @@
 #
 # Setup is unattended: on the first boot or deploy with the card present,
 # strata-setup downloads the engine and the model (`family`/`model`, tens of GB),
-# loads it once, saves the profile `balaur` and starts strata.service. Follow it
-# with `journalctl -fu strata-setup`. To change model: read docs/MODELS.md
-# upstream, `sudo strata launch --plan --family ... --model ...`, then point the
-# profile at the new run config (`sudo strata profile use-config balaur ...`).
+# loads it once, saves the profile `balaur-<model>` and starts strata.service.
+# Follow it with `journalctl -fu strata-setup`. To change model, change `model`
+# (sizes below) and deploy: the new profile does not exist yet, so the setup runs
+# again a minute later, and the router answers from Mistral until it is done.
+# Old sizes stay on disk: `sudo strata models list` / `remove` to free them.
 # `sudo strata ...` is the upstream CLI, run as the strata user in its state.
 #
 # Sharing the machine with games (`yieldToGames`): while a Steam game or anything on Wine (Battle.net)
@@ -178,14 +179,20 @@
         };
         model = lib.mkOption {
           type = lib.types.str;
-          # The size that leaves room for builds and the desktop in 62 GB; with
-          # 64 GB "every size fits" upstream, but this machine shares its RAM.
-          default = "q2_0";
+          # Qwen3.8-Flash-Next sizes (RAM + VRAM): q2_0 37.6 GB "good", iq2_xs
+          # 39.2 "better", iq3_xxs 47.0 "great", iq3_s 54.8 "best; matches the
+          # full model on the published tests" and the slowest. iq3_s on zmeu:
+          # ~14 GB on the card, ~41 GB of its 62 GB RAM, ~20 GB left for the
+          # desktop and builds (games stop Strata anyway).
+          default = "iq3_s";
           description = "The model size strata-setup downloads (`strata launch --model`).";
         };
         profile = lib.mkOption {
           type = lib.types.str;
-          default = "balaur";
+          # Named after the size, so a new `model` has no profile yet and
+          # strata-setup makes it (strata.service waits for it meanwhile).
+          default = "balaur-${lib.toLower cfg.model}";
+          defaultText = lib.literalExpression ''"balaur-''${model}"'';
           description = "The Strata profile to serve (`sudo strata profile list`).";
         };
         yieldToGames = lib.mkOption {
