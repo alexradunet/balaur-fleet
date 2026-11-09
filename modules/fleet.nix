@@ -144,7 +144,7 @@ in
       # page: a local GNOME app (or a web app installed for 127.0.0.1) would open
       # the wrong machine's service.
       cfg = config.balaur;
-      localUrl = s: if s.port == null then null else "http://127.0.0.1:${toString s.port}${s.path}";
+      localUrl = s: if s.port == null then null else "${s.scheme}://127.0.0.1:${toString s.port}${s.path}";
       # `tablet` installs a GNOME web app for each of these (tablet.nix).
       hasWebApp = s: cfg ? tablet && s.port != null && s.appIcon != null;
       localServices = map (s: {
@@ -157,7 +157,7 @@ in
       remoteUrl = host: s:
         let theirs = nixosConfigs.${host}.config.balaur; in
         if theirs ? web && s.subdomain != null then "https://${s.subdomain}.${theirs.web.domain}${s.path}"
-        else "http://${fleet.${host}.address}:${toString s.port}${s.path}";
+        else "${s.scheme}://${fleet.${host}.address}:${toString s.port}${s.path}";
       remoteServices = lib.concatLists (lib.mapAttrsToList (host: _:
         map (s: {
           inherit (s) name description icon;

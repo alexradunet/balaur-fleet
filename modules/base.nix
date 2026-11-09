@@ -67,6 +67,11 @@
               icon = lib.mkOption { type = lib.types.str; default = "•"; description = "An icon name, a file, or an emoji."; };
               port = lib.mkOption { type = lib.types.nullOr lib.types.port; default = null; description = "Its web UI on this machine, if any."; };
               path = lib.mkOption { type = lib.types.str; default = ""; };
+              scheme = lib.mkOption {
+                type = lib.types.enum [ "http" "https" ];
+                default = "http";
+                description = "How its web UI on `port` is spoken to: https for one that serves only TLS itself (Sunshine).";
+              };
               subdomain = lib.mkOption {
                 type = lib.types.nullOr lib.types.str;
                 default = null;

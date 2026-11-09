@@ -101,6 +101,18 @@ in
                 detached = [ "setsid battlenet" ];
               };
           };
+
+          # Its web UI (pairing, the PIN) on the home page and in the app. It serves
+          # only TLS, self-signed: no subdomain behind Caddy, the browser warns once.
+          balaur.services = [{
+            name = "Sunshine";
+            description = "Game streaming: pair Moonlight";
+            icon = "🎮";
+            port = 47990;
+            scheme = "https";
+            unit = "user:sunshine.service";
+            group = "Games";
+          }];
         }
 
         # Streaming ports (not the web UI) for the LAN clients, by source address.

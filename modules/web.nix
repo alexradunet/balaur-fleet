@@ -42,7 +42,7 @@ in
       proxied = lib.filter (s: s.port != null && s.subdomain != null) config.balaur.services;
       url = host: s:
         if host == me && s.subdomain != null then "https://${s.subdomain}.${cfg.domain}${s.path}"
-        else "http://${address host}:${toString s.port}${s.path}";
+        else "${s.scheme}://${address host}:${toString s.port}${s.path}";
       # Emoji show as they are; icon names and files mean nothing to a browser.
       icon = s: if builtins.match "[[:alnum:]/._-]+" s.icon != null then "•" else s.icon;
       card = host: s: ''
