@@ -17,6 +17,16 @@
 # otherwise. Give the host a session to run in — `gnome` plus `tablet` or
 # `desktop` — since those also install its front end (the Balaur app and the Shell
 # extension's orb and mic toggle).
+#
+# House devices: the agent switches lights, the TV, speakers and scenes through
+# the fleet's Home Assistant (its MCP server, /api/mcp) as the assistant's own
+# non-admin Home Assistant user, whose token is the shared sops secret
+# `home-assistant-agent-token`. What it can switch is what is exposed to Assist.
+{ config, ... }:
+let
+  nixosConfigs = config.flake.nixosConfigurations;
+  fleet = config.fleet;
+in
 {
   flake.modules.nixos.assistant =
     {
@@ -35,6 +45,15 @@
       # this machine's own state, written by `sudo balaur-assistant-login`.
       useSops = options ? sops;
       keySecret = "assistant-llm-key";
+      houseToken = "home-assistant-agent-token";
+      hass = as.homeAssistant;
+      me = config.networking.hostName;
+      hostConfig = h: if h == me then config else nixosConfigs.${h}.config;
+      # The machines that run Home Assistant (home-assistant.nix).
+      hassHosts = lib.filter (
+        h: (h == me || nixosConfigs ? ${h}) && (hostConfig h).services.home-assistant.enable
+      ) (lib.attrNames fleet);
+      houseDevices = hass.host != null && hass.tokenFile != null;
       wakewordDir = "/var/lib/balaur-wakewords";
       wakePort = 10400;
 
@@ -385,6 +404,29 @@
               }
             );
           };
+
+          homeAssistant = {
+            host = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = lib.findFirst (_: true) null hassHosts;
+              defaultText = lib.literalMD "the fleet machine that runs Home Assistant, if any";
+              description = ''
+                The fleet machine whose Home Assistant the agent switches the house's
+                devices through (its MCP server, /api/mcp; the "Model Context Protocol
+                Server" integration in its UI). null: no house devices.
+              '';
+            };
+            tokenFile = lib.mkOption {
+              type = lib.types.nullOr lib.types.path;
+              default = if useSops then config.sops.secrets.${houseToken}.path else null;
+              defaultText = lib.literalMD "the shared `home-assistant-agent-token` sops secret with the `secrets` aspect, else null";
+              description = ''
+                File with a long-lived access token of Home Assistant's user for the
+                assistant (not an administrator), readable by the group
+                `balaur-assistant`. null: no house devices.
+              '';
+            };
+          };
         };
       };
 
@@ -442,7 +484,15 @@
             }
             # The fleet's AI entryway as pi reads it; without the `agent` aspect the
             # agent runs on pi's own Mistral provider, with the Mistral key.
-            // lib.optionalAttrs (cfg ? agent) { BALAUR_PI_MODELS = toString cfg.agent.modelsFile; };
+            // lib.optionalAttrs (cfg ? agent) { BALAUR_PI_MODELS = toString cfg.agent.modelsFile; }
+            # The house's devices: Home Assistant's MCP server and the assistant's token
+            # there (balaur-home-agent reads the file only when it connects).
+            // lib.optionalAttrs houseDevices {
+              BALAUR_HOME_ASSISTANT_URL = "http://${
+                if hass.host == me then "127.0.0.1" else fleet.${hass.host}.address
+              }:${toString (hostConfig hass.host).services.home-assistant.config.http.server_port}/api/mcp";
+              BALAUR_HOME_ASSISTANT_TOKEN_FILE = toString hass.tokenFile;
+            };
             unitConfig.ConditionUser = user;
             serviceConfig = {
               # Lists, reminders and memory lived in duet-assistant before the rename
@@ -558,6 +608,13 @@
         # assistant's account is in. Declared only when sops-nix is there to read it.
         (lib.optionalAttrs useSops {
           sops.secrets.${keySecret} = {
+            owner = "root";
+            group = "balaur-assistant";
+            mode = "0640";
+          };
+          # Home Assistant's token for the assistant's user there: the shared file, so
+          # the voice on every machine can switch the house's devices.
+          sops.secrets.${houseToken} = lib.mkIf (hass.host != null) {
             owner = "root";
             group = "balaur-assistant";
             mode = "0640";
