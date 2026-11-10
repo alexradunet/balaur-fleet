@@ -27,7 +27,7 @@
       ];
 
       # GNOME ships these; the fleet's desktops don't use them. What stays is the
-      # canonical set: Firefox (`gnome`), Ptyxis (`gnome`), Showtime for video,
+      # canonical set: Firefox (`gnome`), Ghostty (`gnome`), Showtime for video,
       # Decibels for audio, Loupe, Papers, Nautilus, Text Editor, System Monitor,
       # Snapshot, Calculator, Disks. `tablet` curates its own list instead.
       environment.gnome.excludePackages = with pkgs; [

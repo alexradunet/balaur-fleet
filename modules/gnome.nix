@@ -54,10 +54,15 @@
         "x-scheme-handler/https"
       ] (_: "firefox.desktop");
 
-      # The terminal is Ptyxis everywhere (GNOME-native, tabs and profiles), so
-      # Console goes.
-      environment.systemPackages = [ pkgs.ptyxis ];
+      # The terminal is Ghostty everywhere (GTK4/libadwaita, GPU-rendered), so
+      # Console goes. It is also what "Open in Terminal" and Terminal=true apps
+      # launch, through xdg-terminal-exec.
+      environment.systemPackages = [ pkgs.ghostty ];
       environment.gnome.excludePackages = [ pkgs.gnome-console ];
+      xdg.terminal-exec = {
+        enable = true;
+        settings.default = [ "com.mitchellh.ghostty.desktop" ];
+      };
 
       # Sound for the session, shared by the apps and (on the Duet) the voice
       # assistant, which runs as a service of that same session.

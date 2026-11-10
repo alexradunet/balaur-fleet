@@ -59,7 +59,7 @@ modules/
   network.nix             NetworkManager, Tailscale (+ SSH), <host>.local (mDNS)
   backup.nix              restic, nightly and off-site, of the state only one machine has (waits for a repository)
   always-on.nix           a laptop as a server: never sleep, ignore lid, battery = UPS, 80% charge cap
-  gnome.nix               GNOME itself: GDM, the session, PipeWire, and the canonical apps (Firefox + its add-ons, Ptyxis)
+  gnome.nix               GNOME itself: GDM, the session, PipeWire, and the canonical apps (Firefox + its add-ons, Ghostty)
   tablet.nix              GNOME as a household tablet: auto-login, OSK, rotation, apps, web apps, the Balaur app + Shell extension, ambient screen
   desktop.nix             GNOME as a personal desktop: a normal login, the Balaur app + Shell extension, the GNOME apps it drops
   assistant.nix           the voice assistant, a service of a GNOME session

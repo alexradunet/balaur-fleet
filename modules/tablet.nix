@@ -62,8 +62,8 @@
         name = "balaur-dev-terminal";
         desktopName = "Developer terminal";
         comment = "A shell as ${cfg.user}: the repo, Claude Code, nixos-rebuild";
-        icon = "org.gnome.Ptyxis";
-        exec = "${pkgs.ptyxis}/bin/ptyxis --new-window -x \"su - ${cfg.user}\"";
+        icon = "com.mitchellh.ghostty";
+        exec = "${lib.getExe pkgs.ghostty} -e su - ${cfg.user}";
         categories = [
           "System"
           "TerminalEmulator"
@@ -203,7 +203,7 @@
           ++ lib.optional jellyfin photosLogin
           ++ webApps
           ++ [
-            ptyxis # terminal (as the household account)
+            ghostty # terminal (as the household account)
             jellyfin-desktop # Jellyfin client (video, and the target for "play on Duet")
             gelly # Jellyfin music, GNOME-native
             nautilus
@@ -291,7 +291,7 @@
                   "org.gnome.Extensions.desktop"
                   "org.gnome.ColorProfileViewer.desktop"
                   "balaur-dev-terminal.desktop"
-                  "org.gnome.Ptyxis.desktop"
+                  "com.mitchellh.ghostty.desktop"
                 ];
               };
             };
