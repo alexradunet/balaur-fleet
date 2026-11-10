@@ -42,6 +42,11 @@ says `0002` there, and `ls -ld <synced folder>/photos` is group-writable (`drwxr
 It may sync `photos` in before it deploys `d13280e`, and then the folder arrives
 read-only, as it did on the pc: `sudo chmod 2775` it.
 
+And from the session that made the machines alike: `locale` shows `LC_TIME=ro_RO.UTF-8`,
+`gsettings get org.gnome.desktop.input-sources sources` lists `us` and `ro+std` (unless
+it was set by hand before), `lpstat -r` says the scheduler runs, and
+`aminte-prod aminte --help` still reads the token (the secret is now declared by `aminte-dev`).
+
 ### 3. Retune the wake word on the laptop and the pc
 
 `wakeThreshold = 0.35` on the laptop was copied from the tablet's microphone array; the pc
@@ -110,9 +115,6 @@ blanks after 15 minutes (`camera.screenTimeout`). Left:
   and shows blurry). Full-size originals look better. HEIC is not shown (GdkPixbuf).
 - **Not seen yet:** the status panel with a failed unit (red row, "N failed") and a
   rotated tablet on the real screen. Both were checked only in a headless gnome-shell.
-- **`flake.nixosConfigurations.balaur`** in `modules/hosts/tablet.nix` (the alias kept
-  until the tablet had switched under its new name) can go: its hostname is `tablet`
-  and `balaur-fleet-status` shows it.
 
 ## Backlog from the review (decisions, not fixes)
 

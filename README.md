@@ -46,7 +46,7 @@ AGENTS.md                 the agents' instructions (CLAUDE.md imports it)
 modules/
   flake/                  flake wiring: the packages overlay, checks, formatter, dev shell
   hosts/tablet.nix        tablet = these aspects + its own settings (account, voices, ...)
-  hosts/laptop.nix        laptop = its aspects + its own settings (locales, printing, ...)
+  hosts/laptop.nix        laptop = its aspects + its own settings (account, roaming, ...)
   hosts/pc.nix            pc = its aspects     + its own settings (builder, streaming, ...)
   hardware/yoga-duet-7.nix  the Duet's firmware and CPU bits (Intel)
   hardware/yoga-pro-7.nix   the laptop's firmware and CPU bits (AMD)
@@ -55,13 +55,14 @@ modules/
   auto-deploy.nix         every machine follows main: retries, roll back, `balaur-fleet-status`
   home.nix                home-manager: the admin's shell, git, gh, the same on every machine
   secrets.nix             sops-nix: shared and per-machine secrets, decrypted with each machine's host key
-  base.nix                boot, admin account, SSH, Nix, housekeeping; the `balaur.services` registry
+  base.nix                boot, admin account, SSH, Nix, housekeeping, locale + timezone, printing; the `balaur.services` registry
   network.nix             NetworkManager, Tailscale (+ SSH), <host>.local (mDNS)
   backup.nix              restic, nightly and off-site, of the state only one machine has (waits for a repository)
-  always-on.nix           a laptop as a server: never sleep, ignore lid, battery = UPS, 80% charge cap
-  gnome.nix               GNOME itself: GDM, the session, PipeWire, the canonical apps (Firefox + its add-ons, Ghostty), the ambient screen's settings
-  tablet.nix              GNOME as a household tablet: auto-login, OSK, rotation, apps, web apps, the Balaur app + Shell extension, ambient screen
-  desktop.nix             GNOME as a personal desktop: a normal login, the Balaur app + Shell extension, the GNOME apps it drops
+  never-sleep.nix         a machine on duty never sleeps (the tablet, the pc)
+  always-on.nix           a laptop as a server: ignore lid and power key, battery = UPS, 80% charge cap
+  gnome.nix               GNOME itself: GDM, the session, PipeWire, the canonical apps (Firefox + its add-ons, Ghostty), the Balaur app + Shell extension, one look and keyboards (US + RO), the ambient screen's settings
+  tablet.nix              GNOME as a household tablet: auto-login, OSK, rotation, apps, web apps, ambient screen
+  desktop.nix             GNOME as a personal desktop: a normal login, the GNOME apps it drops
   assistant.nix           the voice assistant, a service of a GNOME session
   camera.nix              the Duet's front camera: patched kernel modules + RGB-IR relay, movement wakes the screen
   media.nix               Jellyfin: watches what `torrents` downloaded, /srv/media

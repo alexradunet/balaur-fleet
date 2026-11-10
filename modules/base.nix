@@ -174,6 +174,29 @@ in
           "udev.log_level=3"
         ];
 
+        # Where the machines are, and how they write: English, with Romanian dates,
+        # numbers, units and paper sizes. The same on every machine.
+        time.timeZone = "Europe/Bucharest";
+        i18n.defaultLocale = "en_US.UTF-8";
+        i18n.extraLocaleSettings = lib.genAttrs [
+          "LC_ADDRESS"
+          "LC_IDENTIFICATION"
+          "LC_MEASUREMENT"
+          "LC_MONETARY"
+          "LC_NAME"
+          "LC_NUMERIC"
+          "LC_PAPER"
+          "LC_TELEPHONE"
+          "LC_TIME"
+        ] (_: "ro_RO.UTF-8");
+
+        # Unfree packages are allowed everywhere (the NVIDIA driver, Steam, ...), so
+        # an aspect behaves the same whichever machine it lands on.
+        nixpkgs.config.allowUnfree = true;
+
+        # Printing (CUPS) on every machine, so any of them can print.
+        services.printing.enable = true;
+
         # Firmware updates from LVFS (`fwupdmgr get-updates`; GNOME Software shows
         # them too). Every machine here is real hardware; the daemon starts on demand.
         services.fwupd.enable = true;

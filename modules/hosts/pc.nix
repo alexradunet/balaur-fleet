@@ -5,7 +5,6 @@
 { inputs, config, ... }:
 let
   aspects = config.flake.modules.nixos;
-  hm = config.flake.modules.homeManager;
 in
 {
   fleet.pc = {
@@ -27,9 +26,6 @@ in
   flake.nixosConfigurations.pc = inputs.nixpkgs.lib.nixosSystem {
     modules = [ aspects.host-pc ];
   };
-  # Until it has switched once: this machine was called `zmeu`, and auto-deploy
-  # builds `#<its current hostname>`. Remove once balaur-fleet-status shows `pc`.
-  flake.nixosConfigurations.zmeu = config.flake.nixosConfigurations.pc;
 
   flake.modules.nixos.host-pc =
     { config, ... }:
@@ -38,56 +34,44 @@ in
         (with aspects; [
           gmktec-evo-x1
           nvidia-egpu
+          # What every machine has, in the same order on every host.
           base
           fleet
           home
+          # Decrypts with its SSH host key, a recipient in .sops.yaml.
+          secrets
           network
           gnome
           desktop
           dev
           files
           torrents-client
-          gaming
-          steam
-          game-streaming
-          auto-deploy
-          # The fleet's local LLM on the 5060 Ti (stopped while a game runs), and the
-          # fleet's AI entryway (on the tablet) as a client.
-          strata
-          ai
-          # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
-          agent
-          # Decrypts with its SSH host key, a recipient in .sops.yaml.
-          secrets
           # Runs as alex (no `tablet` here), on PipeWire's default microphone.
           # Retune wakeThreshold for that microphone with `sudo balaur-wake-test`.
           assistant
+          auto-deploy
+          # The fleet's AI entryway (on the tablet), as a client.
+          ai
+          # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
+          agent
+          # This machine's own.
+          # A mini-PC on mains power, and a builder: never suspend, or Moonlight and
+          # the other machines' builds would find it asleep.
+          never-sleep
           # aminte runs on the tablet; this is the dev side (aminte-prod, the binaries), and
           # what gives pi its aminte role here (pi-aminte, agent.nix).
           aminte-dev
+          gaming
+          steam
+          game-streaming
+          # The fleet's local LLM on the 5060 Ti (stopped while a game runs).
+          strata
         ])
         # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
         # .agents/skills). It must be `git add`ed or flakes cannot see it.
         ++ [ ../../hosts/pc/hardware-configuration.nix ];
 
       networking.hostName = "pc";
-      time.timeZone = "Europe/Bucharest";
-
-      # Carried over from this install's /etc/nixos/configuration.nix.
-      i18n.defaultLocale = "en_US.UTF-8";
-      i18n.extraLocaleSettings = {
-        LC_ADDRESS = "ro_RO.UTF-8";
-        LC_IDENTIFICATION = "ro_RO.UTF-8";
-        LC_MEASUREMENT = "ro_RO.UTF-8";
-        LC_MONETARY = "ro_RO.UTF-8";
-        LC_NAME = "ro_RO.UTF-8";
-        LC_NUMERIC = "ro_RO.UTF-8";
-        LC_PAPER = "ro_RO.UTF-8";
-        LC_TELEPHONE = "ro_RO.UTF-8";
-        LC_TIME = "ro_RO.UTF-8";
-      };
-      services.printing.enable = true;
-      nixpkgs.config.allowUnfree = true; # the NVIDIA driver, Steam
 
       # The value this machine's first install wrote. Never "upgrade" it by hand.
       system.stateVersion = "26.05";
@@ -102,16 +86,6 @@ in
         enable = true;
         user = config.balaur.user;
       };
-      # A mini-PC on mains power, and a builder: never suspend, or Moonlight and
-      # the other machines' builds would find it asleep.
-      systemd.targets = {
-        sleep.enable = false;
-        suspend.enable = false;
-        hibernate.enable = false;
-        hybrid-sleep.enable = false;
-      };
-      services.displayManager.gdm.autoSuspend = false;
-
       # Builds for the fleet wait for idle CPU and disk, so they never take
       # frames from a game.
       nix.daemonCPUSchedPolicy = "idle";
@@ -119,10 +93,6 @@ in
 
       # The living-room TV runs Moonlight but is not on the tailnet (game-streaming).
       balaur.gameStreaming.lanClients = [ "192.168.50.106" ];
-
-      # The same token as the tablet's aminte, for `aminte-prod` (modules/aminte.nix).
-      sops.secrets."aminte-token".owner = config.balaur.user;
-      balaur.aminte-dev.tokenFile = config.sops.secrets."aminte-token".path;
 
       # The second NVMe: the old Windows disk, kept for the personal media on it.
       # Read-only until its future is decided; nofail, so the machine boots without it.
@@ -137,12 +107,6 @@ in
           "x-gvfs-show"
         ];
       };
-
-      # The admin's own GNOME bits on top of the shared shell/git (modules/home.nix).
-      home-manager.users.${config.balaur.user}.imports = [
-        hm.desktop
-        hm.torrents-client
-      ];
 
       balaur = {
         # The existing login on this machine; its password is kept as is.

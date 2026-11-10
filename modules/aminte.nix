@@ -231,6 +231,7 @@ in
     {
       config,
       lib,
+      options,
       pkgs,
       ...
     }:
@@ -274,15 +275,30 @@ in
           default = "tablet";
           description = "The machine that serves prod.";
         };
-        tokenFile = lib.mkOption {
-          type = lib.types.path;
-          description = "Prod's bearer token, readable by the developer.";
-        };
+        tokenFile = lib.mkOption (
+          {
+            type = lib.types.path;
+            description = "Prod's bearer token, readable by the developer.";
+          }
+          # The shared `aminte-token` secret, the same one the tablet's aminte reads.
+          // lib.optionalAttrs (options ? sops) {
+            default = config.sops.secrets."aminte-token".path;
+            defaultText = lib.literalExpression ''config.sops.secrets."aminte-token".path'';
+          }
+        );
       };
 
-      config.environment.systemPackages = [
-        aminte
-        prod
+      config = lib.mkMerge [
+        {
+          environment.systemPackages = [
+            aminte
+            prod
+          ];
+        }
+        # The shared secret, readable by the developer (secrets/balaur.yaml).
+        (lib.optionalAttrs (options ? sops) {
+          sops.secrets."aminte-token".owner = config.balaur.user;
+        })
       ];
     };
 }

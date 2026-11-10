@@ -17,7 +17,9 @@ choice that is theirs (name, aspects, account).
      mount point is carried over in the host file.
    - The username. It becomes `balaur.user`; a different name makes NixOS drop the
      existing account.
-   - Anything else worth keeping: locale, keyboard, printing, extra packages.
+   - Anything else worth keeping: extra packages, a locale or keyboard that differs from
+     the fleet's (`base` sets Europe/Bucharest, en_US with ro_RO formats, unfree and
+     printing; `gnome` the US + Romanian keyboards). Say a difference in the host file.
    - Whether the disk is encrypted (LUKS). The fleet's are not yet; a new laptop should be.
 
 3. **Its generated file.**
@@ -31,18 +33,22 @@ choice that is theirs (name, aspects, account).
      the others.
    - `flake.nixosConfigurations.<hostname> = inputs.nixpkgs.lib.nixosSystem { modules = [ aspects.<hostname> ]; };`
    - `flake.modules.nixos.<hostname>`: its aspects, `../../hosts/<hostname>/hardware-configuration.nix`,
-     `networking.hostName`, `time.timeZone`, `system.stateVersion`, `balaur.user`.
+     `networking.hostName`, `system.stateVersion`, `balaur.user`. List the aspects in the
+     order the other hosts use: hardware, then what every machine has, then its own.
    - Hardware specifics go in a `modules/hardware/<model>.nix` aspect (`yoga-duet-7.nix`
      for Intel, `yoga-pro-7.nix` and `gmktec-evo-x1.nix` for AMD, `nvidia-egpu.nix`).
 
 5. **Its aspects,** with the user. Every machine: `base fleet home network auto-deploy
-   ai agent`, usually `dev`, and `secrets` once step 7 is done.
+   ai agent`, usually `dev files torrents-client assistant`, and `secrets` once step 7
+   is done.
+   - `never-sleep` on a machine the others depend on (a server, a builder, a streaming
+     host); `always-on` as well on a laptop serving as one (lid, power key, battery).
    - `ai` points everything at the fleet's AI entryway (`ai-gateway`, the tablet only):
      model `balaur` is a fleet GPU running `strata` first (the pc), Mistral second.
    - `agent` is pi, the OS agent. A role is pi with other instructions and only the
      tools it is given (`pi-aminte`, where `aminte-dev` is).
    - A screen: `gnome` plus exactly one of `tablet` or `desktop`. Not on a normal
-     laptop: `always-on` (never sleeps), `tablet` (the household account, no lock),
+     laptop: `never-sleep` and `always-on`, `tablet` (the household account, no lock),
      `camera` (the Duet's sensor).
    - Services, normally on one machine only: `media`, `adblock`, `home-assistant`,
      `aminte` (`aminte-dev` is its other side), `web`, `torrents`, `backup`.

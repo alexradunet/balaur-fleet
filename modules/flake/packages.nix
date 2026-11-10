@@ -45,7 +45,7 @@ in
           ;
         # The patched camera modules for the kernel the Duet actually boots (`nix build .#camera-modules` checks the patch still applies).
         camera-modules =
-          self.nixosConfigurations.balaur.config.boot.kernelPackages.callPackage ../../pkgs/camera-modules.nix
+          self.nixosConfigurations.tablet.config.boot.kernelPackages.callPackage ../../pkgs/camera-modules.nix
             { };
         default = balaur-app;
       };

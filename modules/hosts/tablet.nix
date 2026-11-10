@@ -21,52 +21,51 @@ in
   flake.nixosConfigurations.tablet = inputs.nixpkgs.lib.nixosSystem {
     modules = [ aspects.host-tablet ];
   };
-  # Until it has switched once: this machine was called `balaur`, and auto-deploy
-  # builds `#<its current hostname>`. Remove once balaur-fleet-status shows `tablet`.
-  flake.nixosConfigurations.balaur = config.flake.nixosConfigurations.tablet;
 
   flake.modules.nixos.host-tablet =
     { config, ... }:
     {
       imports =
-        with aspects;
-        [
+        (with aspects; [
           yoga-duet-7
+          # What every machine has, in the same order on every host.
           base
           fleet
           home
           secrets
-          always-on
           network
+          gnome
+          # The household screen, in place of `desktop`.
+          tablet
+          dev
           files
-          torrents
           torrents-client
+          assistant
+          auto-deploy
+          ai
+          # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
+          agent
+          # This machine's own: the home's server, so it never sleeps.
+          never-sleep
+          always-on
+          # Every machine's `dev` lands here: the sessions live on the one that never sleeps.
+          dev-host
+          # The fleet's AI entryway for every machine (http://tablet:4000/v1, page at
+          # https://ai.balaur.space): the pc's GPU first, Mistral second.
+          ai-gateway
+          torrents
           media
           adblock
           web
           aminte
           home-assistant
-          assistant
-          dev
-          # Every machine's `dev` lands here: the sessions live on the one that never sleeps.
-          dev-host
-          auto-deploy
-          # The fleet's AI entryway for every machine (http://tablet:4000/v1, page at
-          # https://ai.balaur.space): the pc's GPU first, Mistral second.
-          ai-gateway
-          ai
-          # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
-          agent
           camera
-          gnome
-          tablet
-        ]
-        # Its own disk/boot layout, copied from /etc/nixos (see docs/SETUP.md).
+        ])
+        # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
+        # .agents/skills). It must be `git add`ed or flakes cannot see it.
         ++ [ ../../hosts/tablet/hardware-configuration.nix ];
 
       networking.hostName = "tablet";
-      time.timeZone = "Europe/Bucharest";
-      i18n.defaultLocale = "en_US.UTF-8";
 
       # The value this machine's first install wrote (/etc/nixos/configuration.nix).
       # Never "upgrade" it by hand.

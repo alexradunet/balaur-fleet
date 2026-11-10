@@ -22,6 +22,7 @@
 { config, ... }:
 let
   fleet = config.fleet;
+  hm = config.flake.modules.homeManager;
 in
 {
   flake.modules.nixos.torrents =
@@ -246,6 +247,7 @@ in
     {
       config,
       lib,
+      options,
       pkgs,
       ...
     }:
@@ -365,14 +367,21 @@ in
       };
     in
     {
-      environment.systemPackages = [
-        sendTorrent
-        magnetHandler
+      config = lib.mkMerge [
+        {
+          environment.systemPackages = [
+            sendTorrent
+            magnetHandler
+          ];
+        }
+        # The admin's magnet handler, where the host has home-manager (the `home` aspect).
+        (lib.optionalAttrs (options ? home-manager) {
+          home-manager.users.${config.balaur.user}.imports = [ hm.torrents-client ];
+        })
       ];
     };
 
-  # Host wiring (modules/home.nix explains the pattern):
-  #   home-manager.users.${config.balaur.user}.imports = [ aspects.homeManager.torrents-client ];
+  # Imported by `torrents-client` for the admin account (above).
   flake.modules.homeManager.torrents-client = {
     # Pin balaur-torrent as the handler for magnet links. It already wins by
     # being the only app claiming the scheme, but that holds only until

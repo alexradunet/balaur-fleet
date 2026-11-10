@@ -6,7 +6,6 @@
 { inputs, config, ... }:
 let
   aspects = config.flake.modules.nixos;
-  hm = config.flake.modules.homeManager;
 in
 {
   fleet.laptop = {
@@ -31,11 +30,12 @@ in
   };
 
   flake.modules.nixos.host-laptop =
-    { config, pkgs, ... }:
+    { ... }:
     {
       imports =
         (with aspects; [
           yoga-pro-7
+          # What every machine has, in the same order on every host.
           base
           fleet
           home
@@ -48,55 +48,29 @@ in
           # torrents (the qBittorrent server) stays on the tablet; this is just the
           # client, so a magnet clicked here can be sent there.
           torrents-client
-          # aminte runs on the tablet; this is the dev side (aminte-prod, the binaries).
-          aminte-dev
           assistant
-          gaming
-          # Moonlight, to play what the pc streams (Sunshine there).
-          game-streaming-client
           auto-deploy
           # The fleet's AI entryway on the tablet: the pc's GPU first, Mistral second.
           ai
           # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
           agent
+          # This machine's own.
+          # aminte runs on the tablet; this is the dev side (aminte-prod, the binaries).
+          aminte-dev
+          gaming
+          # Moonlight, to play what the pc streams (Sunshine there).
+          game-streaming-client
         ])
         # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
         # .agents/skills). It must be `git add`ed or flakes cannot see it.
         ++ [ ../../hosts/laptop/hardware-configuration.nix ];
 
       networking.hostName = "laptop";
-      time.timeZone = "Europe/Bucharest";
-
-      # Carried over from this install's /etc/nixos/configuration.nix.
-      i18n.defaultLocale = "en_US.UTF-8";
-      i18n.extraLocaleSettings = {
-        LC_ADDRESS = "ro_RO.UTF-8";
-        LC_IDENTIFICATION = "ro_RO.UTF-8";
-        LC_MEASUREMENT = "ro_RO.UTF-8";
-        LC_MONETARY = "ro_RO.UTF-8";
-        LC_NAME = "ro_RO.UTF-8";
-        LC_NUMERIC = "ro_RO.UTF-8";
-        LC_PAPER = "ro_RO.UTF-8";
-        LC_TELEPHONE = "ro_RO.UTF-8";
-        LC_TIME = "ro_RO.UTF-8";
-      };
-      services.printing.enable = true;
-      nixpkgs.config.allowUnfree = true;
 
       # The value this machine's first install wrote. Never "upgrade" it by hand.
       system.stateVersion = "26.05";
       # The EFI partition is at /boot and the install uses systemd-boot, which is
       # what `base` sets: no boot.loader override needed here.
-
-      # The admin's own GNOME bits on top of the shared shell/git (modules/home.nix).
-      home-manager.users.${config.balaur.user}.imports = [
-        hm.desktop
-        hm.torrents-client
-      ];
-
-      # The same token as the tablet's aminte, for `aminte-prod` (modules/aminte.nix).
-      sops.secrets."aminte-token".owner = config.balaur.user;
-      balaur.aminte-dev.tokenFile = config.sops.secrets."aminte-token".path;
 
       balaur = {
         # The existing login on this machine; its password is kept as is.

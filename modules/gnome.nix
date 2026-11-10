@@ -9,10 +9,14 @@
 # Give a host `gnome` plus exactly one of those. (Aspects never import each
 # other: flake.modules has no dedup key, so the host lists both.)
 #
-# Both install the fleet's Shell extension, so the ambient screen's settings are
-# here: after a minute untouched, a full-screen clock, date, weather, the
-# assistant's timers and reminders, the fleet's machines and services, over the
-# photos in the synced folder (gnome/shell-extension/ambient.js).
+# Both get the fleet's own front end from here: the Balaur app (the conversation,
+# lists, timers, memory, every service in `balaur.services` with its live state;
+# gnome/app) and the Shell extension (the assistant's orb and captions over every
+# app, the mic toggle; gnome/shell-extension). The `assistant` aspect has no UI
+# without them. So the ambient screen's settings are here too: after a minute
+# untouched, a full-screen clock, date, weather, the assistant's timers and
+# reminders, the fleet's machines and services, over the photos in the synced
+# folder (gnome/shell-extension/ambient.js).
 {
   flake.modules.nixos.gnome =
     {
@@ -22,6 +26,7 @@
       ...
     }:
     let
+      inherit (lib.gvariant) mkTuple;
       cfg = config.balaur;
       ambient = cfg.ambient;
       ambientJson = builtins.toJSON {
@@ -118,6 +123,43 @@
         services.displayManager.gdm.enable = true;
         services.desktopManager.gnome.enable = true;
 
+        # GNOME's background services that no machine here uses: lean CPU, the same
+        # on every GNOME machine. File indexing (localsearch) stays where it is
+        # useful, the desktops; `tablet` turns that off as well.
+        services.gnome = {
+          gnome-initial-setup.enable = false; # every machine is set up by this flake
+          gnome-online-accounts.enable = false; # no online account is set up
+          gnome-remote-desktop.enable = false; # SSH and Tailscale; Moonlight for the pc
+          gnome-user-share.enable = false; # files move through Syncthing (`files`)
+          gnome-browser-connector.enable = false; # the extensions come from the flake
+          rygel.enable = false; # DLNA sharing to the LAN: nothing asked for it
+        };
+        services.dleyna.enable = false; # DLNA discovery, likewise
+
+        # The look and the keyboards, the same on every GNOME machine. Defaults, not
+        # locks: a personal machine's own settings win (`tablet` locks what it must).
+        programs.dconf.profiles.user.databases = [
+          {
+            settings = {
+              "org/gnome/desktop/input-sources".sources = [
+                (mkTuple [
+                  "xkb"
+                  "us"
+                ])
+                (mkTuple [
+                  "xkb"
+                  "ro+std"
+                ])
+              ];
+              "org/gnome/desktop/interface" = {
+                color-scheme = "prefer-dark";
+                clock-show-weekday = true;
+                show-battery-percentage = true;
+              };
+            };
+          }
+        ];
+
         # Firefox is the browser on every GNOME machine here. The policies are the
         # same everywhere: no telemetry, no first-run detours, and the add-ons above.
         programs.firefox = {
@@ -147,7 +189,11 @@
         # The terminal is Ghostty everywhere (GTK4/libadwaita, GPU-rendered), so
         # Console goes. It is also what "Open in Terminal" and Terminal=true apps
         # launch, through xdg-terminal-exec.
-        environment.systemPackages = [ pkgs.ghostty ];
+        environment.systemPackages = [
+          pkgs.ghostty
+          pkgs.balaur-app
+          pkgs.balaur-shell-extension
+        ];
         environment.gnome.excludePackages = [ pkgs.gnome-console ];
         xdg.terminal-exec = {
           enable = true;

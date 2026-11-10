@@ -24,13 +24,12 @@
     let
       cfg = config.balaur;
       user = cfg.tablet.user;
-      inherit (lib.gvariant) mkTuple mkUint32;
+      inherit (lib.gvariant) mkUint32;
       # Without the camera there's nothing to wake the screen but a touch: keep it on.
       screenTimeout = cfg.camera.screenTimeout or 0;
 
-      # Ours, GNOME-native (gnome/): the Balaur app (assistant, lists, timers, memory,
-      # home services) and the Shell extension (assistant orb over every app, mic toggle).
-      balaurApp = pkgs.balaur-app;
+      # The `gnome` aspect installs the Balaur app and the Shell extension; this one
+      # switches the extension on for the household session.
       balaurExtension = pkgs.balaur-shell-extension;
 
       # Each service with a web UI (and an appIcon) as an app of its own: GNOME Web
@@ -139,21 +138,16 @@
           inherit user;
         };
 
+        # The services no GNOME machine here uses are off in `gnome`; these are the
+        # ones only a wall screen goes without.
         services.gnome = {
           core-apps.enable = false; # the app grid is curated below
           core-developer-tools.enable = false;
           games.enable = false;
-          gnome-initial-setup.enable = false;
-          # Background indexing and sharing a wall screen doesn't use (CPU, not features).
+          # Background indexing a wall screen doesn't use (CPU, not features).
           localsearch.enable = false;
           tinysparql.enable = false;
-          rygel.enable = false;
-          gnome-user-share.enable = false;
-          gnome-remote-desktop.enable = false;
-          gnome-online-accounts.enable = false;
-          gnome-browser-connector.enable = false;
         };
-        services.dleyna.enable = false;
         environment.gnome.excludePackages = with pkgs; [
           gnome-tour
           gnome-user-docs
@@ -164,8 +158,6 @@
         environment.systemPackages =
           with pkgs;
           [
-            balaurApp
-            balaurExtension
             devTerminal
             epiphany # GNOME Web: runs the web apps below
           ]
@@ -216,24 +208,10 @@
               };
               "org/gnome/desktop/notifications".show-in-lock-screen = false;
 
-              # Touch tablet.
-              "org/gnome/desktop/input-sources".sources = [
-                (mkTuple [
-                  "xkb"
-                  "us"
-                ])
-                (mkTuple [
-                  "xkb"
-                  "ro+std"
-                ])
-              ];
+              # Touch tablet. (The keyboards, US + Romanian, and the look are the
+              # `gnome` aspect's, on every machine.)
               "org/gnome/desktop/a11y/applications".screen-keyboard-enabled = false; # false = automatic, on touch
               "org/gnome/settings-daemon/peripherals/touchscreen".orientation-lock = false;
-              "org/gnome/desktop/interface" = {
-                clock-show-weekday = true;
-                show-battery-percentage = true;
-                color-scheme = "prefer-dark";
-              };
 
               # The home screen.
               "org/gnome/shell" = {

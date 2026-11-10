@@ -1,5 +1,6 @@
-# A laptop pretending to be a server: never sleep, ignore lid and power key,
-# treat the battery as a UPS (clean shutdown when it runs low), cap its charge.
+# A laptop pretending to be a server: ignore lid and power key, treat the battery
+# as a UPS (clean shutdown when it runs low), cap its charge. Give the host
+# `never-sleep` as well: that one switches sleep off, for any machine on duty.
 {
   flake.modules.nixos.always-on =
     {
@@ -62,13 +63,6 @@
           HandlePowerKey = "ignore";
           HandlePowerKeyLongPress = "poweroff";
           IdleAction = "ignore";
-        };
-
-        systemd.targets = {
-          sleep.enable = false;
-          suspend.enable = false;
-          hibernate.enable = false;
-          hybrid-sleep.enable = false;
         };
 
         # Battery as UPS: shut down cleanly instead of dying mid-write.
