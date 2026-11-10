@@ -62,6 +62,8 @@ in
           # what gives pi its aminte role here (pi-aminte, agent.nix).
           aminte-dev
           gaming
+          # What to craft, buy and sell in WoW: Forever, from Auctionator's scans.
+          wow-market
           steam
           game-streaming
           # The fleet's local LLM on the 5060 Ti (stopped while a game runs).

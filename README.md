@@ -76,6 +76,7 @@ modules/
   dev.nix                 Claude Code + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep; `dev` opens the sessions
   dev-host.nix            the one machine that holds the development sessions: herdr's server, from boot
   gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow); laptop and pc
+  wow-market.nix          WoW Market: what to craft, buy and sell in WoW: Forever, from Auctionator's scans; https://wow.<domain> (pc)
   steam.nix               Steam and GameMode, for a machine that plays locally (the pc)
   game-streaming.nix      Sunshine on the host (the pc), Moonlight on the clients, over the tailnet
   ai.nix                  the fleet's AI entryway on the tablet (`ai-gateway`: local GPU first, Mistral second) and its clients (`ai`)
