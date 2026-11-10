@@ -37,6 +37,11 @@ with no failed units, and `pi` there should list the seven skills. (Strata's san
 is proven: it loaded and answered through the entryway on 2026-11-10.) Its assistant
 should have house devices: `~/.local/state/balaur-assistant/pi/mcp.json` exists.
 
+Also from the ambient-screen session (item 8): `systemctl show syncthing -p UMask`
+says `0002` there, and `ls -ld <synced folder>/photos` is group-writable (`drwxrwsr-x`).
+It may sync `photos` in before it deploys `d13280e`, and then the folder arrives
+read-only, as it did on the pc: `sudo chmod 2775` it.
+
 ### 3. Retune the wake word on the laptop and the pc
 
 `wakeThreshold = 0.35` on the laptop was copied from the tablet's microphone array; the pc
@@ -84,6 +89,30 @@ Samsung" reached Home Assistant without error. Left:
   `androidtv_remote` in `extraComponents` if the user wants it.
 - **The tablet** has not been asked a real question since it moved to pi (it
   started cleanly). `git revert 664e4b4` brings the old engine back if it misbehaves.
+
+### 8. The ambient screen: photos and the fleet's status (2026-11-10, on the tablet)
+
+Done and seen working (`6bacc8b`, `d13280e`, `3a84957`; docs/SETUP.md, Stage 12): after a
+minute untouched the tablet shows photos from `photos` in the Syncthing folder, with
+the machines (Tailscale) and services (systemd, or a probe on other machines) on the
+side, next to the clock, date and weather. Syncthing now keeps group write
+(`UMask=0002`). `duet-presence` was deaf since 2026-11-08 (a `kill` under `set -e`
+ended its reader) and is fixed: a wave at 14:45 took a 15-minute hold. The tablet now
+blanks after 15 minutes (`camera.screenTimeout`). Left:
+
+- **The desktops probably show the ambient screen too.** The pc and the laptop load
+  the same extension (`desktop.nix`) but have no `/etc/balaur/ambient.json`, so it
+  takes its default `idleSeconds: 60` and covers the desktop after a minute idle (no
+  photos, weather or status there). Not looked at on the pc's screen. If so, the
+  extension should start the ambient screen only when the config file exists, or
+  `desktop.nix` writes `{"idleSeconds": 0}`.
+- **Photo quality** (the user): the 8 photos are resized copies (1720 wide; one is 465×208
+  and shows blurry). Full-size originals look better. HEIC is not shown (GdkPixbuf).
+- **Not seen yet:** the status panel with a failed unit (red row, "N failed") and a
+  rotated tablet on the real screen. Both were checked only in a headless gnome-shell.
+- **`flake.nixosConfigurations.balaur`** in `modules/hosts/tablet.nix` (the alias kept
+  until the tablet had switched under its new name) can go: its hostname is `tablet`
+  and `balaur-fleet-status` shows it.
 
 ## Backlog from the review (decisions, not fixes)
 
