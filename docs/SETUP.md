@@ -449,7 +449,9 @@ read across the room. It shows:
 - the assistant's running timers, counting down, and the next reminder;
 - a slow slideshow of the photos in the synced folder.
 
-On the side in landscape; above the clock when the tablet is turned to portrait. A touch, click or key brings
+On the side in landscape; above the clock when the tablet is turned to portrait. The pc and the laptop show
+the same screen after a minute idle (the `gnome` aspect writes its settings on every GNOME machine), until
+GNOME blanks and locks them as usual; `balaur.ambient.idleSeconds = 0` in a host file turns it off there. A touch, click or key brings
 back what was there. The tap that does it doesn't reach the app.
 
 - **It stays up** while the camera sees movement, which keeps the screen awake. With nobody there, GNOME turns
@@ -466,14 +468,14 @@ on the tablet, the same folder under the synced one elsewhere), in any subfolder
 tablet; the slideshow lists the folder again every hour, so new ones show within the hour. JPEG, PNG and WebP
 (not HEIC: export those as JPEG). Each is decoded at about the screen's size, off the Shell's main thread.
 
-Without the synced folder (`balaur.tablet.ambient.photos.dir = null`), the slideshow uses Jellyfin's photo
+Without the synced folder (`balaur.ambient.photos.dir = null`), the slideshow uses Jellyfin's photo
 libraries instead: an API key from the Jellyfin web UI (Dashboard → API Keys → **+**) given to
 `sudo balaur-photos-login`, which also adds a **Photos** library for `/srv/media/photos`.
 
 ### Tuning
 
-- `balaur.tablet.ambient.idleSeconds` (default 60; 0 = off), `balaur.tablet.ambient.photos.intervalSeconds`
-  (default 30), `balaur.tablet.ambient.photos.dir`, `balaur.tablet.ambient.status` (default true). The
+- `balaur.ambient.idleSeconds` (default 60; 0 = off), `balaur.ambient.photos.intervalSeconds`
+  (default 30), `balaur.ambient.photos.dir`, `balaur.ambient.status` (default true). The
   extension reads `/etc/balaur/ambient.json` when the session starts, so after a change log the household
   account out and in again (or reboot).
 - What it does: `journalctl --user -b | grep "balaur ambient"`, as the household user (weather, photo,

@@ -7,7 +7,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup?version=3.0';
 
-// Written by the tablet aspect (modules/tablet.nix); BALAUR_AMBIENT_CONFIG for testing.
+// Written by the gnome aspect (modules/gnome.nix) on every GNOME machine; BALAUR_AMBIENT_CONFIG for testing.
 export const CONFIG_PATH = GLib.getenv('BALAUR_AMBIENT_CONFIG') ?? '/etc/balaur/ambient.json';
 
 const DEFAULTS = {

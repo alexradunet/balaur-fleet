@@ -8,10 +8,49 @@
 #
 # Give a host `gnome` plus exactly one of those. (Aspects never import each
 # other: flake.modules has no dedup key, so the host lists both.)
+#
+# Both install the fleet's Shell extension, so the ambient screen's settings are
+# here: after a minute untouched, a full-screen clock, date, weather, the
+# assistant's timers and reminders, the fleet's machines and services, over the
+# photos in the synced folder (gnome/shell-extension/ambient.js).
 {
   flake.modules.nixos.gnome =
-    { lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
+      cfg = config.balaur;
+      ambient = cfg.ambient;
+      ambientJson = builtins.toJSON {
+        inherit (ambient) idleSeconds;
+        location = { inherit (cfg.location) name latitude longitude; };
+        photos =
+          if ambient.photos.dir != null then
+            {
+              inherit (ambient.photos) dir intervalSeconds;
+            }
+          else if config.services.jellyfin.enable then
+            {
+              server = "http://127.0.0.1:8096";
+              keyFile = ambient.photos.jellyfinKeyFile;
+              inherit (ambient.photos) intervalSeconds;
+            }
+          else
+            null;
+        status =
+          if ambient.status then
+            {
+              # Its socket answers any local user (read-only), so no rights are needed.
+              tailscale =
+                if config.services.tailscale.enable then lib.getExe config.services.tailscale.package else null;
+              servicesFile = "/etc/balaur/services.json";
+            }
+          else
+            null;
+      };
       # Firefox add-ons on every machine: add-on ID -> its addons.mozilla.org slug.
       # The ID must match the add-on's manifest exactly, or Firefox skips the
       # entry without saying so.
@@ -25,55 +64,107 @@
       };
     in
     {
-      services.displayManager.gdm.enable = true;
-      services.desktopManager.gnome.enable = true;
-
-      # Firefox is the browser on every GNOME machine here. The policies are the
-      # same everywhere: no telemetry, no first-run detours, and the add-ons above.
-      programs.firefox = {
-        enable = true;
-        policies = {
-          DisableTelemetry = true;
-          DisableFirefoxStudies = true;
-          DisablePocket = true;
-          DontCheckDefaultBrowser = true;
-          OverrideFirstRunPage = "";
-          OverridePostUpdatePage = "";
-          NoDefaultBookmarks = true;
-          ExtensionSettings = lib.mapAttrs (_: slug: {
-            installation_mode = "force_installed";
-            install_url = "https://addons.mozilla.org/firefox/downloads/latest/${slug}/latest.xpi";
-          }) addons;
+      options.balaur.ambient = {
+        idleSeconds = lib.mkOption {
+          type = lib.types.ints.unsigned;
+          default = 60;
+          description = ''
+            Seconds without a touch, click or key before the ambient screen (clock,
+            weather, timers, reminders, photos, machines and services) covers the
+            apps; 0 = never. Held back while a window is full screen (a film, a game)
+            or an app inhibits idle. On the tablet, movement in front of the camera
+            keeps it up. It needs a new session (log out, or reboot) to pick up changes.
+          '';
+        };
+        photos = {
+          intervalSeconds = lib.mkOption {
+            type = lib.types.ints.positive;
+            default = 30;
+            description = "Seconds each photo stays.";
+          };
+          dir = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            # The `files` aspect's synced folder, when this machine has it.
+            default =
+              if cfg ? files then "${toString cfg.storage.root}/files/${cfg.files.folderName}/photos" else null;
+            defaultText = lib.literalExpression ''"''${storage.root}/files/''${files.folderName}/photos" (with the files aspect), else null'';
+            description = ''
+              The folder the slideshow shows, subfolders included (JPEG, PNG, WebP; not
+              HEIC). By default `photos` in the Syncthing folder, so pictures dropped
+              there on any machine of the fleet show up on all of them; new ones within
+              the hour. It must be readable by the session's account. null = the
+              Jellyfin photo libraries, where this machine runs Jellyfin.
+            '';
+          };
+          jellyfinKeyFile = lib.mkOption {
+            type = lib.types.str;
+            default = "/var/lib/secrets/balaur-photos-key";
+            description = "Jellyfin API key for the photos when `dir` is null (the tablet's `sudo balaur-photos-login` writes it).";
+          };
+        };
+        status = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = ''
+            Show the fleet's machines (Tailscale: online, last seen; this one's failed
+            units) and the home's services (running or not) on the side.
+          '';
         };
       };
-      # Said outright (in /etc/xdg/mimeapps.list, under the user's own list), so
-      # GNOME Web on the tablet, or anything installed later, does not take over links.
-      xdg.mime.defaultApplications = lib.genAttrs [
-        "text/html"
-        "x-scheme-handler/http"
-        "x-scheme-handler/https"
-      ] (_: "firefox.desktop");
 
-      # The terminal is Ghostty everywhere (GTK4/libadwaita, GPU-rendered), so
-      # Console goes. It is also what "Open in Terminal" and Terminal=true apps
-      # launch, through xdg-terminal-exec.
-      environment.systemPackages = [ pkgs.ghostty ];
-      environment.gnome.excludePackages = [ pkgs.gnome-console ];
-      xdg.terminal-exec = {
-        enable = true;
-        settings.default = [ "com.mitchellh.ghostty.desktop" ];
+      config = {
+        environment.etc."balaur/ambient.json".text = ambientJson;
+
+        services.displayManager.gdm.enable = true;
+        services.desktopManager.gnome.enable = true;
+
+        # Firefox is the browser on every GNOME machine here. The policies are the
+        # same everywhere: no telemetry, no first-run detours, and the add-ons above.
+        programs.firefox = {
+          enable = true;
+          policies = {
+            DisableTelemetry = true;
+            DisableFirefoxStudies = true;
+            DisablePocket = true;
+            DontCheckDefaultBrowser = true;
+            OverrideFirstRunPage = "";
+            OverridePostUpdatePage = "";
+            NoDefaultBookmarks = true;
+            ExtensionSettings = lib.mapAttrs (_: slug: {
+              installation_mode = "force_installed";
+              install_url = "https://addons.mozilla.org/firefox/downloads/latest/${slug}/latest.xpi";
+            }) addons;
+          };
+        };
+        # Said outright (in /etc/xdg/mimeapps.list, under the user's own list), so
+        # GNOME Web on the tablet, or anything installed later, does not take over links.
+        xdg.mime.defaultApplications = lib.genAttrs [
+          "text/html"
+          "x-scheme-handler/http"
+          "x-scheme-handler/https"
+        ] (_: "firefox.desktop");
+
+        # The terminal is Ghostty everywhere (GTK4/libadwaita, GPU-rendered), so
+        # Console goes. It is also what "Open in Terminal" and Terminal=true apps
+        # launch, through xdg-terminal-exec.
+        environment.systemPackages = [ pkgs.ghostty ];
+        environment.gnome.excludePackages = [ pkgs.gnome-console ];
+        xdg.terminal-exec = {
+          enable = true;
+          settings.default = [ "com.mitchellh.ghostty.desktop" ];
+        };
+
+        # Sound for the session, shared by the apps and (on the Duet) the voice
+        # assistant, which runs as a service of that same session.
+        services.pulseaudio.enable = false;
+        security.rtkit.enable = true;
+        services.pipewire = {
+          enable = true;
+          alsa.enable = true;
+          pulse.enable = true;
+        };
+
+        hardware.graphics.enable = true;
       };
-
-      # Sound for the session, shared by the apps and (on the Duet) the voice
-      # assistant, which runs as a service of that same session.
-      services.pulseaudio.enable = false;
-      security.rtkit.enable = true;
-      services.pipewire = {
-        enable = true;
-        alsa.enable = true;
-        pulse.enable = true;
-      };
-
-      hardware.graphics.enable = true;
     };
 }

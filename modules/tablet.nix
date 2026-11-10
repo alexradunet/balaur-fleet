@@ -70,41 +70,12 @@
         ];
       };
 
-      # The ambient screen (Shell extension, ambient.js): clock, weather, timers,
-      # reminders, the machines and services, and photos: from a folder (by
-      # default `photos` in the Syncthing folder, so any machine of the fleet can
-      # add them), else from Jellyfin when this machine runs it (media aspect).
-      ambient = cfg.tablet.ambient;
+      # The ambient screen's settings are the `gnome` aspect's (balaur.ambient), for
+      # every GNOME machine. What stays here is the Jellyfin source of its photos, used
+      # only with `balaur.ambient.photos.dir = null`.
       jellyfin = config.services.jellyfin.enable;
-      photosKey = "/var/lib/secrets/balaur-photos-key";
+      photosKey = cfg.ambient.photos.jellyfinKeyFile;
       photosDir = "${toString cfg.storage.root}/media/photos";
-      ambientJson = builtins.toJSON {
-        inherit (ambient) idleSeconds;
-        location = { inherit (cfg.location) name latitude longitude; };
-        photos =
-          if ambient.photos.dir != null then
-            {
-              inherit (ambient.photos) dir intervalSeconds;
-            }
-          else if jellyfin then
-            {
-              server = "http://127.0.0.1:8096";
-              keyFile = photosKey;
-              inherit (ambient.photos) intervalSeconds;
-            }
-          else
-            null;
-        status =
-          if ambient.status then
-            {
-              # Its socket answers any local user (read-only), so no rights are needed.
-              tailscale =
-                if config.services.tailscale.enable then lib.getExe config.services.tailscale.package else null;
-              servicesFile = "/etc/balaur/services.json";
-            }
-          else
-            null;
-      };
 
       # A Jellyfin API key for the photos, from a terminal (state only, never in the
       # repo or the store; read from stdin). Also adds the Photos library if missing.
@@ -155,46 +126,6 @@
             type = lib.types.str;
             default = "home";
             description = "The household account GNOME logs in as (created; it has no password).";
-          };
-
-          ambient = {
-            idleSeconds = lib.mkOption {
-              type = lib.types.ints.unsigned;
-              default = 60;
-              description = ''
-                Seconds without a touch, click or key before the ambient screen (clock,
-                weather, timers, reminders, photos, machines and services) covers the apps; 0 = never. Movement in
-                front of the camera keeps it up rather than ending it. It needs a new
-                session (log out, or reboot) to pick up changes.
-              '';
-            };
-            photos.intervalSeconds = lib.mkOption {
-              type = lib.types.ints.positive;
-              default = 30;
-              description = "Seconds each photo stays.";
-            };
-            photos.dir = lib.mkOption {
-              type = lib.types.nullOr lib.types.str;
-              # The `files` aspect's synced folder, when this machine has it.
-              default =
-                if cfg ? files then "${toString cfg.storage.root}/files/${cfg.files.folderName}/photos" else null;
-              defaultText = lib.literalExpression ''"''${storage.root}/files/''${files.folderName}/photos" (with the files aspect), else null'';
-              description = ''
-                The folder the slideshow shows, subfolders included (JPEG, PNG, WebP; not
-                HEIC). By default `photos` in the Syncthing folder, so pictures dropped
-                there on any machine of the fleet show up here; new ones within the hour.
-                It must be readable by the household account. null = the Jellyfin photo
-                libraries instead (key: `sudo balaur-photos-login`).
-              '';
-            };
-            status = lib.mkOption {
-              type = lib.types.bool;
-              default = true;
-              description = ''
-                Show the fleet's machines (Tailscale: online, last seen; this one's failed
-                units) and the home's services (running or not) on the side.
-              '';
-            };
           };
         };
       };
@@ -345,7 +276,6 @@
           }
         ];
 
-        environment.etc."balaur/ambient.json".text = ambientJson;
       };
     };
 }

@@ -15,7 +15,7 @@ GNOME Shell 50 extension for the Duet's built-in screen. It follows the
   clock, date, weather, the fleet's machines and the home's services, the running timers and the next
   reminder over a photo slideshow (a folder, the synced one on the tablet, or Jellyfin),
   between the windows and the notification banners. Any input ends it. Held back while a window
-  is full screen or another app inhibits idle. Config: `/etc/balaur/ambient.json` (`modules/tablet.nix`;
+  is full screen or another app inhibits idle. Config: `/etc/balaur/ambient.json` (`modules/gnome.nix`, every GNOME machine;
   `BALAUR_AMBIENT_CONFIG` overrides the path for testing).
 
 | File | What |

@@ -100,12 +100,12 @@ side, next to the clock, date and weather. Syncthing now keeps group write
 ended its reader) and is fixed: a wave at 14:45 took a 15-minute hold. The tablet now
 blanks after 15 minutes (`camera.screenTimeout`). Left:
 
-- **The desktops probably show the ambient screen too.** The pc and the laptop load
-  the same extension (`desktop.nix`) but have no `/etc/balaur/ambient.json`, so it
-  takes its default `idleSeconds: 60` and covers the desktop after a minute idle (no
-  photos, weather or status there). Not looked at on the pc's screen. If so, the
-  extension should start the ambient screen only when the config file exists, or
-  `desktop.nix` writes `{"idleSeconds": 0}`.
+- **The pc and the laptop show it too** (the user asked): its settings moved to the
+  `gnome` aspect (`balaur.ambient.*`, was `balaur.tablet.ambient.*`), so every GNOME
+  machine writes `/etc/balaur/ambient.json`, with the same photos (its copy of the
+  synced folder) and status. Left: see it on the pc's screen after a new login (with
+  several monitors it covers the primary one only), and check it stays away during a
+  full-screen game and a Sunshine stream. On the laptop, once it is awake.
 - **Photo quality** (the user): the 8 photos are resized copies (1720 wide; one is 465×208
   and shows blurry). Full-size originals look better. HEIC is not shown (GdkPixbuf).
 - **Not seen yet:** the status panel with a failed unit (red row, "N failed") and a
