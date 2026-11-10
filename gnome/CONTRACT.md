@@ -36,6 +36,15 @@ launcher `balaur-home-agent` (`$BALAUR_AGENT`, set by its wrapper) with
 - **Nothing found on disk**: no skills, prompt templates, context files
   (AGENTS.md), themes or MCP servers, no session file, an empty working
   directory, a private agent directory under the daemon's state directory.
+- **House devices**: one MCP server, Home Assistant's (`/api/mcp`), when the
+  unit gives `BALAUR_HOME_ASSISTANT_URL` and a readable
+  `BALAUR_HOME_ASSISTANT_TOKEN_FILE` (`balaur.assistant.homeAssistant`; the
+  shared sops secret `home-assistant-agent-token`, a non-admin Home Assistant
+  user for the assistant). The launcher writes pi's `mcp.json` with it:
+  `exposure: direct`, no codemode, the resource tools excluded, the token read
+  by the header's command. Its tools, `mcp__homeassistant__*`, are the only
+  ones not ours the extension allows; what they can switch is what is exposed
+  to Assist. Without them it runs with `--no-mcp`, as before.
 - Our tools, registered by the extension (TypeBox schemas):
   - in the extension (Node `fetch`): weather (Open-Meteo), news (RSS feeds from
     the config), web search (Mistral's web_search);
