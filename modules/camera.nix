@@ -53,21 +53,28 @@
                 case "$line" in *ActiveChanged*) date +%s > "$quiet" ;; esac
               done &
           holder=""
-          trap '[ -n "$holder" ] && kill "$holder" 2>/dev/null; kill 0' EXIT
+          # The previous hold has usually run out by the next movement, so its kill
+          # fails: that must not count as an error (set -e), or the loop ends.
+          release() { if [ -n "$holder" ]; then kill "$holder" 2>/dev/null || true; fi; }
+          trap 'release; kill 0' EXIT
           while :; do
             if [ ! -d "${dirOf motionFile}" ]; then sleep 5; continue; fi
-            inotifywait -mq -e close_write --format %f "${dirOf motionFile}" | while read -r name; do
+            # Read in this shell, not at the end of a pipe: if anything here fails,
+            # the service exits and systemd restarts it. In a pipe, the reader died
+            # alone while `inotifywait -m` kept running, so the service looked
+            # healthy and ignored every movement after that.
+            while read -r name; do
               [ "$name" = "${baseNameOf motionFile}" ] || continue
               [ $(( $(date +%s) - $(cat "$quiet") )) -ge 6 ] || continue
               # Wake the screen if GNOME blanked it (no-op otherwise)...
               gdbus call --session --dest org.gnome.ScreenSaver --object-path /org/gnome/ScreenSaver \
                 --method org.gnome.ScreenSaver.SetActive false >/dev/null || true
               # ...and keep it from going idle for another screenTimeout.
-              [ -n "$holder" ] && kill "$holder" 2>/dev/null
+              release
               gnome-session-inhibit --inhibit idle --app-id duet-presence \
                 --reason "Someone is in front of the screen" sleep "$timeout" &
               holder=$!
-            done
+            done < <(inotifywait -mq -e close_write --format %f "${dirOf motionFile}")
             sleep 2 # the relay restarted: its directory went away
           done
         '';

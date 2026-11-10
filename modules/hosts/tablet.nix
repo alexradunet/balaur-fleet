@@ -93,7 +93,11 @@ in
         };
 
         # The colour-filter layout was measured on this laptop (docs/SETUP.md, Stage 10).
-        # camera.tuning.cfa = "GIGI/BGRG/GIGI/RGBG"; # only if red and blue come out swapped (default: GIGI/RGBG/GIGI/BGRG)
+        # The screen goes off after 15 minutes with nobody there, so the photos
+        # (ambient screen, after a minute) stay up a while. Movement still keeps it on.
+        camera.screenTimeout = 15 * 60;
+
+        # camera.tuning.cfa ="GIGI/BGRG/GIGI/RGBG"; # only if red and blue come out swapped (default: GIGI/RGBG/GIGI/BGRG)
       };
 
       # FileList's username and passkey are two entries in this machine's own sops
