@@ -10,6 +10,9 @@
 #   BALAUR_LLM_MODEL   the model to start with; one the file does not have falls
 #                      back to its first.
 #   BALAUR_ASSISTANT_CONFIG, MISTRAL_API_KEY, BALAUR_SPEECH_BASE_URL   for the extension
+#   BALAUR_HOME_ASSISTANT_URL, BALAUR_HOME_ASSISTANT_TOKEN_FILE   Home Assistant's MCP
+#                      server (/api/mcp) and a file with its access token: the
+#                      house devices. Unset, or the file unreadable: none.
 set -eu
 
 # pi keeps a few files of its own beside its configuration: a private directory.
@@ -39,9 +42,38 @@ fi
 
 # No tools of pi's own, and nothing found on disk: the extension is all there is.
 args=(--no-session --no-builtin-tools --no-skills --no-prompt-templates --no-context-files
-  --no-themes --no-mcp --provider "$provider" --model "$model")
+  --no-themes --provider "$provider" --model "$model")
 
 if [ "${1:-}" = --test ]; then
-  exec @pi@ "${args[@]}" --no-extensions --print "Reply with the single word OK." > /dev/null
+  exec @pi@ "${args[@]}" --no-mcp --no-extensions --print "Reply with the single word OK." > /dev/null
+fi
+
+# House devices: Home Assistant's MCP server, as the assistant's own non-admin
+# user. Its tools are declared to the model as they are (`direct`: no codemode,
+# no tool_search) and the resource tools are left out, so what the model gets is
+# ours plus mcp__homeassistant__*; the extension refuses anything else. The token
+# is read by the header's command when pi connects: not in the store, not in the
+# environment, not in this file.
+url=${BALAUR_HOME_ASSISTANT_URL:-}
+token=${BALAUR_HOME_ASSISTANT_TOKEN_FILE:-}
+if [ -n "$url" ] && [ -n "$token" ] && [ -r "$token" ]; then
+  @jq@ -n --arg url "$url" --arg token "$token" '{
+    autoEnableCodemode: false,
+    mcpServers: { homeassistant: {
+      url: $url,
+      headers: { Authorization: "!echo Bearer $(cat \($token | @sh))" },
+      exposure: "direct",
+      timeout: 20,
+      description: "The house devices: lights, TV, speakers, scenes"
+    } }
+  }' > "$state/mcp.json"
+  args+=(--exclude-tools list_mcp_resources,list_mcp_resource_templates,read_mcp_resource)
+  # For the extension: tell the model about the house (prompt.ts).
+  export BALAUR_HOUSE_DEVICES=1
+else
+  [ -z "$url" ] || echo "balaur-home-agent: no readable Home Assistant token at '$token': no house devices" >&2
+  rm -f "$state/mcp.json"
+  unset BALAUR_HOUSE_DEVICES
+  args+=(--no-mcp)
 fi
 exec @pi@ --mode rpc "${args[@]}" --extension @share@/index.ts

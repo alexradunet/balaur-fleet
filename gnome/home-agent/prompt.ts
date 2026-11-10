@@ -12,7 +12,8 @@ export interface TurnContext {
 	lang?: string; // "ro", "en" or "": the language of this turn
 }
 
-export function systemPrompt(c: TurnContext, lang: string): string {
+/** `devices`: the launcher configured Home Assistant's MCP server (BALAUR_HOUSE_DEVICES). */
+export function systemPrompt(c: TurnContext, lang: string, devices = false): string {
 	let b = `You are ${c.name}, the private voice assistant of a home`;
 	if (c.location) b += ` in ${c.location}`;
 	b += ". You run on a small home server and talk through its speaker.\n";
@@ -27,6 +28,9 @@ export function systemPrompt(c: TurnContext, lang: string): string {
 - For current events, facts that change, prices or anything you are unsure of, use web_search or news. If you cannot find it, say so briefly.
 - If a request is ambiguous, ask one short question.
 `;
+	if (devices)
+		b +=
+			"- The house's devices (lights, TV, speakers, scenes) are switched with the Home Assistant tools. Use the names they report; if no device matches, say so. If you have no Home Assistant tools, the house cannot be reached right now: say so briefly.\n";
 	if (lang === "en") b += "- The user is speaking English now: reply in English.\n";
 	else if (lang === "ro") b += "- The user is speaking Romanian now: reply in Romanian.\n";
 	if (c.typed)

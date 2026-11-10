@@ -15,12 +15,15 @@
 // A voice assistant that reads web pages and news must never be able to run a
 // command or touch a file. Three locks: the launcher starts pi without its own
 // tools; this extension exits when the model is offered any tool but ours; and a call to any
-// other tool is blocked.
+// other tool is blocked. The one exception is Home Assistant's MCP server, when the
+// launcher configured it: its tools (mcp__homeassistant__*) switch the house's
+// devices as the assistant's own non-admin Home Assistant user.
 //
 // Environment (set by the launcher and the daemon):
 //   BALAUR_ASSISTANT_CONFIG   the assistant's config JSON (location, newsFeeds, search.model)
 //   MISTRAL_API_KEY, BALAUR_SPEECH_BASE_URL   Mistral, for web_search
 //   BALAUR_BUSCTL             the busctl to call the daemon with (default: busctl)
+//   BALAUR_HOUSE_DEVICES      set when the launcher configured Home Assistant's MCP server
 
 import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -35,6 +38,9 @@ export const MAX_TOOL_ROUNDS = 6;
 const TOOL_TIMEOUT_MS = 20_000;
 
 const BUS = ["org.balaur.Assistant", "/org/balaur/Assistant", "org.balaur.Assistant1"];
+// Home Assistant's MCP server (the launcher's mcp.json): its tools are the only
+// ones not ours that may be offered or run.
+const HOUSE = "mcp__homeassistant__";
 
 const str = (description: string) => Type.String({ description });
 const opt = <T>(t: T) => Type.Optional(t as any);
@@ -180,6 +186,13 @@ export default function (pi: ExtensionAPI) {
 	const home = cfg.location ?? { name: "", latitude: 0, longitude: 0 };
 	const searchModel: string = cfg.search?.model ?? "";
 	const ours: string[] = [];
+	const allowed = (name: string) => ours.includes(name) || name.startsWith(HOUSE);
+	/** The house tools pi has registered: once the server answered, and only if it did. */
+	const house = () =>
+		pi
+			.getAllTools()
+			.filter((t: any) => t.name.startsWith(HOUSE) && (t.exposure ?? "direct") === "direct")
+			.map((t: any) => t.name as string);
 
 	// Our tools share the daemon's state: one at a time, in the model's order.
 	const register = (spec: Spec, run: (p: any, signal: AbortSignal) => Promise<string>) => {
@@ -237,13 +250,13 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	/**
-	 * Exits when the model is offered any tool but ours. pi keeps its own tools
+	 * Exits when the model is offered any tool but ours and the house's. pi keeps its own tools
 	 * registered even when started without them; what counts is the active set,
 	 * the tools declared to the model, and that a call to another is blocked (below).
 	 */
 	const checkTools = () => {
 		const active = pi.getActiveTools();
-		const foreign = active.filter((n: string) => !ours.includes(n));
+		const foreign = active.filter((n: string) => !allowed(n));
 		if (foreign.length > 0) {
 			console.error(`balaur-home-agent: refusing to run: tools other than ours are active: ${foreign.join(", ")}`);
 			process.exit(1);
@@ -264,10 +277,10 @@ export default function (pi: ExtensionAPI) {
 
 	pi.on("before_agent_start", async () => {
 		rounds = 0;
-		pi.setActiveTools(ours); // back after a capped run
+		pi.setActiveTools([...ours, ...house()]); // back after a capped run
 		checkTools();
 		const ctx: TurnContext = JSON.parse(await daemon("AgentContext", []));
-		return { systemPrompt: systemPrompt(ctx, ctx.lang ?? "") };
+		return { systemPrompt: systemPrompt(ctx, ctx.lang ?? "", !!env.BALAUR_HOUSE_DEVICES) };
 	});
 
 	pi.on("turn_end", async () => {
@@ -276,7 +289,7 @@ export default function (pi: ExtensionAPI) {
 	});
 
 	pi.on("tool_call", async (event: any) => {
-		if (!ours.includes(event.toolName)) return { block: true, reason: "this assistant has only its own tools" };
+		if (!allowed(event.toolName)) return { block: true, reason: "this assistant has only its own tools" };
 		return undefined;
 	});
 }
