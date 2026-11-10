@@ -1,13 +1,15 @@
-// Tests for ambient-data.js (no Shell, no network): `gjs -m tests/test-ambient.js`.
+// Tests for ambient-data.js and ambient-status.js's helpers (no Shell, no network): `gjs -m tests/test-ambient.js`.
 // Run by the package build (pkgs/balaur-shell-extension.nix).
 
 import GLib from 'gi://GLib';
 import System from 'system';
 
 import {
-    JellyfinPhotos, clockText, countdown, coverRect, describeWeather, loadConfig,
-    nextReminder, parseWeather, readSecret, timersOf, weatherLine, weatherUrl, whenText,
+    JellyfinPhotos, clockText, countdown, coverRect, decodeSize, describeWeather, isPhotoName,
+    listPhotos, loadConfig, nextReminder, parseWeather, readSecret, shuffled, timersOf,
+    weatherLine, weatherUrl, whenText,
 } from '../ambient-data.js';
+import {machinesOf, seenText, servicesOf, systemText, unitKind} from '../ambient-status.js';
 
 let failed = 0;
 function eq(actual, expected, what) {
@@ -26,7 +28,7 @@ const write = (name, text) => {
 };
 
 // config
-eq(loadConfig(`${tmp}/missing.json`), {idleSeconds: 60, location: null, photos: null}, 'missing config = defaults');
+eq(loadConfig(`${tmp}/missing.json`), {idleSeconds: 60, location: null, photos: null, status: null}, 'missing config = defaults');
 eq(loadConfig(write('a.json', '{"idleSeconds": 90, "photos": {"server": "http://x"}}')).idleSeconds, 90, 'config overrides');
 eq(loadConfig(write('b.json', '{nope')).idleSeconds, 60, 'broken config = defaults');
 eq(readSecret(write('key', 'abc123\n')), 'abc123', 'secret first line');
@@ -89,6 +91,70 @@ const ms = (d, h) => GLib.DateTime.new_local(2026, 11, d, h, 0, 0).to_unix() * 1
 eq(whenText(ms(4, 18), now, true), '18:00', 'today');
 eq(whenText(ms(5, 9), now, true), 'Tomorrow 09:00', 'tomorrow');
 eq(whenText(ms(20, 9), now, true).endsWith('Nov 09:00'), true, 'far away');
+
+
+// photos from a folder
+eq(['a.JPG', 'b.jpeg', 'c.png', 'd.webp', 'e.heic', '.f.jpg', 'notes.txt'].filter(isPhotoName),
+    ['a.JPG', 'b.jpeg', 'c.png', 'd.webp'], 'photo names: images, no hidden files');
+eq(shuffled([1, 2, 3, 4], () => 0), [2, 3, 4, 1], 'shuffle is a permutation');
+eq(shuffled([1, 2, 3, 4]).sort(), [1, 2, 3, 4], 'shuffle keeps everything');
+eq(decodeSize(8160, 6120, 2160, 1350), {width: 2880, height: 2160}, 'decode: 50 MP covers the screen either way');
+eq(decodeSize(800, 600, 2160, 1350), {width: 800, height: 600}, 'decode: never upscaled');
+GLib.mkdir_with_parents(`${tmp}/photos/2026/.stversions`, 0o755);
+write('photos/a.jpg', '');
+write('photos/2026/b.png', '');
+write('photos/2026/.stversions/old.jpg', '');
+write('photos/.syncthing.c.jpg.tmp', '');
+write('photos/readme.txt', '');
+const loop = GLib.MainLoop.new(null, false);
+let listed = null, missing = null;
+Promise.all([listPhotos(`${tmp}/photos`), listPhotos(`${tmp}/nope`)])
+    .then(([a, b]) => {
+        listed = a.map(p => p.slice(tmp.length)).sort();
+        missing = b;
+    })
+    .catch(e => print(`FAIL listPhotos: ${e.message}`))
+    .finally(() => loop.quit());
+loop.run();
+eq(listed, ['/photos/2026/b.png', '/photos/a.jpg'], 'list photos: recursive, skips Syncthing files');
+eq(missing, [], 'list photos: missing folder');
+
+// machines and services (ambient-status.js)
+const ts = {
+    Self: {HostName: 'tablet', DNSName: 'tablet.x.ts.net.', Online: true},
+    Peer: {
+        k1: {HostName: 'Cico S25', DNSName: 'phone.x.ts.net.', Online: false, LastSeen: '2026-11-09T21:00:00Z'},
+        k2: {HostName: 'balaur', DNSName: 'netcup.x.ts.net.', Online: true, LastSeen: '0001-01-01T00:00:00Z'},
+        k3: {HostName: 'laptop', DNSName: '', Online: false, LastSeen: '0001-01-01T00:00:00Z'},
+    },
+};
+eq(machinesOf(ts).map(m => [m.name, m.online, m.self]),
+    [['tablet', true, true], ['laptop', false, false], ['netcup', true, false], ['phone', false, false]],
+    'machines: self first, tailnet names, sorted');
+eq(machinesOf(ts)[3].lastSeenMs, Date.parse('2026-11-09T21:00:00Z'), 'machines: last seen');
+eq(machinesOf(ts)[1].lastSeenMs, 0, 'machines: year 1 = never');
+eq(machinesOf(null), [], 'machines: nothing');
+const t0 = Date.parse('2026-11-10T12:00:00Z');
+eq(seenText(t0 - 20e3, t0), 'seen 1 min ago', 'seen: just now');
+eq(seenText(t0 - 15 * 3600e3, t0), 'seen 15 h ago', 'seen: hours');
+eq(seenText(t0 - 72 * 3600e3, t0), 'seen 3 days ago', 'seen: days');
+eq(seenText(0, t0), 'offline', 'seen: never');
+eq(['active', 'activating', 'failed', 'inactive', 'weird'].map(a => unitKind('loaded', a)),
+    ['ok', 'busy', 'bad', 'off', 'unknown'], 'unit kinds');
+eq(unitKind('not-found', 'inactive'), 'off', 'unit not installed');
+eq(systemText('running', 0), {kind: 'ok', text: 'all running'}, 'system running');
+eq(systemText('degraded', 2), {kind: 'bad', text: '2 failed'}, 'system degraded');
+eq(servicesOf([
+    {name: 'Jellyfin', unit: 'jellyfin.service', url: 'http://127.0.0.1:8096', host: null},
+    {name: 'Assistant', unit: 'user:balaur-assistant.service', url: null, host: null},
+    {name: 'Syncthing', unit: '', url: 'http://pc:8384', host: 'pc'},
+    {name: 'Nothing', unit: '', url: null, host: null},
+]), [
+    {label: 'Jellyfin', unit: 'jellyfin.service', user: false, url: 'http://127.0.0.1:8096', host: null},
+    {label: 'Assistant', unit: 'balaur-assistant.service', user: true, url: null, host: null},
+    {label: 'Syncthing · pc', unit: '', user: false, url: 'http://pc:8384', host: 'pc'},
+], 'services: units, user units, other machines, nothing to show dropped');
+eq(servicesOf(null), [], 'services: no file');
 
 GLib.spawn_command_line_sync(`rm -rf ${tmp}`);
 if (failed) {

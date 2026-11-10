@@ -4,7 +4,7 @@
 //   thinks, speaks or rings (tap = Stop);
 // - a Quick Settings "Assistant" toggle for the microphone;
 // - the ambient screen when nobody has touched the Duet for a while: clock,
-//   weather, timers, the next reminder, photos from Jellyfin.
+//   weather, the machines and services, timers, the next reminder, photos.
 //
 // All follow the org.balaur.Assistant D-Bus service (gnome/CONTRACT.md)
 // through one AssistantClient, and cope with the service being absent.

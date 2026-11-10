@@ -86,7 +86,7 @@ gnome/                    everything GNOME-facing, in GJS; gnome/CONTRACT.md is 
   assistant/              the assistant daemon: PipeWire audio, wake word, Voxtral speech, D-Bus org.balaur.Assistant
   home-agent/             its brain: the fleet's pi in its home role (a launcher and one extension), with the household's tools only
   app/                    "Balaur", a libadwaita app: assistant, lists, timers, memory, home services
-  shell-extension/        the assistant's orb over every app, the mic toggle in Quick Settings, the ambient screen
+  shell-extension/        the assistant's orb over every app, the mic toggle in Quick Settings, the ambient screen (photos, machines, services)
 camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 frames -> webcam
 ```
 

@@ -444,32 +444,37 @@ When nobody has touched the Duet for a minute, the Shell extension covers the ap
 read across the room. It shows:
 - a big clock and the date;
 - the weather for `balaur.location` (Open-Meteo);
+- on the side, the fleet's machines (from Tailscale: online, or when last seen; this one's failed units) and
+  the home's services (green running, grey stopped or not answering, red failed);
 - the assistant's running timers, counting down, and the next reminder;
-- a slow slideshow from Jellyfin's photo libraries.
+- a slow slideshow of the photos in the synced folder.
 
-A touch, click or key brings back what was there. The tap that does it doesn't reach the app.
+On the side in landscape; above the clock when the tablet is turned to portrait. A touch, click or key brings
+back what was there. The tap that does it doesn't reach the app.
 
 - **It stays up** while the camera sees movement, which keeps the screen awake. With nobody there, GNOME turns
   the screen off as before (`balaur.camera.screenTimeout`).
 - **It stays away** while a window is full screen (a film), or while an app holds an idle inhibitor (a call,
   a player).
+- **It is lean**: nothing is asked or decoded while it is hidden; the machines and services every 30 s while
+  it is up.
 
 ### Photos
 
-1. On the Jellyfin web UI (`http://tablet:8096`): Dashboard → API Keys → **+**, name it `Balaur`, and copy the key.
-2. `sudo balaur-photos-login` and paste the key. It is checked and saved to `/var/lib/secrets/balaur-photos-key`,
-   readable by the household account only. If there is no library for `/srv/media/photos` yet, it adds one
-   called **Photos**.
-3. Put pictures in `/srv/media/photos`, in any folders (over SSH, or Nautilus as `alex`). Jellyfin picks them up
-   on its library scan. Run `sudo balaur-photos-login` again to see the count.
+Put pictures in `photos` inside the Syncthing folder, on any machine of the fleet (`/srv/files/shared/photos`
+on the tablet, the same folder under the synced one elsewhere), in any subfolders. Syncthing brings them to the
+tablet; the slideshow lists the folder again every hour, so new ones show within the hour. JPEG, PNG and WebP
+(not HEIC: export those as JPEG). Each is decoded at about the screen's size, off the Shell's main thread.
 
-Every photo library in Jellyfin is used, in a random order. Jellyfin scales each photo to the screen size, so
-the Duet decodes only small images. Without a key, the background stays dark.
+Without the synced folder (`balaur.tablet.ambient.photos.dir = null`), the slideshow uses Jellyfin's photo
+libraries instead: an API key from the Jellyfin web UI (Dashboard → API Keys → **+**) given to
+`sudo balaur-photos-login`, which also adds a **Photos** library for `/srv/media/photos`.
 
 ### Tuning
 
 - `balaur.tablet.ambient.idleSeconds` (default 60; 0 = off), `balaur.tablet.ambient.photos.intervalSeconds`
-  (default 30). The extension reads `/etc/balaur/ambient.json` when the session starts, so after a change log
-  the household account out and in again (or reboot).
-- What it does: `journalctl --user -b | grep "balaur ambient"`, as the household user (weather, photo and
-  inhibitor errors).
+  (default 30), `balaur.tablet.ambient.photos.dir`, `balaur.tablet.ambient.status` (default true). The
+  extension reads `/etc/balaur/ambient.json` when the session starts, so after a change log the household
+  account out and in again (or reboot).
+- What it does: `journalctl --user -b | grep "balaur ambient"`, as the household user (weather, photo,
+  status and inhibitor errors).

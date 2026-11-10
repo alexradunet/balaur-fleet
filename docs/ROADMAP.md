@@ -14,6 +14,8 @@ GNOME-facing is GJS (`gnome/`, see [gnome/CONTRACT.md](../gnome/CONTRACT.md)).
 - Ambient screen (2026-11-04, Shell extension): after 1 min untouched, a clock, date, weather, the running
   timers and the next reminder over a Jellyfin photo slideshow; a touch ends it, camera movement keeps it up.
   Photos need a Jellyfin API key: `sudo balaur-photos-login` (docs/SETUP.md, Stage 12).
+- Ambient screen, 2026-11-10: the machines (Tailscale) and services (systemd, or a probe on other machines)
+  on the side; photos from `photos` in the Syncthing folder, so any machine can add them.
 
 ## Next
 

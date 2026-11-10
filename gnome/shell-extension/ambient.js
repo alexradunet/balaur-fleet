@@ -1,7 +1,8 @@
 // The ambient screen: when nobody has touched the Duet for a while, a
 // full-screen view that is readable across the room. It shows a big clock and
 // the date, the weather, the running timers and the next reminder, over a
-// slow slideshow from the Jellyfin photo library.
+// slow slideshow (a synced folder, or Jellyfin), and on the side how the
+// fleet's machines and the home's services are doing (ambient-status.js).
 //
 // - Shown by Mutter's idle monitor (real input only), after `idleSeconds`.
 //   Movement in front of the camera does not end it: it keeps the screen
@@ -13,7 +14,8 @@
 //   an idle inhibitor (a video call, a player). duet-presence's own inhibitor
 //   doesn't count.
 // - Lean: no timers, downloads or decoding while it is hidden. Photos are
-//   scaled by Jellyfin to the screen size, then decoded off the main thread.
+//   decoded at about the screen's size (scaled by Jellyfin, or while decoding
+//   a file), off the main thread.
 //   Each one fades in with a Clutter transition.
 
 import Clutter from 'gi://Clutter';
@@ -27,15 +29,17 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {
-    Http, JellyfinPhotos, clockText, countdown, coverRect, loadConfig,
+    FolderPhotos, Http, JellyfinPhotos, clockText, decodeSize, countdown, coverRect, loadConfig,
     nextReminder, parseWeather, timersOf, weatherLine, weatherUrl, whenText,
 } from './ambient-data.js';
+import {FleetStatus} from './ambient-status.js';
 
 const FADE_MS = 400;
 const PHOTO_FADE_MS = 1500;
 const RECHECK_S = 30; // idle but held back (film, call): look again this often
 const WEATHER_TTL_S = 15 * 60;
 const WEATHER_RETRY_S = 5 * 60;
+const STATUS_S = 30;
 const PRESENCE_APP_ID = 'duet-presence';
 const IDLE_INHIBIT = 8; // GsmInhibitorFlag IDLE
 
@@ -43,7 +47,10 @@ export class AmbientScreen {
     constructor() {
         this._cfg = loadConfig();
         this._http = new Http();
-        this._photos = this._cfg.photos ? new JellyfinPhotos(this._cfg.photos, this._http) : null;
+        const photos = this._cfg.photos;
+        this._photos = photos?.dir ? new FolderPhotos(photos)
+            : photos?.server ? new JellyfinPhotos(photos, this._http) : null;
+        this._fleet = this._cfg.status ? new FleetStatus(this._cfg.status) : null;
         this._iface = new Gio.Settings({schema_id: 'org.gnome.desktop.interface'});
         this._cancellable = new Gio.Cancellable();
 
@@ -56,6 +63,8 @@ export class AmbientScreen {
         this._photoBusy = false;
         this._photoAt = 0;
         this._photo = null; // {actor, width, height}
+        this._statusBusy = false;
+        this._statusAt = 0;
 
         this._buildUi();
 
@@ -116,7 +125,7 @@ export class AmbientScreen {
         // Darkens the bottom of the picture so the text stays readable.
         this._root.add_child(new St.Widget({style_class: 'balaur-ambient-scrim', x_expand: true, y_expand: true}));
 
-        const front = new St.BoxLayout({
+        const front = this._front = new St.BoxLayout({
             style_class: 'balaur-ambient-front',
             x_expand: true,
             y_expand: true,
@@ -144,13 +153,15 @@ export class AmbientScreen {
         this._weatherRow.add_child(this._weatherText);
         left.add_child(this._weatherRow);
 
-        // Right: timers (live countdowns) and the next reminder.
+        // Right: the machines and services, then timers (live countdowns) and
+        // the next reminder.
         this._side = new St.BoxLayout({
             style_class: 'balaur-ambient-side',
             orientation: Clutter.Orientation.VERTICAL,
             y_align: Clutter.ActorAlign.END,
         });
         front.add_child(this._side);
+        this._buildStatus();
         this._timerRows = new Map(); // id -> {box, label, time}
         this._reminder = new St.BoxLayout({style_class: 'balaur-ambient-card', orientation: Clutter.Orientation.VERTICAL, visible: false});
         this._reminderWhen = new St.Label({style_class: 'balaur-ambient-card-label'});
@@ -172,13 +183,44 @@ export class AmbientScreen {
         });
     }
 
+    // Two sections in one card: a row per machine (name, state on the right),
+    // then the services in two columns. Filled by _maybeStatus.
+    _buildStatus() {
+        this._statusCard = new St.BoxLayout({
+            style_class: 'balaur-ambient-card balaur-ambient-status',
+            orientation: Clutter.Orientation.VERTICAL,
+            visible: false,
+        });
+        const heading = text => new St.Label({style_class: 'balaur-ambient-card-label balaur-ambient-status-heading', text});
+        this._statusCard.add_child(heading('Devices'));
+        this._machineBox = new St.BoxLayout({style_class: 'balaur-ambient-status-list', orientation: Clutter.Orientation.VERTICAL});
+        this._statusCard.add_child(this._machineBox);
+        this._statusCard.add_child(heading('Services'));
+        const columns = new St.BoxLayout({style_class: 'balaur-ambient-status-columns'});
+        this._serviceColumns = [0, 1].map(() => {
+            const col = new St.BoxLayout({style_class: 'balaur-ambient-status-list', orientation: Clutter.Orientation.VERTICAL, x_expand: true});
+            columns.add_child(col);
+            return col;
+        });
+        this._statusCard.add_child(columns);
+        this._side.add_child(this._statusCard);
+    }
+
     _place() {
         const m = Main.layoutManager.primaryMonitor;
         if (!m || !this._root)
             return;
         this._root.set_position(m.x, m.y);
         this._root.set_size(m.width, m.height);
-        this._reminder.style = `max-width: ${Math.round(m.width * 0.4)}px;`;
+        // Landscape: the clock on the left, the cards on the right. Portrait
+        // (the tablet turned) has no room for both side by side: the cards go
+        // above the clock, at the full width.
+        const portrait = m.height > m.width;
+        this._front.orientation = portrait ? Clutter.Orientation.VERTICAL : Clutter.Orientation.HORIZONTAL;
+        this._front.set_child_at_index(this._side, portrait ? 0 : 1);
+        this._side.x_align = portrait ? Clutter.ActorAlign.FILL : Clutter.ActorAlign.END;
+        this._reminder.style = `max-width: ${Math.round(m.width * (portrait ? 0.9 : 0.4))}px;`;
+        this._statusCard.style = `max-width: ${Math.round(m.width * (portrait ? 0.9 : 0.45))}px;`;
         if (this._photo)
             this._fit(this._photo);
     }
@@ -290,6 +332,7 @@ export class AmbientScreen {
         this._syncReminder(now, format24);
         this._maybeWeather();
         this._maybePhoto();
+        this._maybeStatus();
     }
 
     _syncTimers(nowMs) {
@@ -353,6 +396,36 @@ export class AmbientScreen {
         setText(this._weatherText, weatherLine(this._weather));
     }
 
+    async _maybeStatus() {
+        const due = this._statusAt === 0 || (GLib.get_monotonic_time() - this._statusAt) / 1e6 >= STATUS_S;
+        if (!this._fleet || this._statusBusy || !due)
+            return;
+        this._statusBusy = true;
+        this._statusAt = GLib.get_monotonic_time();
+        let status = null;
+        try {
+            status = await this._fleet.refresh(this._cancellable);
+        } catch (e) {
+            if (!e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
+                console.warn(`balaur ambient: status: ${e.message}`);
+        } finally {
+            this._statusBusy = false;
+        }
+        if (!this._root || !status)
+            return;
+
+        // A handful of rows every 30 s: rebuilt rather than diffed.
+        this._machineBox.destroy_all_children();
+        for (const m of status.machines)
+            this._machineBox.add_child(statusRow(m.kind, m.name, m.text));
+        for (const col of this._serviceColumns)
+            col.destroy_all_children();
+        const half = Math.ceil(status.services.length / 2);
+        status.services.forEach((s, i) =>
+            this._serviceColumns[i < half ? 0 : 1].add_child(statusRow(s.kind, s.label)));
+        this._statusCard.visible = status.machines.length + status.services.length > 0;
+    }
+
     async _maybePhoto() {
         const interval = this._cfg.photos?.intervalSeconds ?? 30;
         const due = !this._photo || (GLib.get_monotonic_time() - this._photoAt) / 1e6 >= interval;
@@ -377,17 +450,11 @@ export class AmbientScreen {
         const m = Main.layoutManager.primaryMonitor;
         const scale = m.geometry_scale ?? 1;
         const [w, h] = [Math.round(m.width * scale), Math.round(m.height * scale)];
-        const bytes = await this._photos.image(id, w, h, this._cancellable);
         // Decoded in a worker thread (GdkPixbuf's async loader).
-        const pixbuf = await new Promise((resolve, reject) => {
-            GdkPixbuf.Pixbuf.new_from_stream_async(Gio.MemoryInputStream.new_from_bytes(bytes), this._cancellable, (o, res) => {
-                try {
-                    resolve(GdkPixbuf.Pixbuf.new_from_stream_finish(res));
-                } catch (e) {
-                    reject(e);
-                }
-            });
-        });
+        const pixbuf = this._photos instanceof FolderPhotos
+            ? await this._decodeFile(id, w, h)
+            : await this._decode(Gio.MemoryInputStream.new_from_bytes(
+                await this._photos.image(id, w, h, this._cancellable)));
         if (!this._root || !this._shown)
             return;
         const img = pixbuf.apply_embedded_orientation() ?? pixbuf;
@@ -411,6 +478,53 @@ export class AmbientScreen {
         });
     }
 
+    /** A stream -> Pixbuf, at a size or as it is. */
+    _decode(stream, size = null) {
+        return new Promise((resolve, reject) => {
+            const done = (o, res) => {
+                try {
+                    resolve(GdkPixbuf.Pixbuf.new_from_stream_finish(res));
+                } catch (e) {
+                    reject(e);
+                }
+            };
+            if (size)
+                GdkPixbuf.Pixbuf.new_from_stream_at_scale_async(stream, size.width, size.height, true, this._cancellable, done);
+            else
+                GdkPixbuf.Pixbuf.new_from_stream_async(stream, this._cancellable, done);
+        });
+    }
+
+    /** A photo file, decoded no larger than the screen needs (its header gives the size first). */
+    async _decodeFile(path, w, h) {
+        const [format, imgW, imgH] = await new Promise((resolve, reject) => {
+            GdkPixbuf.Pixbuf.get_file_info_async(path, this._cancellable, (o, res) => {
+                try {
+                    resolve(GdkPixbuf.Pixbuf.get_file_info_finish(res));
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        });
+        if (!format)
+            throw new Error(`${path}: not a picture GdkPixbuf can read`);
+        const file = Gio.File.new_for_path(path);
+        const stream = await new Promise((resolve, reject) => {
+            file.read_async(GLib.PRIORITY_LOW, this._cancellable, (f, res) => {
+                try {
+                    resolve(f.read_finish(res));
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        });
+        try {
+            return await this._decode(stream, decodeSize(imgW, imgH, w, h));
+        } finally {
+            stream.close(null);
+        }
+    }
+
     _fit(photo) {
         const m = Main.layoutManager.primaryMonitor;
         const r = coverRect(photo.width, photo.height, m.width, m.height);
@@ -424,6 +538,28 @@ export class AmbientScreen {
             this[field] = 0;
         }
     }
+}
+
+/** A coloured dot, a name, and optionally a dimmer note on the right. */
+function statusRow(kind, name, note = null) {
+    const row = new St.BoxLayout({style_class: 'balaur-ambient-status-row'});
+    row.add_child(new St.Widget({
+        style_class: `balaur-ambient-dot balaur-ambient-dot-${kind}`,
+        y_align: Clutter.ActorAlign.CENTER,
+    }));
+    const label = new St.Label({style_class: 'balaur-ambient-status-name', text: name, y_align: Clutter.ActorAlign.CENTER});
+    label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+    row.add_child(label);
+    if (note !== null) {
+        row.add_child(new St.Label({
+            style_class: `balaur-ambient-status-note balaur-ambient-note-${kind}`,
+            text: note,
+            x_expand: true,
+            x_align: Clutter.ActorAlign.END,
+            y_align: Clutter.ActorAlign.CENTER,
+        }));
+    }
+    return row;
 }
 
 // Setting the same text again still relayouts; skip it.

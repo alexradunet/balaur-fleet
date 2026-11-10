@@ -1,5 +1,5 @@
 // What the ambient screen shows, without any of the Shell: its config, the
-// weather (Open-Meteo), photos (the Jellyfin library on this machine), and
+// weather (Open-Meteo), photos (a folder, or the Jellyfin library), and
 // the small pure helpers for times and layout. Plain Gio/GLib/Soup, so the
 // tests run under `gjs -m` (tests/test-ambient.js).
 
@@ -13,7 +13,8 @@ export const CONFIG_PATH = GLib.getenv('BALAUR_AMBIENT_CONFIG') ?? '/etc/balaur/
 const DEFAULTS = {
     idleSeconds: 60,
     location: null, // {name, latitude, longitude}
-    photos: null, // {server, keyFile, intervalSeconds}
+    photos: null, // {dir, intervalSeconds} (a folder) or {server, keyFile, intervalSeconds} (Jellyfin)
+    status: null, // {tailscale, servicesFile} (ambient-status.js)
 };
 
 /** The config file merged over the defaults; a missing or broken file gives the defaults. */
@@ -196,6 +197,122 @@ export class JellyfinPhotos {
         if (!headers)
             throw new Error('no Jellyfin API key');
         return this._http.get(JellyfinPhotos.imageUrl(this._cfg.server, id, width, height), headers, cancellable);
+    }
+}
+
+// ---- photos (a folder: the synced one) ----------------------------------------------
+
+// What GdkPixbuf decodes out of the box. HEIC (some phones) is not among them.
+const PHOTO_EXT = /\.(jpe?g|png|webp|gif|bmp|tiff?)$/i;
+
+/** A picture to show? Hidden names are Syncthing's (.stversions, .stfolder, .syncthing.*.tmp). */
+export function isPhotoName(name) {
+    return !name.startsWith('.') && PHOTO_EXT.test(name);
+}
+
+/** The same array in a random order (Fisher-Yates). */
+export function shuffled(list, random = Math.random) {
+    const a = [...list];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
+/**
+ * The size to decode a photo at: just big enough to cover the screen in either
+ * orientation (the EXIF rotation is only applied after decoding), never
+ * larger than the photo. A 50-megapixel phone picture is decoded at about 4
+ * megapixels, in a worker thread.
+ */
+export function decodeSize(imgW, imgH, screenW, screenH) {
+    const s = Math.min(1, Math.max(screenW, screenH) / Math.min(imgW, imgH));
+    return {width: Math.max(1, Math.round(imgW * s)), height: Math.max(1, Math.round(imgH * s))};
+}
+
+const MAX_DEPTH = 8;
+
+/** Every photo under dir (subfolders too), as paths; [] when dir does not exist. */
+export async function listPhotos(dir, cancellable = null) {
+    const found = [];
+    const walk = async (folder, depth) => {
+        const children = await new Promise((resolve, reject) => {
+            folder.enumerate_children_async('standard::name,standard::type', Gio.FileQueryInfoFlags.NONE,
+                GLib.PRIORITY_LOW, cancellable, (f, res) => {
+                    try {
+                        resolve(f.enumerate_children_finish(res));
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
+        });
+        const subfolders = [];
+        for (;;) {
+            // eslint-disable-next-line no-await-in-loop
+            const infos = await new Promise((resolve, reject) => {
+                children.next_files_async(100, GLib.PRIORITY_LOW, cancellable, (en, res) => {
+                    try {
+                        resolve(en.next_files_finish(res));
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
+            });
+            if (!infos.length)
+                break;
+            for (const info of infos) {
+                const name = info.get_name();
+                const type = info.get_file_type();
+                if (type === Gio.FileType.DIRECTORY && !name.startsWith('.') && depth < MAX_DEPTH)
+                    subfolders.push(folder.get_child(name));
+                else if (type === Gio.FileType.REGULAR && isPhotoName(name))
+                    found.push(folder.get_child(name).get_path());
+            }
+        }
+        children.close(null);
+        for (const sub of subfolders) {
+            try {
+                // eslint-disable-next-line no-await-in-loop
+                await walk(sub, depth + 1);
+            } catch (e) {
+                if (e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
+                    throw e;
+                console.warn(`balaur ambient: photos: ${sub.get_path()}: ${e.message}`); // unreadable: skip it
+            }
+        }
+    };
+    try {
+        await walk(Gio.File.new_for_path(dir), 0);
+    } catch (e) {
+        if (!e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND))
+            throw e;
+    }
+    return found;
+}
+
+/**
+ * Random photos from a folder: on the tablet, `photos` in the Syncthing folder,
+ * so pictures dropped there on any machine of the fleet show up here. Listed
+ * again every hour and whenever the last round ran out, so new ones show
+ * without a restart. Ids are file paths.
+ */
+export class FolderPhotos {
+    /** @param {{dir: string}} cfg */
+    constructor(cfg) {
+        this._dir = cfg.dir;
+        this._paths = [];
+        this._next = 0;
+        this._listedAt = 0;
+    }
+
+    async nextId(cancellable) {
+        if (this._next >= this._paths.length || GLib.get_monotonic_time() - this._listedAt > 3600e6) {
+            this._paths = shuffled(await listPhotos(this._dir, cancellable));
+            this._next = 0;
+            this._listedAt = GLib.get_monotonic_time();
+        }
+        return this._paths.length ? this._paths[this._next++] : null;
     }
 }
 

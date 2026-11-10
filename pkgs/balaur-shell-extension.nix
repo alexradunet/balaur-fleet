@@ -27,7 +27,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     ];
   };
 
-  # The Shell-free parts (ambient-data.js): config, weather, photos, times.
+  # The Shell-free parts (ambient-data.js, and ambient-status.js's helpers): config, weather, photos, times, machines, services.
   doCheck = true;
   nativeCheckInputs = [ gjs ];
   checkPhase = ''
