@@ -210,13 +210,14 @@
               # Also when Strata is not running (noGame skipped a start), so it
               # comes back after the game.
               touch "$flag"
-              state=$(systemctl is-active strata.service || true)
-              case "$state" in
-                active | activating | reloading)
-                  echo "a game started: stopping Strata"
-                  systemctl stop strata.service
-                  ;;
-              esac
+              # Not while it is `activating`: that is its ExecCondition running
+              # (the unit is Type=simple), which refuses the start by itself. A stop
+              # then kills the check, and the unit fails instead of being skipped:
+              # a deploy during a game that restarted both units failed that way.
+              if systemctl is-active --quiet strata.service; then
+                echo "a game started: stopping Strata"
+                systemctl stop strata.service
+              fi
             elif [ -e "$flag" ]; then
               # A minute without a game, so a launcher restarting a game does not
               # reload a 40 GB model in between.
