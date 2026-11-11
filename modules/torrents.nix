@@ -126,7 +126,8 @@ in
       enforced = {
         "WebUI\\CSRFProtection" = "true";
         "WebUI\\HostHeaderValidation" = "true";
-        "WebUI\\ServerDomains" = serverDomains;
+        # Quoted: unquoted, Qt's INI parser ends the value at the first `;`.
+        "WebUI\\ServerDomains" = ''"${serverDomains}"'';
       };
       qbCategories = pkgs.writeText "categories.json" (
         builtins.toJSON {
@@ -337,13 +338,20 @@ in
 
           for item in "''${items[@]}"; do
             if [ -f "$item" ]; then
-              out="$(curl -fsS -X POST "$api" -F "torrents=@$item" \
-                ''${category:+-F "category=$category"} 2>&1)" || {
+              # From stdin under a fixed name: curl splits a file name on `,` and `;`.
+              out="$(curl -fsS -X POST "$api" -F 'torrents=@-;filename=upload.torrent' \
+                ''${category:+-F "category=$category"} < "$item" 2>&1)" || {
                   echo "$host: refused $item ($out)" >&2; exit 1; }
             else
               out="$(curl -fsS -X POST "$api" --data-urlencode "urls=$item" \
                 ''${category:+--data-urlencode "category=$category"} 2>&1)" || {
                   echo "$host: refused $item ($out)" >&2; exit 1; }
+            fi
+            # A rejected torrent is still HTTP 200: qBittorrent 5.2 answers with JSON
+            # that counts the failures, older ones with the body `Fails.`.
+            if [[ $out == Fails.* || $out =~ \"failure_count\":\ *[1-9] ]]; then
+              echo "$host: did not add $item (it answered: $out)" >&2
+              exit 1
             fi
             echo "$host: queued ''${item:0:60}''${category:+ (category $category)}"
           done
