@@ -8,7 +8,13 @@ from pyopen_wakeword import Model, OpenWakeWord, OpenWakeWordFeatures
 name, path, threshold = sys.argv[1], sys.argv[2], float(sys.argv[3])
 gain = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0
 
-samples = array.array("h", open(path, "rb").read())
+try:
+    raw = open(path, "rb").read()
+except OSError as e:
+    sys.exit(f"cannot read the recording {path}: {e.strerror}")
+if len(raw) < 2:
+    sys.exit(f"the recording {path} is empty: nothing was captured (is the microphone's session running, and is the assistant's user logged in?)")
+samples = array.array("h", raw[: len(raw) // 2 * 2])
 if gain != 1.0:
     samples = array.array("h", (max(-32768, min(32767, int(s * gain))) for s in samples))
 audio = samples.tobytes()

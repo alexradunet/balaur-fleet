@@ -79,7 +79,7 @@ in
         # The living-room Samsung (UE65AU7172, Tizen 6) is at 192.168.50.106, this machine at
         # 192.168.50.233 (both reserved in the router); AdGuard (the adblock aspect) blocks its ads.
 
-        # Voice assistant: "Hey Jarvis", Romanian + English; Mistral for speech, a pi SDK agent for the rest.
+        # Voice assistant: "Hey Jarvis", Romanian + English; Mistral for speech, pi (RPC mode, gnome/home-agent) for the rest.
         # Mistral, the voices and the sops key are the aspect's defaults (assistant.nix).
         assistant = {
           # This machine's microphone array at 16 kHz (`arecord -l`: DMIC16kHz). Without

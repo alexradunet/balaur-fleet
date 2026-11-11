@@ -51,6 +51,7 @@ stdenvNoCC.mkDerivation {
     runHook preInstallCheck
     export HOME=$TMPDIR
     BALAUR_HOME_AGENT=$out/bin/balaur-home-agent \
+      BALAUR_HOME_PI=${pi}/bin/pi BALAUR_HOME_SHARE=$out/share/balaur-home-agent \
       node --disable-warning=ExperimentalWarning --test test/*.test.ts test/*.test.mjs
     runHook postInstallCheck
   '';

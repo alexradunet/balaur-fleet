@@ -12,8 +12,8 @@ that fails and fix it.
 
 2. **Which hosts.** A file under `modules/hosts/` or `hosts/` affects that host. An
    aspect affects every host that lists it: `grep -l '<aspect>' modules/hosts/*.nix`.
-   The shared aspects (`base fleet home network secrets dev ai agent auto-deploy`),
-   `flake.nix`, `flake.lock`, `pkgs/` and `modules/flake/` affect every host. When in
+   The shared aspects (`base fleet home secrets network gnome dev files torrents-client
+   assistant auto-deploy ai agent`: every aspect all three hosts list), `flake.nix`, `flake.lock`, `pkgs/` and `modules/flake/` affect every host. When in
    doubt, all of them: `tablet laptop pc` (`ls modules/hosts`).
 
 3. **Evaluate everything.** `nix flake check --no-build` evaluates every host, check

@@ -4,7 +4,7 @@
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup?version=3.0';
 
-import {eq, ok, rejects} from './assert.js';
+import {eq, ok, rejects, throws} from './assert.js';
 import {Mistral, parseWAV, wavFile} from '../mistral.js';
 
 function fakeMistral(speechAsJSON, errors) {
@@ -76,6 +76,21 @@ export const tests = {
         const m = new Mistral(base, 'wrong');
         await rejects(m.speak('tts', '', 'x'), /\/v1\/audio\/speech: 401 Unauthorized: unauthorized/);
         server.disconnect();
+    },
+
+    // channels = 0 made splitPCM step by zero bytes: an endless loop on the main loop.
+    parseWAVRejectsNonsenseHeaders() {
+        const wav = (channels, rate, bits) => {
+            const b = wavFile(new Uint8Array(480), 24000, 1);
+            const dv = new DataView(b.buffer);
+            dv.setUint16(22, channels, true);
+            dv.setUint32(24, rate, true);
+            dv.setUint16(34, bits, true);
+            return b;
+        };
+        eq(parseWAV(wav(1, 24000, 16)).rate, 24000);
+        for (const [c, r, bits] of [[0, 24000, 16], [1, 0, 16], [1, 24000, 0], [1, 24000, 13]])
+            throws(() => parseWAV(wav(c, r, bits)), /bad WAV header/, `${c} channels, ${r} Hz, ${bits} bits`);
     },
 
     parseWAVFloat() {

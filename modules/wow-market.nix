@@ -2,13 +2,14 @@
 # scans, on a machine that plays it (the `gaming` aspect).
 #
 # Auctionator (installed in the game) keeps the lowest buyout and the number listed
-# of every item it saw in its last scan, and the game writes that to Auctionator's
+# of every item it saw in a scan, and the game writes that to Auctionator's
 # SavedVariables file on /reload or logout. wow-market/market.py watches the file as
 # the player (it is in their home, in Battle.net's Wine prefix), keeps each new scan,
-# and serves a page at https://wow.<domain>: which crafts of a profession pay over
-# selling their materials, listings below vendor price, enchanting essences, and
-# items cheaper or dearer than their median over the past scans. GET /api/report is
-# the same as JSON, for the OS agent.
+# and serves a page at http://pc:8790 (the tailnet name and the port below; no Caddy
+# in front, since `web` proxies only its own machine's services and the pc has no
+# `web`): which crafts of a profession pay over selling their materials, listings
+# below vendor price, enchanting essences, and items cheaper or dearer than their
+# median over the past scans. GET /api/report is the same as JSON, for the OS agent.
 #
 # Item names and recipes are the installed build's own game tables, fetched from
 # wago.tools once per build (Forever's differ from Classic Era's), so a patch needs
@@ -55,7 +56,7 @@
         port = lib.mkOption {
           type = lib.types.port;
           default = 8790;
-          description = "The page's port on this machine (the tailnet only; Caddy serves it as wow.<domain>).";
+          description = "The page's port on this machine (the tailnet only, plain http: http://<machine>:<port>).";
         };
         gameRoot = lib.mkOption {
           type = lib.types.str;
@@ -97,10 +98,13 @@
             NoNewPrivileges = true;
             PrivateTmp = true;
             PrivateDevices = true;
-            ProtectHome = "read-only";
-            # Except the game's AddOns folder, for Balaur Market ("-": skipped while
-            # the game is not installed; quoted: the path has spaces).
-            ReadWritePaths = [ ''-"${cfg.gameRoot}/_forever_/Interface/AddOns"'' ];
+            # The home is empty but for the game folder, so the page's network
+            # surface cannot reach ~/.ssh or the secrets key. Read-only, except the
+            # AddOns folder, for Balaur Market. "-": skipped while the game is not
+            # installed (restart the unit once it is); quoted: the path has spaces.
+            ProtectHome = "tmpfs";
+            BindReadOnlyPaths = [ ''-"${cfg.gameRoot}"'' ];
+            BindPaths = [ ''-"${cfg.gameRoot}/_forever_/Interface/AddOns"'' ];
             ProtectSystem = "strict";
             ProtectKernelTunables = true;
             ProtectKernelModules = true;

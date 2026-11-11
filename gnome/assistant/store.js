@@ -10,6 +10,10 @@ import GLib from 'gi://GLib';
 
 import {fold} from './lang.js';
 import {marshal, localTime, nowString, parseTime, rfc3339} from './gojson.js';
+import {errText, log} from './util.js';
+
+// Every stored fact is pasted into the system prompt of every later question.
+export const MAX_MEMORIES = 50;
 
 // The two lists every house has; more are created on demand.
 export const defaultLists = ['shopping', 'tasks'];
@@ -93,6 +97,7 @@ export class Store {
         this.lists = new Map(); // name -> items (or null, a list that was null in the file)
         this.reminders = null;
         this.onChange = null;
+        this.unsaved = new Set(); // files whose last save failed
         GLib.mkdir_with_parents(dir, 0o700);
 
         const mem = this._read('memory.json');
@@ -134,14 +139,34 @@ export class Store {
             v = this.lists;
         else
             v = this.reminders;
-        const bytes = new TextEncoder().encode(marshal(v, '  '));
         try {
-            // Temp file + fsync + rename, mode 0600 as Go's os.CreateTemp.
-            GLib.file_set_contents_full(GLib.build_filenamev([this.dir, name]), bytes,
-                GLib.FileSetContentsFlags.CONSISTENT | GLib.FileSetContentsFlags.DURABLE, 0o600);
+            this._write(name, new TextEncoder().encode(marshal(v, '  ')));
+            this.unsaved.delete(name);
+        } catch (e) {
+            this.unsaved.add(name);
+            throw e;
         } finally {
             this.onChange?.();
         }
+    }
+
+    // Temp file + fsync + rename, mode 0600 as Go's os.CreateTemp.
+    _write(name, bytes) {
+        GLib.file_set_contents_full(GLib.build_filenamev([this.dir, name]), bytes,
+            GLib.FileSetContentsFlags.CONSISTENT | GLib.FileSetContentsFlags.DURABLE, 0o600);
+    }
+
+    /**
+     * Small state files of the daemon's own (the microphone switch, running
+     * timers): plain JSON next to the household's files, written the same way.
+     * readState returns undefined when there is no such file.
+     */
+    readState(name) {
+        return this._read(name);
+    }
+
+    writeState(name, value) {
+        this._write(name, new TextEncoder().encode(JSON.stringify(value)));
     }
 
     // ---- memory ----
@@ -155,6 +180,8 @@ export class Store {
             if (fold(m.fact) === fold(fact))
                 return m;
         }
+        if ((this.memories ?? []).length >= MAX_MEMORIES)
+            throw new Error(`memory is full (${MAX_MEMORIES} facts): forget one first`);
         const m = {id: newID(), fact: fact.trim(), added: nowString()};
         this.memories = [...this.memories ?? [], m];
         this._save('memory.json');
@@ -273,7 +300,10 @@ export class Store {
 
     /**
      * Returns reminders whose time has come; repeating ones move to their next
-     * time, one-off ones are removed.
+     * time, one-off ones are removed. It never throws for a failed save: the
+     * caller rings what was taken (once), and the save is tried again at the
+     * next call. A crash in between rings that reminder a second time at the
+     * next start, which is better than losing it.
      */
     TakeDue(nowUs) {
         const due = [], keep = [];
@@ -293,9 +323,14 @@ export class Store {
                 keep.push({...r, at: rfc3339(dt)});
             }
         }
-        if (due.length > 0) {
+        if (due.length > 0)
             this.reminders = keep;
-            this._save('reminders.json');
+        if (due.length > 0 || this.unsaved.has('reminders.json')) {
+            try {
+                this._save('reminders.json');
+            } catch (e) {
+                log(`reminders: could not save (${errText(e)}); trying again in a moment`);
+            }
         }
         return due;
     }

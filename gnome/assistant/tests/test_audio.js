@@ -4,7 +4,7 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-import {eq, ok, until} from './assert.js';
+import {eq, ok, throws, until} from './assert.js';
 import {MAX_BUFFER_MS, Mic, Player, earconListen, parseWpctlVolume, pulseDevice, splitPCM} from '../audio.js';
 import {monoMs, sleep} from '../util.js';
 
@@ -21,6 +21,10 @@ export const tests = {
         ok(parts.every(p => p.length <= max && p.length % 4 === 0), 'a part is too big or not frame-aligned');
         eq(parts.reduce((n, p) => n + p.length, 0), pcm.data.length);
         eq(parts[parts.length - 1].at(-1), pcm.data.at(-1));
+    },
+
+    playerRefusesPCMWithNoChannels() {
+        throws(() => splitPCM({rate: 24000, channels: 0, data: new Uint8Array(480)}, MAX_BUFFER_MS), /no channels|0 channels/);
     },
 
     async playerPlaysAChunkedStreamInRealTime() {

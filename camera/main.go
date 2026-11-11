@@ -26,6 +26,7 @@ func usage() {
   run -output /dev/videoN   stream the processed camera into a v4l2loopback device
   probe                     print the media graphs and the pipeline that run would use
   analyze [flags] FILE      check a raw dump: 4x4 pixel statistics + one PNG per CFA layout
+  check FILE                parse and validate a tuning file (the defaults with FILE on top); exit 1 if it is wrong
 
 While run is active, SIGUSR1 saves a raw + PNG snapshot to the state directory
 and SIGHUP reloads the tuning (`+systemConfigPath+` + `+"$STATE_DIRECTORY"+`/tuning.json).
@@ -48,6 +49,8 @@ func main() {
 		if cfg, err = loadConfig(systemConfigPath, overlayPath()); err == nil {
 			err = probe(&cfg)
 		}
+	case "check":
+		err = cmdCheck(args)
 	case "analyze":
 		err = cmdAnalyze(args)
 	default:
@@ -124,16 +127,20 @@ func cmdRun(args []string) error {
 	signal.Notify(sigs, syscall.SIGHUP, syscall.SIGUSR1, syscall.SIGTERM, syscall.SIGINT)
 
 	var lastTs, frameDur time.Duration
+	var lastSeq uint32
 	var frames, total int
 	var busy time.Duration
 	lastLog := time.Now()
 	snapshot := false
+	grid := make([]float32, motionCols*motionRows)
 	for {
 		select {
 		case s := <-sigs:
 			switch s {
 			case syscall.SIGHUP:
 				if c, err := loadConfig(systemConfigPath, overlayPath()); err != nil {
+					log.Printf("reload: %v (keeping the old tuning)", err)
+				} else if err := sameGeometry(cfg, c); err != nil {
 					log.Printf("reload: %v (keeping the old tuning)", err)
 				} else if err := proc.Reconfigure(c); err != nil {
 					log.Printf("reload: %v (keeping the old tuning)", err)
@@ -151,25 +158,30 @@ func cmdRun(args []string) error {
 		default:
 		}
 
-		idx, data, ts, err := capt.Latest(5 * time.Second)
+		idx, data, ts, seq, err := capt.Latest(5 * time.Second)
 		if err != nil {
 			return err
 		}
 		// Sensor frame time, from every captured frame (exposure needs it), processed or not.
-		if lastTs > 0 && ts > lastTs {
-			d := ts - lastTs
-			if frameDur == 0 {
-				frameDur = d
-			} else {
-				frameDur += (d - frameDur) / 8
+		// Latest drops queued frames, so the time between two buffers it returns
+		// spans as many frames as the driver's counter advanced.
+		if lastTs > 0 {
+			if d, ok := frameInterval(ts-lastTs, seq-lastSeq); ok {
+				if frameDur == 0 {
+					frameDur = d
+				} else {
+					frameDur += (d - frameDur) / 8
+				}
 			}
 		}
-		lastTs = ts
+		lastTs, lastSeq = ts, seq
 
 		// Nobody has the webcam open: process only cfg.IdleFPS frames per second.
 		nowIdle := !webcam.InUse()
 		if nowIdle != idle {
 			idle = nowIdle
+			// The grid is measured differently while idle (Processor.Sample).
+			motion.Reset()
 			if idle {
 				log.Printf("webcam closed: idle at %v fps", cfg.IdleFPS)
 			} else {
@@ -184,18 +196,40 @@ func cmdRun(args []string) error {
 		}
 		lastProcessed = time.Now()
 		start := time.Now()
-		uerr := raw.Unpack(data, capt.Stride, capt.Packed)
-		if err := capt.Requeue(idx); err != nil {
-			return err
+		// Once at the first frame and again when exposure has had 90 processed
+		// frames to settle (3 s at full rate, 30 s idle).
+		diagnose := total == 0 || total == 89
+		var st Stats
+		var moved bool
+		if idle && !snapshot && !diagnose {
+			// Only the statistics and the motion grid, from a sparse sample of the
+			// buffer; nothing is rendered or written to the webcam.
+			var serr error
+			st, serr = proc.Sample(raw, data, capt.Stride, capt.Packed, cfg.OutWidth, cfg.OutHeight, grid)
+			if err := capt.Requeue(idx); err != nil {
+				return err
+			}
+			if serr != nil {
+				return serr
+			}
+			moved = motionFile != "" && motion.UpdateGrid(grid)
+		} else {
+			// The first frame also makes the loopback device announce itself as a
+			// webcam; snapshots and diagnostics need the whole raw frame.
+			uerr := raw.Unpack(data, capt.Stride, capt.Packed)
+			if err := capt.Requeue(idx); err != nil {
+				return err
+			}
+			if uerr != nil {
+				return uerr
+			}
+			st = proc.Frame(raw, cfg.OutWidth, cfg.OutHeight, frame)
+			if err := out.Write(frame); err != nil {
+				return fmt.Errorf("write %s: %w", *output, err)
+			}
+			moved = motionFile != "" && motion.Update(frame, cfg.OutWidth, cfg.OutHeight)
 		}
-		if uerr != nil {
-			return uerr
-		}
-		st := proc.Frame(raw, cfg.OutWidth, cfg.OutHeight, frame)
-		if err := out.Write(frame); err != nil {
-			return fmt.Errorf("write %s: %w", *output, err)
-		}
-		if motionFile != "" && motion.Update(frame, cfg.OutWidth, cfg.OutHeight) && time.Since(lastReport) >= motionReport {
+		if moved && time.Since(lastReport) >= motionReport {
 			lastReport = time.Now()
 			if err := os.WriteFile(motionFile, []byte(lastReport.Format(time.RFC3339)+"\n"), 0o644); err != nil {
 				log.Printf("motion: %v", err)
@@ -207,8 +241,7 @@ func cmdRun(args []string) error {
 		busy += time.Since(start)
 		frames++
 		total++
-		// Once at the first frame and again when exposure has had ~3 s to settle.
-		if total == 1 || total == 90 {
+		if diagnose {
 			logDiagnostics(total, raw, proc, &cfg, ae)
 		}
 
@@ -263,14 +296,14 @@ func logDiagnostics(n int, raw *RawFrame, proc *Processor, cfg *Config, ae *AE) 
 
 func writeSnapshot(raw *RawFrame, proc *Processor) error {
 	dir := filepath.Join(stateDir(), "snapshots")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return err
 	}
 	base := filepath.Join(dir, fmt.Sprintf("snap-%s-%dx%d", time.Now().Format("20060102-150405"), raw.W, raw.H))
-	if err := os.WriteFile(base+".raw16", raw.Bytes(), 0o644); err != nil {
+	if err := os.WriteFile(base+".raw16", raw.Bytes(), 0o640); err != nil {
 		return err
 	}
-	if err := writePNG(base+".png", proc, raw); err != nil {
+	if err := writePNG(base+".png", proc, raw, 0o640); err != nil {
 		return err
 	}
 	g := proc.Gains()
@@ -278,8 +311,8 @@ func writeSnapshot(raw *RawFrame, proc *Processor) error {
 	return nil
 }
 
-func writePNG(path string, proc *Processor, raw *RawFrame) error {
-	f, err := os.Create(path)
+func writePNG(path string, proc *Processor, raw *RawFrame, perm os.FileMode) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
 	if err != nil {
 		return err
 	}
@@ -332,7 +365,7 @@ func cmdAnalyze(args []string) error {
 		}
 		proc.SetAWB(proc.Measure(raw))
 		name := fmt.Sprintf("%s.cfa-%s.png", stem, c.Pattern)
-		if err := writePNG(name, proc, raw); err != nil {
+		if err := writePNG(name, proc, raw, 0o644); err != nil {
 			return err
 		}
 		mark := " "
@@ -345,4 +378,42 @@ func cmdAnalyze(args []string) error {
 	fmt.Println("\n* = IR position agrees with the statistics. Pick the image with natural colours")
 	fmt.Println("(red things red, blue things blue) and set balaur.camera.tuning.cfa to its layout.")
 	return nil
+}
+
+// cmdCheck validates a tuning file the way the relay reads it, so a typo fails
+// the build of the machine instead of restart-looping the relay.
+func cmdCheck(args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("give exactly one tuning file")
+	}
+	if _, err := os.Stat(args[0]); err != nil {
+		return err
+	}
+	if _, err := loadConfig(args[0]); err != nil {
+		return err
+	}
+	fmt.Printf("%s: ok\n", args[0])
+	return nil
+}
+
+// sameGeometry rejects a reload that changes what the capture, the frame
+// buffers and the webcam were opened with; only a restart can apply those.
+func sameGeometry(old, c Config) error {
+	if old.Sensor != c.Sensor || old.Capture != c.Capture ||
+		old.Width != c.Width || old.Height != c.Height ||
+		old.OutWidth != c.OutWidth || old.OutHeight != c.OutHeight {
+		return fmt.Errorf("sensor, capture, width, height, outWidth and outHeight need a restart of the relay")
+	}
+	return nil
+}
+
+// frameInterval is the time between two sensor frames, given the capture time
+// and the frame counter advance between two buffers (more than one when
+// frames were dropped in between). It is not known without a forward counter.
+func frameInterval(dt time.Duration, dSeq uint32) (time.Duration, bool) {
+	n := int32(dSeq)
+	if dt <= 0 || n <= 0 {
+		return 0, false
+	}
+	return dt / time.Duration(n), true
 }

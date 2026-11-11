@@ -7,7 +7,7 @@ import Gtk from 'gi://Gtk?version=4.0';
 import Adw from 'gi://Adw?version=1';
 
 import {AssistantGate} from '../gate.js';
-import {actionIconButton, placeholderRow, clearChildren} from '../util.js';
+import {actionIconButton, placeholderRow, clearChildren, escape} from '../util.js';
 
 export const MemoryPage = GObject.registerClass(
 class MemoryPage extends Adw.Bin {
@@ -51,7 +51,7 @@ class MemoryPage extends Adw.Bin {
 
     _sync() {
         const a = this._assistant;
-        this._group.title = `What ${a.name} remembers`;
+        this._group.title = escape(`What ${a.name} remembers`);
         this._group.description = 'Used in every answer. Tell it “remember that…”, or add facts here.';
         const memories = a.snapshot.memories;
         const key = JSON.stringify(memories);
@@ -62,7 +62,7 @@ class MemoryPage extends Adw.Bin {
         if (!memories.length)
             this._box.append(placeholderRow('Nothing yet'));
         for (const m of memories) {
-            const row = new Adw.ActionRow({title: GLib.markup_escape_text(m.fact ?? '', -1)});
+            const row = new Adw.ActionRow({title: escape(m.fact)});
             row.add_suffix(actionIconButton('user-trash-symbolic', 'Forget', 'app.memory-remove',
                 new GLib.Variant('s', m.id)));
             this._box.append(row);

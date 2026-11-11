@@ -250,11 +250,14 @@ in
       };
       roleCommand =
         name: _:
-        pkgs.writeShellScriptBin "pi-${name}" ''
-          # pi in its ${name} role (agent.nix).
-          export PI_CODING_AGENT_DIR="$HOME/${roleDir name}"
-          exec ${pi}/bin/pi --no-builtin-tools "$@"
-        '';
+        pkgs.writeShellApplication {
+          name = "pi-${name}";
+          text = ''
+            # pi in its ${name} role (agent.nix).
+            export PI_CODING_AGENT_DIR="$HOME/${roleDir name}"
+            exec ${pi}/bin/pi --no-builtin-tools "$@"
+          '';
+        };
       rolesNote = lib.optionalString (roles != { }) ''
         ## Other roles on this machine
 
@@ -278,7 +281,10 @@ in
           host=$1; shift
           case $host in
           ${lib.concatMapStrings (
-            h: "  ${h}) dir=${lib.escapeShellArg (hostConfig h).balaur.agent.clone} ;;\n"
+            h:
+            "  ${h}) dir=${lib.escapeShellArg (hostConfig h).balaur.agent.clone}; address=${
+                lib.escapeShellArg fleet.${h}.address
+              } ;;\n"
           ) peers}
             *) echo "balaur-ask: no agent on '$host'" >&2; usage ;;
           esac
@@ -288,7 +294,7 @@ in
           # In the fleet's clone when it is there, so the agent has the repository at hand.
           remote=$(printf 'cd %q 2>/dev/null; BALAUR_ASKED_BY=%q exec pi -p --no-session %q' "$dir" ${lib.escapeShellArg me} "$question")
           # -n: the question is the arguments, never this command's input.
-          exec ssh -n -o BatchMode=yes -o ConnectTimeout=5 "$host" "$remote"
+          exec ssh -n -o BatchMode=yes -o ConnectTimeout=5 "$address" "$remote"
         '';
       };
     in

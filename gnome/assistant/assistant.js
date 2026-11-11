@@ -16,19 +16,23 @@ import {Agent} from './agent.js';
 import {Cancelled} from './http.js';
 import {Mic, Player, earconAlarm, earconDone, earconError, earconListen, getVolume, pulseDevice, setVolume} from './audio.js';
 import {clock, longDate, localZone, marshal, nowString, sorted} from './gojson.js';
-import {detectLang, isNoise, isStop, looksRoOrEn, normLang, sentences, spoken} from './lang.js';
+import {detectLang, isNoise, isStop, normLang, sentences, spoken} from './lang.js';
 import {Mistral} from './mistral.js';
 import {LLM_KEYS} from './settings.js';
 import {Timers} from './timers.js';
 import {runTool} from './tools.js';
 import {NoiseFloor, Utterance, defaultVAD, frameRMS} from './vad.js';
 import {WakeStream} from './wyoming.js';
-import {errText, log, monoMs, nowUs, sleep} from './util.js';
+import {debugEnabled, errText, log, logText, monoMs, nowUs, sleep} from './util.js';
 
 const LOG_MAX = 20;
 const REMINDER_POLL_MS = 10000;
-const VOLUME_POLL_MS = 3000;
+// GNOME's volume slider has no event we can hear without another process, so
+// the volume is read again now and then, and when a tool is about to change it.
+const VOLUME_POLL_MS = 30000;
 const WAKE_RETRY_MS = 3000;
+// Kept in the state directory: a microphone the household turned off stays off after a restart.
+const MUTE_FILE = 'mute.json';
 
 /** What is said when an alarm goes off (alarmText in assistant.go). */
 export function alarmText(al) {
@@ -43,7 +47,8 @@ export function alarmText(al) {
 export class Assistant {
     /**
      * cfg: the config JSON; store: Store; settings: Settings.
-     * Options (tests): agent, mic, player, mistral, notify(alarm, id) / withdraw(id).
+     * Options: notifier ({send(id, kind, text), withdraw(id)}, the alarm
+     * notifications); tests: agent, mic, player, mistral.
      */
     constructor(cfg, store, settings, opts = {}) {
         this.cfg = cfg;
@@ -74,7 +79,7 @@ export class Assistant {
         this.wakeLoop = null;
         this.sources = [];
 
-        this.timers = new Timers(t => this._alarm({kind: 'timer', text: t.label, lang: t.lang}));
+        this.timers = new Timers(t => this._alarm({kind: 'timer', text: t.label, lang: t.lang}), store);
         this.mic = opts.mic ?? new Mic(cfg.audio.input, f => this._onFrame(f));
         this.player = opts.player ?? new Player(cfg.audio.output);
         this.mistral = opts.mistral ?? new Mistral(settings.speechBaseUrl, '');
@@ -123,20 +128,25 @@ export class Assistant {
     // ---- start-up ----
 
     async start() {
+        // Before the microphone opens.
+        if (this._savedMuted()) {
+            log('microphone: muted, as it was left');
+            this.mic.setMuted(true);
+        }
         await this._refreshSpeech();
         this.mic.start();
         this.agent.start();
+        this.timers.start();
         this.sources.push(GLib.timeout_add(GLib.PRIORITY_DEFAULT, REMINDER_POLL_MS, () => {
-            for (const r of this.store.TakeDue(nowUs()))
-                this._alarm({kind: 'reminder', text: r.text, lang: r.lang ?? ''});
-            return GLib.SOURCE_CONTINUE;
+            this._ringDueReminders();
+            return GLib.SOURCE_CONTINUE; // a source that throws is removed: never let it
         }));
         if (pulseDevice(this.cfg.audio.output)[1]) {
             // A desktop session keeps its own volume (GNOME's slider): follow it
             // instead of imposing ours.
-            this._pollVolume();
+            this.refreshVolume();
             this.sources.push(GLib.timeout_add(GLib.PRIORITY_DEFAULT, VOLUME_POLL_MS, () => {
-                this._pollVolume();
+                this.refreshVolume();
                 return GLib.SOURCE_CONTINUE;
             }));
         } else {
@@ -146,10 +156,21 @@ export class Assistant {
         this._run();
     }
 
+    /** Reminders whose time has come ring once, even when saving the rest failed (the store retries the save). */
+    _ringDueReminders() {
+        try {
+            for (const r of this.store.TakeDue(nowUs()))
+                this._alarm({kind: 'reminder', text: r.text, lang: r.lang ?? ''});
+        } catch (e) {
+            log(`reminders: ${errText(e)}`);
+        }
+    }
+
     async shutdown() {
         for (const id of this.sources)
             GLib.source_remove(id);
         this.sources = [];
+        this.timers.stop();
         this.stop();
         this.mic.stop();
         this.ws?.close();
@@ -177,16 +198,31 @@ export class Assistant {
     }
 
     _agentReady(r) {
-        // The models to choose from, plus what an unset setting means here, for the app.
-        this.models = marshal({...(r.models ?? {providers: []}),
-            defaults: {model: this.settings.llmModel || r.model || ''}});
+        this.agentInfo = r;
+        this._publishModels();
         this.setError(r.error ?? '');
+    }
+
+    /**
+     * The models to choose from, plus what an empty llm-model setting means
+     * here, for the app: the config file's model when the agent has it, else
+     * the one the agent started with.
+     */
+    _publishModels() {
+        const r = this.agentInfo;
+        if (!r)
+            return;
+        const ids = (r.models?.providers ?? []).flatMap(p => p.models.map(m => m.id));
+        const configured = this.cfg.llm?.model ?? '';
+        const model = ids.includes(configured) ? configured : r.model || '';
+        this.models = marshal({...(r.models ?? {providers: []}), defaults: {model}});
     }
 
     /** GSettings keys changed (settings.js). */
     async settingsChanged(keys) {
         await this._refreshSpeech();
         log(`settings: ${keys.join(', ')} changed`);
+        this._publishModels();
         const llm = keys.filter(k => LLM_KEYS.includes(k));
         if (llm.length === 1 && llm[0] === 'llm-model') {
             // pi changes its model while it runs.
@@ -230,7 +266,8 @@ export class Assistant {
 
     async _toolCall(name, args) {
         const res = await runTool(this, name, args, this.turn ?? {lang: this.lastLang});
-        log(`tool ${name}(${JSON.stringify(args)})`);
+        // The arguments carry what people said and asked to be remembered.
+        log(`tool ${name}(${debugEnabled() ? JSON.stringify(args) : Object.keys(args ?? {}).join(', ')})`);
         return JSON.stringify(res ?? null);
     }
 
@@ -272,7 +309,8 @@ export class Assistant {
 
     // ---- volume ----
 
-    async _pollVolume() {
+    /** Reads the session's volume again (what GNOME's slider says); keeps the old value when it cannot. */
+    async refreshVolume() {
         try {
             const v = await getVolume(this.cfg.audio.output);
             if (v !== this.volume) {
@@ -309,7 +347,28 @@ export class Assistant {
         this.cancelCur?.cancel();
     }
 
+    /**
+     * Whether the household left the microphone off. A file that exists but
+     * cannot be read counts as off: a tap turns it on, a wrong guess the other
+     * way listens to a house that said no.
+     */
+    _savedMuted() {
+        try {
+            return this.store.readState(MUTE_FILE)?.muted === true;
+        } catch (e) {
+            log(`microphone: cannot read ${MUTE_FILE} (${errText(e)}); staying muted`);
+            return true;
+        }
+    }
+
     setMuted(m) {
+        if (m !== this.mic.muted) {
+            try {
+                this.store.writeState(MUTE_FILE, {muted: m});
+            } catch (e) {
+                log(`microphone: cannot save ${MUTE_FILE} (${errText(e)}); it is on again after a restart`);
+            }
+        }
         this.mic.setMuted(m);
         if (m) {
             this.stop();
@@ -491,22 +550,28 @@ export class Assistant {
                     await this.fail(ictx, 'speech-to-text', e); // eslint-disable-line no-await-in-loop
                     return;
                 }
-                log(`heard (${tr.language}, ${secs()}s): ${JSON.stringify(tr.text)}`);
+                log(`heard (${tr.language}, ${secs()}s): ${logText(tr.text)}`);
                 // Language detection on a second of audio is shaky ("Cât e ceasul?"
-                // came out as Turkish): if it is neither Romanian nor English, ask
-                // again in the language of the conversation.
-                if (!looksRoOrEn(tr.text)) {
+                // came out as Turkish): when the STT names neither Romanian nor
+                // English, ask again in the language of the conversation. A reply
+                // in either is kept as it is.
+                if (normLang(tr.language) === '') {
                     const lang = this.lastLang;
                     try {
                         const tr2 = await this.mistral.transcribe(this.settings.sttModel, pcm, lang, ictx); // eslint-disable-line no-await-in-loop
-                        log(`heard again as ${lang} (${secs()}s): ${JSON.stringify(tr2.text)}`);
-                        tr = {text: tr2.text, language: lang};
-                    } catch {}
+                        log(`heard again as ${lang} (${secs()}s): ${logText(tr2.text)}`);
+                        if (tr2.text)
+                            tr = {text: tr2.text, language: lang};
+                    } catch (e) {
+                        if (ictx.is_cancelled() || e instanceof Cancelled)
+                            return; // Stop during the second try ends the turn
+                        log(`speech-to-text (again): ${errText(e)}; keeping the first transcript`);
+                    }
                 }
                 const text = tr.text;
                 if (isNoise(text))
                     return;
-                if (isStop(text)) {
+                if (isStop(text, followUps > 0)) {
                     await this._earcon(earconDone, ictx); // eslint-disable-line no-await-in-loop
                     return;
                 }
@@ -520,7 +585,7 @@ export class Assistant {
                     return;
                 }
                 this.record({heard: text, reply, typed: false, lang});
-                log(`reply (${secs()}s): ${JSON.stringify(reply)}`);
+                log(`reply (${secs()}s): ${logText(reply)}`);
                 if (!await this.speak(reply, lang, ictx)) // eslint-disable-line no-await-in-loop
                     return;
                 // Only keep listening without the wake word if the assistant asked something.

@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
@@ -51,12 +50,11 @@ const (
 	vidiocSubdevGFmt = 0xc0585604
 	vidiocSubdevSFmt = 0xc0585605
 
-	bufTypeCapture       = 1
-	bufTypeOutput        = 2
-	bufTypeCaptureMplane = 9
-	memoryMmap           = 1
-	fieldNone            = 1
-	colorspaceSRGB       = 8
+	bufTypeCapture = 1
+	bufTypeOutput  = 2
+	memoryMmap     = 1
+	fieldNone      = 1
+	colorspaceSRGB = 8
 
 	capVideoCapture       = 0x00000001
 	capVideoCaptureMplane = 0x00001000
@@ -84,19 +82,6 @@ type v4l2PixFormat struct {
 	Flags, YcbcrEnc, Quantization, XferFunc                                      uint32
 }
 
-type v4l2PlanePixFormat struct {
-	SizeImage, BytesPerLine uint32
-	_                       [6]uint16
-}
-
-type v4l2PixFormatMplane struct {
-	Width, Height, PixelFormat, Field, Colorspace uint32
-	Planes                                        [8]v4l2PlanePixFormat
-	NumPlanes, Flags, YcbcrEnc, Quantization      uint8
-	XferFunc                                      uint8
-	_                                             [7]uint8
-}
-
 type v4l2RequestBuffers struct {
 	Count, Type, Memory, Capabilities uint32
 	Flags                             uint8
@@ -109,18 +94,11 @@ type v4l2Buffer struct {
 	TsSec, TsUsec                        int64
 	Timecode                             [16]byte
 	Sequence, Memory                     uint32
-	M                                    uint64 // mmap offset, or pointer to planes
+	M                                    uint64 // mmap offset
 	Length                               uint32
 	_                                    uint32
 	RequestFD                            int32
 	_                                    uint32
-}
-
-type v4l2Plane struct {
-	BytesUsed, Length uint32
-	M                 uint64
-	DataOffset        uint32
-	_                 [11]uint32
 }
 
 type v4l2Control struct {
@@ -200,8 +178,6 @@ func (s *Subdev) SetFormat(pad uint32, m v4l2MbusFramefmt) (v4l2MbusFramefmt, er
 
 type Capture struct {
 	fd       int
-	mplane   bool
-	bufType  uint32
 	bufs     [][]byte
 	Stride   int
 	Packed   bool
@@ -259,39 +235,27 @@ func (c *Capture) setup(w, h int, pixfmt uint32) error {
 	if caps&capDeviceCaps != 0 {
 		caps = cp.DeviceCaps
 	}
+	// The IPU6 capture nodes are single-plane; the multi-plane API is not implemented.
 	switch {
 	case caps&capVideoCapture != 0:
-		c.bufType = bufTypeCapture
 	case caps&capVideoCaptureMplane != 0:
-		c.bufType, c.mplane = bufTypeCaptureMplane, true
+		return fmt.Errorf("multi-plane capture device (caps 0x%x) is not supported", caps)
 	default:
 		return fmt.Errorf("not a capture device (caps 0x%x)", caps)
 	}
 
-	f := v4l2Format{Type: c.bufType}
-	if c.mplane {
-		pm := (*v4l2PixFormatMplane)(unsafe.Pointer(&f.Fmt[0]))
-		pm.Width, pm.Height, pm.PixelFormat, pm.Field, pm.NumPlanes = uint32(w), uint32(h), pixfmt, fieldNone, 1
-	} else {
-		pf := (*v4l2PixFormat)(unsafe.Pointer(&f.Fmt[0]))
-		pf.Width, pf.Height, pf.PixelFormat, pf.Field = uint32(w), uint32(h), pixfmt, fieldNone
-	}
+	f := v4l2Format{Type: bufTypeCapture}
+	pf := (*v4l2PixFormat)(unsafe.Pointer(&f.Fmt[0]))
+	pf.Width, pf.Height, pf.PixelFormat, pf.Field = uint32(w), uint32(h), pixfmt, fieldNone
 	if err := ioctl(c.fd, vidiocSFmt, unsafe.Pointer(&f)); err != nil {
 		return fmt.Errorf("S_FMT: %w", err)
 	}
-	var gotW, gotH, gotFmt uint32
-	if c.mplane {
-		pm := (*v4l2PixFormatMplane)(unsafe.Pointer(&f.Fmt[0]))
-		gotW, gotH, gotFmt, c.Stride = pm.Width, pm.Height, pm.PixelFormat, int(pm.Planes[0].BytesPerLine)
-	} else {
-		pf := (*v4l2PixFormat)(unsafe.Pointer(&f.Fmt[0]))
-		gotW, gotH, gotFmt, c.Stride = pf.Width, pf.Height, pf.PixelFormat, int(pf.BytesPerLine)
-	}
-	if gotFmt != pixfmt || int(gotW) != w || int(gotH) != h {
-		return fmt.Errorf("driver chose %s %dx%d", fourccString(gotFmt), gotW, gotH)
+	c.Stride = int(pf.BytesPerLine)
+	if pf.PixelFormat != pixfmt || int(pf.Width) != w || int(pf.Height) != h {
+		return fmt.Errorf("driver chose %s %dx%d", fourccString(pf.PixelFormat), pf.Width, pf.Height)
 	}
 
-	rb := v4l2RequestBuffers{Count: 4, Type: c.bufType, Memory: memoryMmap}
+	rb := v4l2RequestBuffers{Count: 4, Type: bufTypeCapture, Memory: memoryMmap}
 	if err := ioctl(c.fd, vidiocReqbufs, unsafe.Pointer(&rb)); err != nil {
 		return fmt.Errorf("REQBUFS: %w", err)
 	}
@@ -299,17 +263,11 @@ func (c *Capture) setup(w, h int, pixfmt uint32) error {
 		return fmt.Errorf("only %d buffers", rb.Count)
 	}
 	for i := uint32(0); i < rb.Count; i++ {
-		var pl v4l2Plane
-		b := c.newBuf(i, &pl)
+		b := v4l2Buffer{Index: i, Type: bufTypeCapture, Memory: memoryMmap}
 		if err := ioctl(c.fd, vidiocQuerybuf, unsafe.Pointer(&b)); err != nil {
 			return fmt.Errorf("QUERYBUF: %w", err)
 		}
-		off, length := uint32(b.M), b.Length
-		if c.mplane {
-			off, length = uint32(pl.M), pl.Length
-		}
-		runtime.KeepAlive(&pl)
-		mem, err := syscall.Mmap(c.fd, int64(off), int(length), syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
+		mem, err := syscall.Mmap(c.fd, int64(b.M), int(b.Length), syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
 		if err != nil {
 			return fmt.Errorf("mmap: %w", err)
 		}
@@ -318,7 +276,7 @@ func (c *Capture) setup(w, h int, pixfmt uint32) error {
 			return err
 		}
 	}
-	t := c.bufType
+	t := uint32(bufTypeCapture)
 	if err := ioctl(c.fd, vidiocStreamon, unsafe.Pointer(&t)); err != nil {
 		return fmt.Errorf("STREAMON: %w", err)
 	}
@@ -326,42 +284,26 @@ func (c *Capture) setup(w, h int, pixfmt uint32) error {
 	return nil
 }
 
-func (c *Capture) newBuf(i uint32, pl *v4l2Plane) v4l2Buffer {
-	b := v4l2Buffer{Index: i, Type: c.bufType, Memory: memoryMmap}
-	if c.mplane {
-		b.M = uint64(uintptr(unsafe.Pointer(pl)))
-		b.Length = 1
-	}
-	return b
-}
-
 func (c *Capture) queue(i uint32) error {
-	var pl v4l2Plane
-	b := c.newBuf(i, &pl)
-	err := ioctl(c.fd, vidiocQbuf, unsafe.Pointer(&b))
-	runtime.KeepAlive(&pl)
-	if err != nil {
+	b := v4l2Buffer{Index: i, Type: bufTypeCapture, Memory: memoryMmap}
+	if err := ioctl(c.fd, vidiocQbuf, unsafe.Pointer(&b)); err != nil {
 		return fmt.Errorf("QBUF: %w", err)
 	}
 	return nil
 }
 
-func (c *Capture) dequeue() (idx uint32, used int, ts time.Duration, err error) {
-	var pl v4l2Plane
-	b := c.newBuf(0, &pl)
-	err = ioctl(c.fd, vidiocDqbuf, unsafe.Pointer(&b))
-	runtime.KeepAlive(&pl)
-	if err != nil {
+// dequeue takes the oldest filled buffer: its index, the bytes used, the
+// capture time and the driver's frame counter.
+func (c *Capture) dequeue() (idx uint32, used int, ts time.Duration, seq uint32, err error) {
+	b := v4l2Buffer{Type: bufTypeCapture, Memory: memoryMmap}
+	if err = ioctl(c.fd, vidiocDqbuf, unsafe.Pointer(&b)); err != nil {
 		return
 	}
 	used = int(b.BytesUsed)
-	if c.mplane {
-		used = int(pl.BytesUsed)
-	}
 	if used == 0 || used > len(c.bufs[b.Index]) {
 		used = len(c.bufs[b.Index])
 	}
-	return b.Index, used, time.Duration(b.TsSec)*time.Second + time.Duration(b.TsUsec)*time.Microsecond, nil
+	return b.Index, used, time.Duration(b.TsSec)*time.Second + time.Duration(b.TsUsec)*time.Microsecond, b.Sequence, nil
 }
 
 type pollFd struct {
@@ -389,33 +331,34 @@ func waitReadable(fd int, timeout time.Duration) error {
 }
 
 // Latest waits for a frame and returns the newest one, requeueing any older
-// ones, so a slow consumer never adds latency.
-func (c *Capture) Latest(timeout time.Duration) (uint32, []byte, time.Duration, error) {
+// ones, so a slow consumer never adds latency. seq is the driver's frame
+// counter: it jumps by more than one when older frames were skipped.
+func (c *Capture) Latest(timeout time.Duration) (idx uint32, data []byte, ts time.Duration, seq uint32, err error) {
 	for {
 		if err := waitReadable(c.fd, timeout); err != nil {
-			return 0, nil, 0, err
+			return 0, nil, 0, 0, err
 		}
-		idx, used, ts, err := c.dequeue()
+		idx, used, ts, seq, err := c.dequeue()
 		if err == syscall.EAGAIN {
 			continue
 		}
 		if err != nil {
-			return 0, nil, 0, fmt.Errorf("DQBUF: %w", err)
+			return 0, nil, 0, 0, fmt.Errorf("DQBUF: %w", err)
 		}
 		for {
-			i2, u2, t2, err := c.dequeue()
+			i2, u2, t2, s2, err := c.dequeue()
 			if err == syscall.EAGAIN {
 				break
 			}
 			if err != nil {
-				return 0, nil, 0, fmt.Errorf("DQBUF: %w", err)
+				return 0, nil, 0, 0, fmt.Errorf("DQBUF: %w", err)
 			}
 			if err := c.queue(idx); err != nil {
-				return 0, nil, 0, err
+				return 0, nil, 0, 0, err
 			}
-			idx, used, ts = i2, u2, t2
+			idx, used, ts, seq = i2, u2, t2, s2
 		}
-		return idx, c.bufs[idx][:used], ts, nil
+		return idx, c.bufs[idx][:used], ts, seq, nil
 	}
 }
 
@@ -423,7 +366,7 @@ func (c *Capture) Requeue(idx uint32) error { return c.queue(idx) }
 
 func (c *Capture) Close() {
 	if c.streamed {
-		t := c.bufType
+		t := uint32(bufTypeCapture)
 		ioctl(c.fd, vidiocStreamoff, unsafe.Pointer(&t))
 	}
 	for _, b := range c.bufs {
@@ -449,7 +392,19 @@ func openOutput(path string, w, h int) (*Output, error) {
 		syscall.Close(fd)
 		return nil, fmt.Errorf("%s S_FMT YUYV %dx%d: %w", path, w, h, err)
 	}
+	// S_FMT hands back what the driver accepted; frames of another size or format would be garbled.
+	if err := checkOutputFormat(pf, w, h); err != nil {
+		syscall.Close(fd)
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
 	return &Output{fd}, nil
+}
+
+func checkOutputFormat(pf *v4l2PixFormat, w, h int) error {
+	if pf.PixelFormat != fourcc("YUYV") || int(pf.Width) != w || int(pf.Height) != h {
+		return fmt.Errorf("driver chose %s %dx%d, want YUYV %dx%d", fourccString(pf.PixelFormat), pf.Width, pf.Height, w, h)
+	}
+	return nil
 }
 
 func (o *Output) Write(frame []byte) error {

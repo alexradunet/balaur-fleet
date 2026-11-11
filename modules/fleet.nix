@@ -10,7 +10,7 @@
 #     which get it in `nix.buildMachines`.
 #
 # Machines reach each other at one address, `address`: the tailnet (MagicDNS) name,
-# e.g. `balaur`. Every machine runs Tailscale (the `network` aspect), and Tailscale
+# e.g. `tablet`. Every machine runs Tailscale (the `network` aspect), and Tailscale
 # connects directly over the LAN when both are at home, so home and away are one
 # route, one browser origin, one login. A machine reaches itself at 127.0.0.1.
 # LAN addresses (`lanIp`, mDNS `<name>.local`) are for devices outside the tailnet,
@@ -155,8 +155,17 @@ in
       builders = lib.filterAttrs (
         _: h: h.builder != null && h.sshHostKey != null && h.builder.speedFactor > mySpeed
       ) others;
-      # Their root authenticates as their host key, which is what we authorize.
-      clientHostKeys = lib.filter (k: k != null) (lib.mapAttrsToList (_: h: h.sshHostKey) others);
+      # Their root authenticates as their host key, which is what we authorize: only
+      # the machines that list this one among their `builders` (the filter above, seen
+      # from their side), not the ones that never send work here.
+      listsMeAsBuilder =
+        h:
+        iAmABuilder
+        && myEntry.sshHostKey != null
+        && myEntry.builder.speedFactor > (if h.builder != null then h.builder.speedFactor else 0);
+      clientHostKeys = lib.filter (k: k != null) (
+        lib.mapAttrsToList (_: h: h.sshHostKey) (lib.filterAttrs (_: listsMeAsBuilder) others)
+      );
       haveBuilders = builders != { };
 
       # ---- the Balaur app's Home page (gnome/CONTRACT.md) ----
@@ -211,14 +220,16 @@ in
       environment.etc."balaur/services.json".text = builtins.toJSON (localServices ++ remoteServices);
 
       programs.ssh.knownHosts = lib.mapAttrs (name: h: {
-        hostNames = [
-          name
-          "${name}.local"
-        ]
-        ++ lib.filter (ip: ip != null) [
-          h.tailnetIp
-          h.lanIp
-        ];
+        hostNames =
+          lib.unique [
+            name
+            h.address
+            "${name}.local"
+          ]
+          ++ lib.filter (ip: ip != null) [
+            h.tailnetIp
+            h.lanIp
+          ];
         publicKey = h.sshHostKey;
       }) (lib.filterAttrs (_: h: h.sshHostKey != null) fleet);
 
@@ -226,24 +237,33 @@ in
 
       # ---- using the others as builders ----
       nix.distributedBuilds = haveBuilders;
-      nix.buildMachines = lib.mapAttrsToList (name: h: {
-        hostName = name;
+      nix.buildMachines = lib.mapAttrsToList (_: h: {
+        hostName = h.address;
         sshUser = builderUser;
         # Root's own identity, readable only by root, already trusted over there.
         sshKey = "/etc/ssh/ssh_host_ed25519_key";
         protocol = "ssh-ng";
+        supportedFeatures = [
+          "big-parallel"
+          "kvm"
+          "nixos-test"
+          "benchmark"
+        ];
         inherit (h.builder) systems maxJobs speedFactor;
       }) builders;
       # Let the builder fetch from the caches itself instead of us shipping every
       # dependency to it and the results back.
       nix.settings.builders-use-substitutes = lib.mkIf haveBuilders true;
       # A builder that is somebody's laptop is not always awake. Give up on the
-      # connection quickly; Nix then just builds locally instead of hanging.
+      # connection quickly; Nix then just builds locally instead of hanging. One that
+      # goes to sleep mid-build is dropped after 30 seconds of silence.
       programs.ssh.extraConfig = lib.mkIf haveBuilders (
-        lib.concatMapStrings (name: ''
-          Host ${name}
+        lib.concatMapStrings (h: ''
+          Host ${h.address}
             ConnectTimeout 5
-        '') (lib.attrNames builders)
+            ServerAliveInterval 10
+            ServerAliveCountMax 3
+        '') (lib.attrValues builders)
       );
 
       # ---- being a builder for the others ----

@@ -53,6 +53,16 @@ in
       synced = if cfg ? files then "${toString cfg.storage.root}/files/${cfg.files.folderName}" else null;
       domain = cfg.web.domain or null;
 
+      # Before every start: the snapshots folder, and life.db on the first one.
+      prepare = pkgs.writeShellApplication {
+        name = "aminte-prepare";
+        runtimeInputs = [ pkgs.coreutils ];
+        text = ''
+          install -d -m 0700 ${snapshots}
+          [ -e ${db} ] || ${lib.getExe aminte} --db ${db} init
+        '';
+      };
+
       publishLatest = pkgs.writeShellApplication {
         name = "aminte-publish-latest";
         runtimeInputs = [
@@ -124,11 +134,8 @@ in
           // lib.optionalAttrs (domain != null) {
             AMINTE_WEB_ORIGINS = "https://aminte.${domain}";
           };
-          preStart = ''
-            install -d -m 0700 ${snapshots}
-            [ -e ${db} ] || ${lib.getExe aminte} --db ${db} init
-          '';
           serviceConfig = {
+            ExecStartPre = lib.getExe prepare;
             User = "aminte";
             Group = "aminte";
             ExecStart = lib.escapeShellArgs (

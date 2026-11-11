@@ -31,8 +31,9 @@ choice that is theirs (name, aspects, account).
      trailing comment), `userKeys` (the user's `~/.ssh/id_ed25519.pub`; offer
      `ssh-keygen -t ed25519` if there is none), and `builder` if it should build for
      the others.
-   - `flake.nixosConfigurations.<hostname> = inputs.nixpkgs.lib.nixosSystem { modules = [ aspects.<hostname> ]; };`
-   - `flake.modules.nixos.<hostname>`: its aspects, `../../hosts/<hostname>/hardware-configuration.nix`,
+   - `flake.nixosConfigurations.<hostname> = inputs.nixpkgs.lib.nixosSystem { modules = [ aspects.host-<hostname> ]; };`
+   - `flake.modules.nixos.host-<hostname>` (the `host-` prefix keeps the host's module from
+     merging into an aspect of the same name): its aspects, `../../hosts/<hostname>/hardware-configuration.nix`,
      `networking.hostName`, `system.stateVersion`, `balaur.user`. List the aspects in the
      order the other hosts use: hardware, then what every machine has, then its own.
    - Hardware specifics go in a `modules/hardware/<model>.nix` aspect (`yoga-duet-7.nix`

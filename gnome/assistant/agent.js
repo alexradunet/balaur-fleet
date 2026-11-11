@@ -6,10 +6,12 @@
 //   get_state, get_available_models  →  response      once, after start-up: "ready"
 //   prompt  →  response, events ...  →  agent_settled  the answer is the last assistant message
 //   abort, new_session, set_model    →  response
+//   prompt "/mcp reconnect homeassistant"  →  response (handled)   when a new conversation starts, with house devices
 //
 // The model's tools do not pass through here: the extension calls the daemon
 // over D-Bus (AgentTool, AgentContext in dbus.js). So this class only starts
-// the child, asks, aborts and forgets.
+// the child, asks, aborts and forgets, and starts it again when it goes away or
+// stops answering.
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -18,7 +20,23 @@ import {Cancelled} from './http.js';
 import {errText, log, scope, writeAll} from './util.js';
 
 const READY_TIMEOUT_MS = 60000;
+// pi answers get_state as soon as its RPC loop runs; on the tablet that takes a few seconds.
+const START_COMMAND_TIMEOUT_MS = 45000;
+const COMMAND_TIMEOUT_MS = 10000;
+// After an abort (Stop, or the question's timeout) pi settles at once; one that
+// does not is hung and is replaced.
+const ABORT_GRACE_MS = 5000;
+// A child that exits at once is started again after 3 s, then 6 s and so on up to
+// 5 minutes; one that stayed ready for a minute starts the sequence over.
 const RESTART_DELAY_MS = 3000;
+const RESTART_DELAY_MAX_MS = 5 * 60 * 1000;
+const STABLE_MS = 60000;
+const TEST_TIMEOUT_MS = 60000;
+// pi connects the Home Assistant MCP server once, at its start, and never retries a
+// first connection that failed: a new conversation asks it to (for a few seconds at
+// most; the question does not wait longer).
+const RECONNECT_PROMPT = '/mcp reconnect homeassistant';
+const RECONNECT_TIMEOUT_MS = 4000;
 // A quiet period after which the conversation starts afresh.
 const HISTORY_TTL_MS = 5 * 60 * 1000;
 const enc = new TextEncoder();
@@ -31,17 +49,42 @@ function messageText(m) {
     return (m?.content ?? []).filter(c => c.type === 'text').map(c => c.text).join('');
 }
 
+/** Whether the launcher gives pi the house devices (the test balaur-home-agent makes). */
+function houseDevicesConfigured() {
+    const url = GLib.getenv('BALAUR_HOME_ASSISTANT_URL');
+    const token = GLib.getenv('BALAUR_HOME_ASSISTANT_TOKEN_FILE');
+    return !!url && !!token && GLib.access(token, 4) === 0; // R_OK
+}
+
+/** Resolves like the promise, or rejects with error() as soon as the cancellable fires. */
+function untilCancelled(promise, cancellable, error) {
+    return new Promise((resolve, reject) => {
+        const cid = cancellable.connect(() => reject(error()));
+        promise.then(resolve, reject).finally(() => {
+            if (cid)
+                cancellable.disconnect(cid);
+        });
+    });
+}
+
 export class Agent {
     /**
      * argv: the launcher (default [$BALAUR_AGENT or "balaur-home-agent"]).
      * env(): resolves to the environment variables to add (model, keys).
      * onReady(ready): {models: {providers: [...]}, error?} for the Models property.
+     * houseDevices(): whether pi has the house devices (default: from the environment).
+     * abortGraceMs, startTimeoutMs: how long to wait for a hung child (the tests shorten them).
      */
-    constructor({argv = null, env = async () => ({}), onReady = () => {}}) {
+    constructor({argv = null, env = async () => ({}), onReady = () => {}, houseDevices = houseDevicesConfigured,
+        abortGraceMs = ABORT_GRACE_MS, startTimeoutMs = START_COMMAND_TIMEOUT_MS} = {}) {
         this.argv = argv ?? [GLib.getenv('BALAUR_AGENT') || 'balaur-home-agent'];
         this.env = env;
         this.onReady = onReady;
+        this.houseDevices = houseDevices;
+        this.abortGraceMs = abortGraceMs;
+        this.startTimeoutMs = startTimeoutMs;
         this.proc = null;
+        this.starting = null; // the spawn in progress: env() is async
         this.ready = null; // the ready record once pi has answered
         this.readyWaiters = [];
         this.pending = new Map(); // command or prompt id -> {resolve}
@@ -50,6 +93,9 @@ export class Agent {
         this.generation = 0;
         this.stopping = false;
         this.restartId = 0;
+        this.backoffMs = RESTART_DELAY_MS;
+        this.readyAt = 0; // monotonic ms: when the child became ready
+        this.newConversation = false; // nothing asked since the child started or forgot
         this.turnId = null; // id of the prompt being answered
         this.last = null; // its last assistant message so far
         this.lastTurn = 0;
@@ -58,23 +104,33 @@ export class Agent {
 
     /** Starts the child (if not running) and asks what it runs on. Use whenReady(). */
     async start() {
+        while (this.starting)
+            await this.starting; // eslint-disable-line no-await-in-loop
         if (this.proc || this.stopping)
             return;
         const gen = ++this.generation;
-        const launcher = new Gio.SubprocessLauncher({flags: Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE});
+        this.starting = this._spawn(gen);
+        let proc;
         try {
-            for (const [k, v] of Object.entries(await this.env()))
-                launcher.setenv(k, v ?? '', true);
-            this.proc = launcher.spawnv(this.argv);
-        } catch (e) {
-            this._failReady(`cannot start ${this.argv[0]}: ${errText(e)}`);
-            this._scheduleRestart();
+            proc = await this.starting;
+        } finally {
+            this.starting = null;
+        }
+        if (!proc)
+            return;
+        if (gen !== this.generation) {
+            proc.force_exit(); // stop() came meanwhile
             return;
         }
-        const proc = this.proc;
+        this.proc = proc;
+        if (this.restartId) {
+            GLib.source_remove(this.restartId);
+            this.restartId = 0;
+        }
         this.stdin = proc.get_stdin_pipe();
         this.turnId = null;
         this.lastTurn = 0;
+        this.newConversation = true;
         this._readLoop(proc, gen);
         proc.wait_async(null).then(() => {
             if (gen !== this.generation)
@@ -84,11 +140,15 @@ export class Agent {
         }).catch(() => {});
 
         const [state, models] = await Promise.all([
-            this._command({type: 'get_state'}),
-            this._command({type: 'get_available_models'}),
+            this._command({type: 'get_state'}, this.startTimeoutMs),
+            this._command({type: 'get_available_models'}, this.startTimeoutMs),
         ]);
         if (proc !== this.proc)
             return; // it went away meanwhile; _lost has told everyone
+        if (state.timedOut || models.timedOut) {
+            this._kill('agent: no answer at start-up; starting it again'); // _lost restarts it
+            return;
+        }
         this.provider = state.data?.model?.provider ?? '';
         // Only the provider it runs on: the entryway's models. (A Mistral key in the
         // environment, there for web search, makes pi list Mistral's own too.)
@@ -105,10 +165,27 @@ export class Agent {
             log(`agent: ${error}`);
         }
         this.ready = ready;
+        this.readyAt = GLib.get_monotonic_time() / 1000;
         this.onReady(ready);
         for (const w of this.readyWaiters.splice(0))
             w.resolve(ready);
         log(`agent: pi is ready (model ${this.provider}/${ready.model || '?'})`);
+    }
+
+    /** Spawns the launcher with the environment from env(); null when it cannot, or when stop() came meanwhile. */
+    async _spawn(gen) {
+        try {
+            const launcher = new Gio.SubprocessLauncher({flags: Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE});
+            for (const [k, v] of Object.entries(await this.env()))
+                launcher.setenv(k, v ?? '', true);
+            if (gen !== this.generation)
+                return null;
+            return launcher.spawnv(this.argv);
+        } catch (e) {
+            this._failReady(`cannot start ${this.argv[0]}: ${errText(e)}`);
+            this._scheduleRestart();
+            return null;
+        }
     }
 
     async _readLoop(proc, gen) {
@@ -131,11 +208,16 @@ export class Agent {
                     log(`agent: bad line: ${errText(e)}`);
                     continue;
                 }
-                this._handle(msg);
+                try {
+                    this._handle(msg);
+                } catch (e) {
+                    log(`agent: ${msg?.type}: ${errText(e)}`);
+                }
             }
         } catch (e) {
+            // Nobody reads its output now, and a child whose pipe fills up stops.
             if (gen === this.generation)
-                log(`agent: read: ${errText(e)}`);
+                this._kill(`agent: read: ${errText(e)}`);
         }
     }
 
@@ -143,6 +225,13 @@ export class Agent {
         switch (msg.type) {
         case 'response': {
             if (msg.command === 'prompt') {
+                const p = this.pending.get(msg.id);
+                if (p?.slashCommand) {
+                    // A slash command is handled without a run: the response is all there is.
+                    this.pending.delete(msg.id);
+                    p.resolve(msg);
+                    break;
+                }
                 // Accepted: the answer comes with agent_settled. Refused: that is the answer.
                 const started = msg.success && ['started', 'queued'].includes(msg.data?.disposition ?? 'started');
                 if (!started)
@@ -199,20 +288,53 @@ export class Agent {
         }
     }
 
+    /** Queues a message for the child; false (nothing sent) when there is none. */
     _send(msg) {
         const stdin = this.stdin;
         if (!stdin)
-            return;
+            return false;
         const bytes = enc.encode(`${JSON.stringify(msg)}\n`);
         this.writeChain = this.writeChain.then(() => writeAll(stdin, bytes)).catch(e => log(`agent: write: ${errText(e)}`));
+        return true;
     }
 
-    /** Sends one command; resolves to its response (success false when the child went away). */
-    _command(msg) {
+    /**
+     * Sends one command; resolves to its response. Never rejects: success is false
+     * when the child went away, and timedOut is set when it did not answer in time.
+     */
+    _command(msg, timeoutMs = COMMAND_TIMEOUT_MS) {
         const id = `c${++this.nextId}`;
-        const result = new Promise(resolve => this.pending.set(id, {resolve}));
-        this._send({...msg, id});
-        return result.then(r => (r.type === 'response' ? r : {success: false, error: r.message ?? 'the agent failed'}));
+        return new Promise(resolve => {
+            let timer = 0;
+            const done = r => {
+                if (timer)
+                    GLib.source_remove(timer);
+                timer = 0;
+                resolve(r.type === 'response' ? r : {success: false, error: r.message ?? 'the agent failed'});
+            };
+            this.pending.set(id, {resolve: done});
+            if (!this._send({...msg, id})) {
+                this.pending.delete(id);
+                done({type: 'error', message: 'the agent is not running'});
+                return;
+            }
+            timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, timeoutMs, () => {
+                timer = 0;
+                this.pending.delete(id);
+                resolve({success: false, timedOut: true, error: `the agent did not answer ${msg.type}`});
+                return GLib.SOURCE_REMOVE;
+            });
+        });
+    }
+
+    /** Kills a child that does not answer and starts another (now: a question asked next must not go to the dying one). */
+    _kill(why) {
+        const proc = this.proc;
+        if (!proc)
+            return;
+        this.generation++; // its exit is expected now
+        this._lost(why);
+        proc.force_exit();
     }
 
     _failReady(message) {
@@ -222,6 +344,9 @@ export class Agent {
 
     _lost(why) {
         log(why);
+        if (this.readyAt && GLib.get_monotonic_time() / 1000 - this.readyAt >= STABLE_MS)
+            this.backoffMs = RESTART_DELAY_MS;
+        this.readyAt = 0;
         this.proc = null;
         this.stdin = null;
         this.ready = null;
@@ -236,7 +361,9 @@ export class Agent {
     _scheduleRestart() {
         if (this.stopping || this.restartId)
             return;
-        this.restartId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, RESTART_DELAY_MS, () => {
+        const delay = this.backoffMs;
+        this.backoffMs = Math.min(delay * 2, RESTART_DELAY_MAX_MS);
+        this.restartId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, delay, () => {
             this.restartId = 0;
             this.start();
             return GLib.SOURCE_REMOVE;
@@ -269,24 +396,51 @@ export class Agent {
      */
     async ask(text, cancellable = null, timeoutMs = 180000) {
         const sc = scope(cancellable, timeoutMs);
+        const c = sc.cancellable;
+        const stopError = () => (sc.timedOut() ? new Error(`the model did not answer within ${timeoutMs / 1000}s`) : new Cancelled());
+        const stopped = () => {
+            if (c.is_cancelled())
+                throw stopError();
+        };
         try {
-            const ready = await this.whenReady();
+            stopped();
+            this.backoffMs = RESTART_DELAY_MS; // a question starts the child at once
+            const ready = await untilCancelled(this.whenReady(), c, stopError);
             if (ready.error)
                 throw new Error(ready.error);
             if (this.lastTurn && Date.now() - this.lastTurn > HISTORY_TTL_MS)
-                await this._forget();
+                await untilCancelled(this._forget(), c, stopError);
+            if (this.newConversation && this.houseDevices()) {
+                this.newConversation = false;
+                await untilCancelled(this._reconnectHouse(), c, stopError);
+            }
+            this.newConversation = false;
+            stopped();
             const id = `p${++this.nextId}`;
             this.turnId = id;
             this.last = null;
             const result = new Promise(resolve => this.pending.set(id, {resolve}));
-            // Stop the model; pi still settles (the last message says "aborted").
-            const cid = sc.cancellable.connect(() => this._send({type: 'abort'}));
-            this._send({type: 'prompt', id, message: text});
+            // Stop the model; pi still settles (the last message says "aborted"). A pi that
+            // does not is hung: the question ends here and the child is replaced.
+            let graceId = 0;
+            const cid = c.connect(() => {
+                this._send({type: 'abort'});
+                graceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, this.abortGraceMs, () => {
+                    graceId = 0;
+                    this._settle(id, {type: 'error', id, message: 'the agent did not stop', aborted: true});
+                    this._kill('agent: no answer to an abort; starting it again');
+                    return GLib.SOURCE_REMOVE;
+                });
+            });
+            if (!this._send({type: 'prompt', id, message: text}))
+                this._settle(id, {type: 'error', id, message: 'the agent is not running'});
             let r;
             try {
                 r = await result;
             } finally {
-                sc.cancellable.disconnect(cid);
+                c.disconnect(cid);
+                if (graceId)
+                    GLib.source_remove(graceId);
                 if (this.turnId === id)
                     this.turnId = null;
             }
@@ -295,7 +449,7 @@ export class Agent {
                 return r.text ?? '';
             }
             if (sc.timedOut())
-                throw new Error(`the model did not answer within ${timeoutMs / 1000}s`);
+                throw stopError();
             if (r.aborted || cancellable?.is_cancelled())
                 throw new Cancelled();
             throw new Error(r.message || 'the agent failed');
@@ -306,15 +460,37 @@ export class Agent {
 
     async _forget() {
         this.lastTurn = 0;
+        this.newConversation = true;
         const r = await this._command({type: 'new_session'});
         if (!r.success)
             log(`agent: new_session: ${r.error}`);
     }
 
-    /** Forgets the conversation. */
-    reset() {
-        if (this.ready)
-            this._forget();
+    /** Asks pi to connect Home Assistant's MCP server again; waits a few seconds at most and never fails. */
+    async _reconnectHouse() {
+        const id = `p${++this.nextId}`;
+        const answered = new Promise(resolve => this.pending.set(id, {resolve, slashCommand: true}));
+        if (!this._send({type: 'prompt', id, message: RECONNECT_PROMPT})) {
+            this.pending.delete(id);
+            return;
+        }
+        let timer = 0;
+        const timedOut = new Promise(resolve => {
+            timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, RECONNECT_TIMEOUT_MS, () => {
+                timer = 0;
+                resolve(null);
+                return GLib.SOURCE_REMOVE;
+            });
+        });
+        const r = await Promise.race([answered, timedOut]);
+        if (timer)
+            GLib.source_remove(timer);
+        if (!r) {
+            this.pending.delete(id);
+            log('agent: Home Assistant reconnect: no answer');
+        } else if (r.type !== 'response' || !r.success) {
+            log(`agent: Home Assistant reconnect: ${r.error ?? r.message ?? 'failed'}`);
+        }
     }
 
     /** Changes the model of the running agent: "" when done, else the error. */
@@ -326,18 +502,30 @@ export class Agent {
     }
 
     /** One tiny request with the current settings (`<launcher> --test`): "" when fine, else the error. */
-    async test() {
+    async test(timeoutMs = TEST_TIMEOUT_MS) {
+        let timer = 0, timedOut = false;
         try {
             const launcher = new Gio.SubprocessLauncher({flags: Gio.SubprocessFlags.STDOUT_SILENCE | Gio.SubprocessFlags.STDERR_PIPE});
             for (const [k, v] of Object.entries(await this.env()))
                 launcher.setenv(k, v ?? '', true);
             const proc = launcher.spawnv([...this.argv, '--test']);
+            timer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, timeoutMs, () => {
+                timer = 0;
+                timedOut = true;
+                proc.force_exit();
+                return GLib.SOURCE_REMOVE;
+            });
             const [, stderr] = await proc.communicate_utf8_async(null, null);
+            if (timedOut)
+                return `the model did not answer within ${timeoutMs / 1000}s`;
             if (proc.get_successful())
                 return '';
             return (stderr ?? '').trim().split('\n').pop() || 'the model did not answer';
         } catch (e) {
             return errText(e);
+        } finally {
+            if (timer)
+                GLib.source_remove(timer);
         }
     }
 
@@ -345,11 +533,13 @@ export class Agent {
     async restart() {
         await this.stop();
         this.stopping = false;
+        this.backoffMs = RESTART_DELAY_MS;
         await this.start();
     }
 
     async stop() {
         this.stopping = true;
+        this.generation++; // a spawn in progress is dropped; a running child's exit is expected now
         if (this.restartId) {
             GLib.source_remove(this.restartId);
             this.restartId = 0;
@@ -357,9 +547,9 @@ export class Agent {
         const proc = this.proc;
         if (!proc)
             return;
-        this.generation++; // its exit is expected now
         this.proc = null;
         this.ready = null;
+        this.readyAt = 0;
         for (const [id, p] of this.pending) {
             this.pending.delete(id);
             p.resolve({type: 'error', id, message: 'the agent was restarted'});

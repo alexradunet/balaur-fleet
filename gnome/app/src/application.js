@@ -77,6 +77,11 @@ class BalaurApplication extends Adw.Application {
         return this._try(this.assistant.ask(text, true));
     }
 
+    // Resolves to whether the daemon took it, so the list can undo its checkbox.
+    listSetDone(list, id, done) {
+        return this._try(this.assistant.listSetDone(list, id, done));
+    }
+
     _addActions() {
         const a = this.assistant;
         const assistantActions = [];
@@ -95,7 +100,7 @@ class BalaurApplication extends Adw.Application {
         add('ask', 's', text => this.ask(text));
         add('stop', null, () => this._try(a.stop()));
         add('list-add', '(ss)', ([list, text]) => this._try(a.listAdd(list, text)));
-        add('list-set-done', '(ssb)', ([list, id, done]) => this._try(a.listSetDone(list, id, done)));
+        add('list-set-done', '(ssb)', ([list, id, done]) => this.listSetDone(list, id, done));
         add('list-remove', '(ss)', ([list, id]) => this._try(a.listRemove(list, id)));
         add('list-clear-done', 's', list => this._try(a.listClearDone(list)));
         add('memory-add', 's', fact => this._try(a.memoryAdd(fact)));

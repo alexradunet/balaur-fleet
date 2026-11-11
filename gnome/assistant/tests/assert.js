@@ -29,6 +29,17 @@ export async function rejects(p, re, msg = 'expected a failure') {
     throw new Error(msg);
 }
 
+export function throws(fn, re, msg = 'expected an error') {
+    try {
+        fn();
+    } catch (e) {
+        if (re && !re.test(e.message))
+            throw new Error(`${msg}: wrong error ${JSON.stringify(e.message)}`);
+        return e;
+    }
+    throw new Error(msg);
+}
+
 /** A fresh temporary directory. */
 export function tempDir() {
     return GLib.dir_make_tmp('balaur-assistant-test-XXXXXX');

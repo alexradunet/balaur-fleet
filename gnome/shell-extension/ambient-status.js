@@ -123,6 +123,7 @@ const SYSTEMD = 'org.freedesktop.systemd1';
 const MANAGER_PATH = '/org/freedesktop/systemd1';
 const MANAGER_IFACE = 'org.freedesktop.systemd1.Manager';
 const PROBE_TIMEOUT_S = 5;
+const TAILSCALE_TIMEOUT_S = 10; // `tailscale status` can hang when tailscaled does
 
 function dbusCall(bus, method, args, replyType, cancellable, iface = MANAGER_IFACE) {
     return new Promise((resolve, reject) => {
@@ -186,15 +187,26 @@ export class FleetStatus {
             return null;
         const proc = Gio.Subprocess.new([this._cfg.tailscale, 'status', '--json'],
             Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE);
-        const stdout = await new Promise((resolve, reject) => {
-            proc.communicate_utf8_async(null, cancellable, (p, res) => {
-                try {
-                    resolve(p.communicate_utf8_finish(res)[1]);
-                } catch (e) {
-                    reject(e);
-                }
-            });
+        let killer = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, TAILSCALE_TIMEOUT_S, () => {
+            killer = 0;
+            proc.force_exit();
+            return GLib.SOURCE_REMOVE;
         });
+        let stdout;
+        try {
+            stdout = await new Promise((resolve, reject) => {
+                proc.communicate_utf8_async(null, cancellable, (p, res) => {
+                    try {
+                        resolve(p.communicate_utf8_finish(res)[1]);
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
+            });
+        } finally {
+            if (killer)
+                GLib.source_remove(killer);
+        }
         // It prints the JSON even when it exits non-zero (logged out, stopped).
         return machinesOf(JSON.parse(stdout));
     }

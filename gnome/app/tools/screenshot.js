@@ -1,6 +1,6 @@
 #!/usr/bin/env -S gjs -m
 // Development aid: starts the app, shows each page in landscape and portrait
-// sizes and saves PNGs of the window into the directory given as argument,
+// sizes and saves PNGs of the window (and of the settings dialog) into the directory given as argument,
 // then quits. Pair it with GDK_BACKEND=broadway (gtk4-broadwayd) to render
 // without touching the real screen:
 //
@@ -70,6 +70,12 @@ app.connect_after('activate', async () => {
                 await wait(700);
                 await capture(win, `${outDir}/${orientation}-${page}${style ? `-${style}` : ''}.png`);
             }
+            // The settings dialog, over the last page.
+            app.activate_action('assistant-settings', null);
+            await wait(900);
+            await capture(app._settingsDialog ?? win, `${outDir}/${orientation}-settings${style ? `-${style}` : ''}.png`);
+            app._settingsDialog?.close();
+            await wait(400);
         }
     } catch (e) {
         logError(e);

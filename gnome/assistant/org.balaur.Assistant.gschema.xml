@@ -11,9 +11,9 @@
       <description>One of the agent's models (the fleet's AI entryway: balaur, balaur-local, balaur-remote); empty uses the config file's llm.model.</description>
     </key>
     <key name="speech-base-url" type="s">
-      <default>'https://api.mistral.ai/v1'</default>
+      <default>''</default>
       <summary>Speech server</summary>
-      <description>Mistral API base URL for transcription, voices and web search.</description>
+      <description>Mistral API base URL for transcription, voices and web search; empty uses the config file's llm.baseUrl.</description>
     </key>
     <key name="stt-model" type="s">
       <default>''</default>

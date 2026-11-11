@@ -27,7 +27,7 @@ class ListsPage extends Adw.Bin {
         this._empty = new Adw.StatusPage({
             icon_name: 'checkbox-checked-symbolic',
             title: 'No lists yet',
-            description: `Ask ${this._assistant.name} to put something on the shopping list.`,
+            description: `Ask ${escape(this._assistant.name)} to put something on the shopping list.`,
         });
         this._stack = new Gtk.Stack();
         this._stack.add_named(this._page, 'lists');
@@ -41,7 +41,7 @@ class ListsPage extends Adw.Bin {
     _sync() {
         const s = this._assistant.snapshot;
         this._stack.visible_child_name = s.listOrder.length ? 'lists' : 'empty';
-        this._empty.description = `Ask ${this._assistant.name} to put something on the shopping list.`;
+        this._empty.description = `Ask ${escape(this._assistant.name)} to put something on the shopping list.`;
 
         // Groups: drop lists that went away, (re)order when the order changed.
         const order = s.listOrder.join('\n');
@@ -65,7 +65,7 @@ class ListsPage extends Adw.Bin {
         if (g)
             return g;
         const title = listTitle(name);
-        const group = new Adw.PreferencesGroup({title});
+        const group = new Adw.PreferencesGroup({title: escape(title)});
         const clear = new Gtk.Button({
             label: 'Clear done',
             css_classes: ['flat', 'balaur-touch-button'],
@@ -77,7 +77,7 @@ class ListsPage extends Adw.Bin {
 
         const box = new Gtk.ListBox({selection_mode: Gtk.SelectionMode.NONE,
             css_classes: ['boxed-list', 'balaur-touch-list']});
-        const entry = new Adw.EntryRow({title: `Add to ${title}`, show_apply_button: true});
+        const entry = new Adw.EntryRow({title: `Add to ${escape(title)}`, show_apply_button: true});
         const submit = () => {
             const text = entry.text.trim();
             if (!text)
@@ -105,10 +105,10 @@ class ListsPage extends Adw.Bin {
         clearChildren(g.box, [g.entry]);
         if (!items.length)
             g.box.insert(placeholderRow('Empty'), 0);
-        items.forEach((it, i) => g.box.insert(this._itemRow(name, it), i));
+        items.forEach((it, i) => g.box.insert(this._itemRow(g, name, it), i));
     }
 
-    _itemRow(list, it) {
+    _itemRow(g, list, it) {
         const row = new Adw.ActionRow({
             // Done items are struck through, like a paper list.
             title: it.done ? `<s>${escape(it.text)}</s>` : escape(it.text),
@@ -120,9 +120,13 @@ class ListsPage extends Adw.Bin {
         const check = new Gtk.CheckButton({active: it.done, valign: Gtk.Align.CENTER,
             css_classes: ['selection-mode']});
         check.update_property([Gtk.AccessibleProperty.LABEL], [`Done: ${it.text}`]);
-        check.connect('toggled', () => {
-            this._app.activate_action('list-set-done',
-                new GLib.Variant('(ssb)', [list, it.id, check.active]));
+        check.connect('toggled', async () => {
+            if (await this._app.listSetDone(list, it.id, check.active))
+                return;
+            // The daemon kept the old state, so the snapshot did not change and
+            // nothing would redraw the box: rebuild the rows from the snapshot.
+            g.key = null;
+            this._sync();
         });
         row.add_prefix(check);
         row.activatable_widget = check; // tap anywhere on the row to tick it

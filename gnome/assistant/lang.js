@@ -45,21 +45,6 @@ export function detectLang(text) {
     return '';
 }
 
-/**
- * False for text that is plainly another language: letters outside the Latin
- * alphabet plus Romanian diacritics (ü, ö, ğ, ı, é, Cyrillic, ...), or several
- * words of which none is a known Romanian or English word.
- */
-export function looksRoOrEn(text) {
-    for (const r of text) {
-        if (r.codePointAt(0) < 0x80 || !/\p{L}/u.test(r))
-            continue;
-        if (!RO_LETTERS.includes(r))
-            return false;
-    }
-    return letterWords(text).length < 3 || detectLang(text) !== '';
-}
-
 /** Maps whatever STT reports ("ro", "romanian", "en-US") to "ro"/"en"/"". */
 export function normLang(s) {
     s = (s ?? '').toLowerCase();
@@ -95,8 +80,15 @@ export function isNoise(text) {
 
 const stopWords = toSet('stop gata lasa nimic anuleaza taci cancel nevermind never mind nothing quiet ok okay bine mersi multumesc thanks');
 
-export function isStop(text) {
+// Stop words when said out of the blue, but an answer when the assistant has
+// just asked something ("Să adaug și ouă?" - "Bine").
+const acknowledgements = toSet('ok okay bine mersi multumesc thanks');
+
+/** Whether text ends the turn; followUp: the assistant's last reply was a question. */
+export function isStop(text, followUp = false) {
     const t = fold(trimChars(text, ' .,!?…')).split(/\s+/).filter(Boolean).join(' ');
+    if (followUp && acknowledgements.has(t))
+        return false;
     return stopWords.has(t) || t === 'never mind' || t === 'lasa asta' || t === 'nu mai conteaza';
 }
 

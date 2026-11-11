@@ -38,17 +38,16 @@
       # profile and window identity (org.gnome.Epiphany.WebApp_<sha1 of the name>),
       # so it gets its own dock icon and never mixes with browsing.
       # services.json (the `fleet` aspect) points at them through the same s.webAppId.
-      webAppId = s: s.webAppId;
       serviceUrl = s: if s.port == null then null else "http://127.0.0.1:${toString s.port}${s.path}";
       hasWebApp = s: s.port != null && s.appIcon != null;
       webApps = map (
         s:
         pkgs.makeDesktopItem {
-          name = webAppId s;
+          name = s.webAppId;
           desktopName = s.name;
           comment = s.description;
           icon = s.appIcon;
-          exec = "${pkgs.epiphany}/bin/epiphany --application-mode=${webAppId s}.desktop ${serviceUrl s}";
+          exec = "${pkgs.epiphany}/bin/epiphany --application-mode=${s.webAppId}.desktop ${serviceUrl s}";
           startupWMClass = "org.gnome.Epiphany.WebApp_${builtins.hashString "sha1" s.name}";
           categories = [ "Network" ];
         }
@@ -73,7 +72,9 @@
       # every GNOME machine. What stays here is the Jellyfin source of its photos, used
       # only with `balaur.ambient.photos.dir = null`.
       jellyfin = config.services.jellyfin.enable;
-      photosKey = cfg.ambient.photos.jellyfinKeyFile;
+      ambientPhotos = cfg.ambient.photos or null;
+      photosFromJellyfin = jellyfin && ambientPhotos != null && ambientPhotos.dir == null;
+      photosKey = ambientPhotos.jellyfinKeyFile;
       photosDir = "${toString cfg.storage.root}/media/photos";
 
       # A Jellyfin API key for the photos, from a terminal (state only, never in the
@@ -161,7 +162,7 @@
             devTerminal
             epiphany # GNOME Web: runs the web apps below
           ]
-          ++ lib.optional jellyfin photosLogin
+          ++ lib.optional photosFromJellyfin photosLogin
           ++ webApps
           ++ [
             ghostty # terminal (as the household account)

@@ -10,6 +10,7 @@ import {Assistant} from '../assistant.js';
 import {defaultConfig} from '../config.js';
 import {Settings} from '../settings.js';
 import {Store} from '../store.js';
+import {sleep} from '../util.js';
 
 const here = GLib.path_get_dirname(GLib.filename_from_uri(import.meta.url)[0]);
 
@@ -33,9 +34,12 @@ export function memorySettings() {
 export class FakeMic {
     constructor() {
         this.muted = false;
+        this.startedMuted = null; // whether it was muted when capture began
     }
 
-    start() {}
+    start() {
+        this.startedMuted = this.muted;
+    }
 
     stop() {}
 
@@ -44,15 +48,24 @@ export class FakeMic {
     }
 }
 
+/** Collects what is played; each chunk takes chunkMs, and a cancel ends playback at once, as the real one does. */
 export class FakePlayer {
-    constructor() {
+    constructor({chunkMs = 0} = {}) {
         this.played = [];
+        this.chunkMs = chunkMs;
     }
 
-    async play(source, cancellable) {
-        for (let c; (c = await source.next());) // eslint-disable-line no-await-in-loop
+    async play(source, cancellable = null) {
+        for (;;) {
+            if (cancellable?.is_cancelled())
+                return;
+            const c = await source.next(); // eslint-disable-line no-await-in-loop
+            if (!c || cancellable?.is_cancelled())
+                return;
             this.played.push(c);
-        void cancellable;
+            if (this.chunkMs)
+                await sleep(this.chunkMs, cancellable); // eslint-disable-line no-await-in-loop
+        }
     }
 
     playPCM(pcm, cancellable) {
@@ -61,12 +74,15 @@ export class FakePlayer {
     }
 }
 
-/** An Assistant on a temp store with the fake agent; call a.shutdown() after. */
-export function makeAssistant({gsettings = false, notifier = null} = {}) {
+/**
+ * An Assistant on a temp store (or the state directory dir, to start again
+ * where another one stopped) with the fake agent; call a.shutdown() after.
+ */
+export function makeAssistant({gsettings = false, notifier = null, dir = null, player = null} = {}) {
     const cfg = defaultConfig();
     cfg.audio.output = 'hw:9,9'; // not a sound server: no volume polling
     cfg.llm.model = 'm1';
-    const store = new Store(tempDir());
+    const store = new Store(dir ?? tempDir());
     const settings = new Settings(cfg, () => {}, {gsettings, keyring: false, debounceMs: 100});
     let a;
     const agent = new Agent({
@@ -74,7 +90,7 @@ export function makeAssistant({gsettings = false, notifier = null} = {}) {
         env: () => a._agentEnv(),
         onReady: r => a._agentReady(r),
     });
-    a = new Assistant(cfg, store, settings, {agent, mic: new FakeMic(), player: new FakePlayer(), notifier});
+    a = new Assistant(cfg, store, settings, {agent, mic: new FakeMic(), player: player ?? new FakePlayer(), notifier});
     a.setVolume = async v => {
         a.volume = v;
         a.changed();

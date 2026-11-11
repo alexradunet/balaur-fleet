@@ -148,10 +148,15 @@ export class AssistantClient {
     }
 }
 
-/** "hey_jarvis" -> "Hey Jarvis"; falls back to "Hey <Name>". */
+/**
+ * "hey_jarvis" -> "Hey Jarvis"; the daemon publishes a list ("hey_jarvis_v0.1,
+ * alexa"): the first one, without its version. Falls back to "Hey <Name>".
+ * The app does the same (gnome/app/src/assistant.js).
+ */
 export function wakePhrase(status) {
-    if (status.wakeWord) {
-        return status.wakeWord.split(/[_\s-]+/).filter(Boolean)
+    const first = (status.wakeWord ?? '').split(',')[0].trim().replace(/_v[\d.]+$/, '');
+    if (first) {
+        return first.split(/[_\s-]+/).filter(Boolean)
             .map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
     }
     return status.name ? `Hey ${status.name}` : 'the wake word';

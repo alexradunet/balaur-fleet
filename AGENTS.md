@@ -38,8 +38,8 @@ skipped). The **dendritic pattern** works like this:
 Skill `check-change`. In short: `nix flake check --no-build` evaluates every host; a
 refactor leaves every host's `drvPath` unchanged; build what you touched with
 `nixos-rebuild build --flake .#<host>` and read `nix store diff-closures`. A change to
-a shared aspect (base, fleet, home, network, secrets, dev, agent, auto-deploy)
-affects every host: check them all. GitHub Actions runs the same evaluation on every
+a shared aspect (base, fleet, home, secrets, network, gnome, dev, files,
+torrents-client, assistant, auto-deploy, ai, agent) affects every host: check them all. GitHub Actions runs the same evaluation on every
 push (`.github/workflows/check.yml`); it reports, it does not stop a deploy.
 
 ## Deploying: push, and every machine follows

@@ -2,8 +2,9 @@
 # AUTHORS: balaur home server
 #
 # qBittorrent search plugin for FileList (filelist.io), via its JSON API.
-# Credentials are read from $FILELIST_CREDENTIALS (set by modules/media.nix),
-# a JSON file {"username": ..., "passkey": ...} written by `sudo balaur-filelist-login`.
+# Credentials are read from $FILELIST_CREDENTIALS (set by modules/torrents.nix),
+# a JSON file {"username": ..., "passkey": ...}: written by `sudo balaur-filelist-login`,
+# or rendered by sops on a machine that takes them from the repo.
 # They never appear in this file, the repo or the Nix store.
 
 import json
@@ -57,7 +58,7 @@ class filelist(object):
     def search(self, what, cat="all"):
         creds = self._credentials()
         if not creds:
-            self._notice("not logged in. On the Duet run: sudo balaur-filelist-login")
+            self._notice("no credentials. On the machine that runs qBittorrent: sudo balaur-filelist-login")
             return
         query = urllib.parse.unquote(what).replace("+", " ").strip()
         imdb = query.lower().startswith("tt") and query[2:].isdigit()

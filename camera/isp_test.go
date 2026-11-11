@@ -205,10 +205,13 @@ func TestUnpackPacked(t *testing.T) {
 	}
 }
 
-type fakeSensor struct{ exp, gain int32 }
+type fakeSensor struct{ exp, gain, maxExp int32 }
 
 func (s *fakeSensor) Range(id uint32) (int32, int32, error) {
 	if id == cidExposure {
+		if s.maxExp != 0 {
+			return 4, s.maxExp, nil
+		}
 		return 4, 2012, nil
 	}
 	return 128, 2047, nil
@@ -233,53 +236,71 @@ func (s *fakeSensor) Set(id uint32, v int32) error {
 
 func TestAEBrightensAndAvoidsFlicker(t *testing.T) {
 	cfg := defaultConfig()
+	frame := time.Second / 30
+	period := 0.01 / (frame.Seconds() / 2016) // lines per pulse of 50 Hz light: 604.8
+
+	// Dark: exposure lengthens.
 	s := &fakeSensor{exp: 200, gain: 128}
 	ae := NewAE(s, &cfg)
-	frame := time.Second / 30
 	for i := 0; i < 4; i++ {
 		ae.Update(0.02, 0, frame)
 	}
 	if s.exp <= 200 {
 		t.Fatalf("dark scene should lengthen exposure, got %d", s.exp)
 	}
-	lineTime := frame.Seconds() / 2016
-	period := 0.01 / lineTime
-	if float64(s.exp) >= period {
-		if r := math.Mod(float64(s.exp), period); r > 1 && period-r > 1 {
-			t.Fatalf("exposure %d lines is not a multiple of a 10 ms light pulse (%.1f lines)", s.exp, period)
-		}
+
+	// Above one pulse, the exposure is a whole number of pulses, even though
+	// the plain step (x1.33) would end between two.
+	s = &fakeSensor{exp: 900, gain: 128}
+	ae = NewAE(s, &cfg)
+	for i := 0; i < 4; i++ {
+		ae.Update(0.12, 0, frame)
+	}
+	if float64(s.exp) < period-1 {
+		t.Fatalf("exposure %d dropped below one pulse (%.1f lines)", s.exp, period)
+	}
+	if r := math.Mod(float64(s.exp), period); r > 1 && period-r > 1 {
+		t.Fatalf("exposure %d lines is not a multiple of a 10 ms light pulse (%.1f lines)", s.exp, period)
+	}
+
+	// Bright: gain comes down before exposure does.
+	s = &fakeSensor{exp: 1815, gain: 1024}
+	ae = NewAE(s, &cfg)
+	for i := 0; i < 4; i++ {
+		ae.Update(0.9, 0.2, frame)
+	}
+	if s.gain >= 1024 || s.gain <= 128 || s.exp < 1800 {
+		t.Fatalf("bright scene should lower gain first and keep exposure: exp %d, gain %d", s.exp, s.gain)
 	}
 	for i := 0; i < 80; i++ {
 		ae.Update(0.9, 0.2, frame)
 	}
 	if s.gain != 128 {
-		t.Fatalf("bright scene should drop gain to 1x first, got %d", s.gain)
+		t.Fatalf("bright scene should drop gain to 1x, got %d", s.gain)
 	}
 }
 
 func TestStructSizes(t *testing.T) {
 	for name, got := range map[string]uintptr{
-		"v4l2_capability":        unsafe.Sizeof(v4l2Capability{}),
-		"v4l2_format":            unsafe.Sizeof(v4l2Format{}),
-		"v4l2_pix_format":        unsafe.Sizeof(v4l2PixFormat{}),
-		"v4l2_pix_format_mplane": unsafe.Sizeof(v4l2PixFormatMplane{}),
-		"v4l2_requestbuffers":    unsafe.Sizeof(v4l2RequestBuffers{}),
-		"v4l2_buffer":            unsafe.Sizeof(v4l2Buffer{}),
-		"v4l2_plane":             unsafe.Sizeof(v4l2Plane{}),
-		"v4l2_control":           unsafe.Sizeof(v4l2Control{}),
-		"v4l2_queryctrl":         unsafe.Sizeof(v4l2Queryctrl{}),
-		"v4l2_subdev_format":     unsafe.Sizeof(v4l2SubdevFormat{}),
-		"media_v2_topology":      unsafe.Sizeof(mediaTopology{}),
-		"media_v2_entity":        unsafe.Sizeof(mediaEntity{}),
-		"media_v2_interface":     unsafe.Sizeof(mediaInterface{}),
-		"media_v2_pad":           unsafe.Sizeof(mediaPad{}),
-		"media_v2_link":          unsafe.Sizeof(mediaLink{}),
-		"media_link_desc":        unsafe.Sizeof(mediaLinkDesc{}),
+		"v4l2_capability":     unsafe.Sizeof(v4l2Capability{}),
+		"v4l2_format":         unsafe.Sizeof(v4l2Format{}),
+		"v4l2_pix_format":     unsafe.Sizeof(v4l2PixFormat{}),
+		"v4l2_requestbuffers": unsafe.Sizeof(v4l2RequestBuffers{}),
+		"v4l2_buffer":         unsafe.Sizeof(v4l2Buffer{}),
+		"v4l2_control":        unsafe.Sizeof(v4l2Control{}),
+		"v4l2_queryctrl":      unsafe.Sizeof(v4l2Queryctrl{}),
+		"v4l2_subdev_format":  unsafe.Sizeof(v4l2SubdevFormat{}),
+		"media_v2_topology":   unsafe.Sizeof(mediaTopology{}),
+		"media_v2_entity":     unsafe.Sizeof(mediaEntity{}),
+		"media_v2_interface":  unsafe.Sizeof(mediaInterface{}),
+		"media_v2_pad":        unsafe.Sizeof(mediaPad{}),
+		"media_v2_link":       unsafe.Sizeof(mediaLink{}),
+		"media_link_desc":     unsafe.Sizeof(mediaLinkDesc{}),
 	} {
 		want := map[string]uintptr{
 			"v4l2_capability": 104, "v4l2_format": 208, "v4l2_pix_format": 48,
-			"v4l2_pix_format_mplane": 192, "v4l2_requestbuffers": 20, "v4l2_buffer": 88,
-			"v4l2_plane": 64, "v4l2_control": 8, "v4l2_queryctrl": 68, "v4l2_subdev_format": 88,
+			"v4l2_requestbuffers": 20, "v4l2_buffer": 88,
+			"v4l2_control": 8, "v4l2_queryctrl": 68, "v4l2_subdev_format": 88,
 			"media_v2_topology": 72, "media_v2_entity": 96, "media_v2_interface": 112,
 			"media_v2_pad": 32, "media_v2_link": 40, "media_link_desc": 52,
 		}[name]
@@ -472,5 +493,143 @@ func TestDigitalGainOnlyWhenSensorMaxed(t *testing.T) {
 	}
 	if ae2.Digital() != 1 {
 		t.Fatalf("with exposure headroom, no digital gain: got %.2f", ae2.Digital())
+	}
+}
+
+// With anti-flicker on, the longest exposure the AE loop ever sets is a whole
+// number of light pulses, well below the sensor's maximum; digital gain must
+// engage there, not only at the sensor's limit.
+func TestDigitalGainAtTheAntiFlickerMaximum(t *testing.T) {
+	frame := time.Second / 30
+	for _, tc := range []struct {
+		name         string
+		hz           int
+		minExp, want int32 // exposure to start from; the ceiling Update keeps it at
+	}{
+		{"50 Hz", 50, 1815, 1814},
+		{"60 Hz", 60, 1515, 1512},
+	} {
+		cfg := defaultConfig()
+		cfg.AntiFlicker = tc.hz
+		s := &fakeSensor{exp: tc.minExp, gain: 1024, maxExp: 2016}
+		ae := NewAE(s, &cfg)
+		for i := 0; i < 200; i++ {
+			ae.Update(0.057, 0, frame) // the Duet's dim room
+		}
+		if s.exp != tc.want {
+			t.Fatalf("%s: AE settled at exposure %d, want the anti-flicker maximum %d", tc.name, s.exp, tc.want)
+		}
+		if d := ae.Digital(); d < 1.9 || d > 2.0 {
+			t.Errorf("%s: dim room at the anti-flicker maximum should use the full 2x digital gain, got %.2f", tc.name, d)
+		}
+	}
+	// One pulse short of the maximum there is still room to expose longer.
+	cfg := defaultConfig()
+	s := &fakeSensor{exp: 1210, gain: 1024, maxExp: 2016}
+	ae := NewAE(s, &cfg)
+	ae.period = 604.8
+	for i := 0; i < 100; i++ {
+		ae.updateDigital(0.057, 0)
+	}
+	if ae.Digital() != 1 {
+		t.Fatalf("exposure below the anti-flicker maximum: no digital gain, got %.2f", ae.Digital())
+	}
+}
+
+func TestFrameInterval(t *testing.T) {
+	ms := time.Millisecond
+	if d, ok := frameInterval(100*ms, 3); !ok || d != 100*ms/3 {
+		t.Errorf("three frames in 100 ms: got %v %v", d, ok)
+	}
+	if d, ok := frameInterval(33*ms, 1); !ok || d != 33*ms {
+		t.Errorf("one frame: got %v %v", d, ok)
+	}
+	for _, bad := range []struct {
+		dt   time.Duration
+		dSeq uint32
+	}{{33 * ms, 0}, {33 * ms, ^uint32(0)}, {0, 1}, {-ms, 1}} {
+		if _, ok := frameInterval(bad.dt, bad.dSeq); ok {
+			t.Errorf("%v / %d should not give an interval", bad.dt, bad.dSeq)
+		}
+	}
+	// The counter wraps: 2^32-1 -> 1 is two frames.
+	before, after := ^uint32(0), uint32(1)
+	if d, ok := frameInterval(66*ms, after-before); !ok || d != 33*ms {
+		t.Errorf("wrapped counter: got %v %v", d, ok)
+	}
+}
+
+func TestReloadKeepsTheGeometry(t *testing.T) {
+	old := defaultConfig()
+	if err := sameGeometry(old, old); err != nil {
+		t.Fatal(err)
+	}
+	c := old
+	c.CFA, c.Saturation, c.MotionArea = "GIGI/BGRG/GIGI/RGBG", 1.2, 0.05
+	if err := sameGeometry(old, c); err != nil {
+		t.Fatalf("tuning that does not change the geometry must reload: %v", err)
+	}
+	for name, edit := range map[string]func(*Config){
+		"sensor":    func(c *Config) { c.Sensor = "ov8856" },
+		"capture":   func(c *Config) { c.Capture = "Intel IPU6 ISYS Capture 1" },
+		"width":     func(c *Config) { c.Width = 1296 },
+		"height":    func(c *Config) { c.Height = 972 },
+		"outWidth":  func(c *Config) { c.OutWidth = 640 },
+		"outHeight": func(c *Config) { c.OutHeight = 360 },
+	} {
+		c := old
+		edit(&c)
+		if sameGeometry(old, c) == nil {
+			t.Errorf("a reload changing %s should be rejected", name)
+		}
+	}
+}
+
+func TestOutputFormatIsChecked(t *testing.T) {
+	pf := &v4l2PixFormat{Width: 1280, Height: 720, PixelFormat: fourcc("YUYV")}
+	if err := checkOutputFormat(pf, 1280, 720); err != nil {
+		t.Fatal(err)
+	}
+	pf.Width = 640
+	if checkOutputFormat(pf, 1280, 720) == nil {
+		t.Error("a driver that changes the size must be rejected")
+	}
+	pf.Width, pf.PixelFormat = 1280, fourcc("NV12")
+	if checkOutputFormat(pf, 1280, 720) == nil {
+		t.Error("a driver that changes the pixel format must be rejected")
+	}
+}
+
+func TestCheckCommand(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, body string) string {
+		p := dir + "/" + name
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	if err := cmdCheck([]string{write("ok.json", `{"flipV": true, "idleFps": 2, "irCoeffs": [1, 0.9, 1.1]}`)}); err != nil {
+		t.Errorf("a valid tuning file was rejected: %v", err)
+	}
+	if err := cmdCheck([]string{write("empty.json", `{}`)}); err != nil {
+		t.Errorf("the defaults alone were rejected: %v", err)
+	}
+	for name, body := range map[string]string{
+		"typo.json":     `{"idelFps": 2}`,
+		"range.json":    `{"idleFps": 99}`,
+		"syntax.json":   `{"flipV": `,
+		"cfa.json":      `{"cfa": "RGGB"}`,
+		"geometry.json": `{"outWidth": 4000}`,
+	} {
+		if cmdCheck([]string{write(name, body)}) == nil {
+			t.Errorf("%s should be rejected", name)
+		}
+	}
+	if cmdCheck([]string{dir + "/missing.json"}) == nil {
+		t.Error("a missing file should be an error, not the defaults")
+	}
+	if cmdCheck(nil) == nil {
+		t.Error("check needs a file")
 	}
 }

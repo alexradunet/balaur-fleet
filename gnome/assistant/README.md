@@ -26,7 +26,7 @@ the fleet's pi in its home role (`balaur-home-agent`, `gnome/home-agent/`), whic
 ## Tests
 
 ```sh
-nix build --impure --expr 'let p = (builtins.getFlake (toString ./.)).inputs.nixpkgs.legacyPackages.x86_64-linux; in p.callPackage ./pkgs/balaur-assistant-gjs.nix {}'
+nix build .#balaur-assistant
 ./result/libexec/balaur-assistant-tests            # all (about 15 s); a name filter as argument runs fewer
 ```
 
@@ -59,7 +59,8 @@ tools; pass `--timeout`.
 
 - `ExecStart = .../bin/balaur-assistant`; drop `MemoryDenyWriteExecute=true`
   (SpiderMonkey and V8 JIT need writable+executable memory).
-- Keep `LoadCredential=llm-key:...`, `StateDirectory=balaur-assistant`, `TZ`.
+- Keep `BALAUR_ASSISTANT_KEY_FILE` (the Mistral key's fallback file: the sops secret,
+  or `/var/lib/secrets/balaur-assistant-llm-key`), `StateDirectory=balaur-assistant`, `TZ`.
 - Put the package in `environment.systemPackages` so GNOME Shell finds
   `org.balaur.Assistant.desktop` (needed for its notifications) and the
   GSettings schema is compiled into the system profile; defaults go in a

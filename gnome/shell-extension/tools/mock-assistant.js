@@ -1,10 +1,12 @@
 #!/usr/bin/env -S gjs -m
-// A fake org.balaur.Assistant for developing the Shell extension and the app
-// without the real daemon (gnome/CONTRACT.md has the API).
+// A fake org.balaur.Assistant for developing the Shell extension without the
+// real daemon (gnome/CONTRACT.md has the API). The app has a mock of its own
+// (it needs Models, ApiKeys, SetApiKey and TestModel, which this one lacks).
 //
-// It owns the name on the session bus, implements every property and method
-// with in-memory data, and cycles State idle -> listening -> thinking ->
-// speaking -> idle (with an alarm "ringing" every fourth round) on a timer.
+// It owns the name on the session bus, implements the properties and methods
+// of INTERFACE_XML (assistant.js) with in-memory data, and cycles State
+// idle -> listening -> thinking -> speaking -> idle (with an alarm "ringing"
+// every fourth round) on a timer.
 // Muted pauses the cycle (State "muted"); Stop() returns to idle; Ask()
 // thinks, then "speaks" a canned reply.
 //

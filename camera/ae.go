@@ -30,8 +30,29 @@ type AE struct {
 	exp, gain      int32
 	frameLines     int32
 	frames         int
+	period         float64 // lines per light pulse (anti-flicker), 0 = unknown or off
 	digital        float64 // software gain once the sensor is at its limits
 	Disabled       string
+}
+
+// maxExposure is the longest exposure Update allows: the sensor's, rounded
+// down to whole light pulses when anti-flicker is on.
+func (a *AE) maxExposure() float64 {
+	if a.period > 0 && float64(a.expMax) >= a.period {
+		return math.Round(math.Floor(float64(a.expMax)/a.period) * a.period)
+	}
+	return float64(a.expMax)
+}
+
+// flickerPeriod is the length in lines of one pulse of mains-powered light
+// (twice the mains frequency), for a sensor frame time of frameDur; 0 when
+// anti-flicker is off or the frame time is not known yet.
+func (a *AE) flickerPeriod(frameDur time.Duration) float64 {
+	if a.cfg.AntiFlicker <= 0 || frameDur <= 0 || a.frameLines <= 0 {
+		return 0
+	}
+	lineTime := frameDur.Seconds() / float64(a.frameLines)
+	return 1 / (2 * float64(a.cfg.AntiFlicker)) / lineTime
 }
 
 // Digital is the extra gain applied in software (1 = none). It only rises
@@ -45,7 +66,9 @@ func (a *AE) Digital() float32 {
 
 func (a *AE) updateDigital(meanY, clipFrac float64) {
 	want := 1.0
-	if a.Disabled != "" || (a.exp >= a.expMax*9/10 && float64(a.gain) >= math.Min(float64(a.gMax), a.cfg.MaxGain*float64(a.gMin))*0.98) {
+	// Exposure counts as used up near its ceiling: one line either way is
+	// rounding in the frame time, not headroom.
+	if a.Disabled != "" || (float64(a.exp) >= a.maxExposure()*0.98 && float64(a.gain) >= math.Min(float64(a.gMax), a.cfg.MaxGain*float64(a.gMin))*0.98) {
 		want = math.Max(1, math.Min(a.cfg.MaxDigitalGain, a.cfg.AETarget/math.Max(meanY, 1e-4)))
 	}
 	if clipFrac > 0.02 && want > a.digital {
@@ -95,6 +118,7 @@ func (a *AE) String() string {
 // meanY is the raw sensor level (Stats.MeanY), not the processed colour.
 func (a *AE) Update(meanY, clipFrac float64, frameDur time.Duration) {
 	a.frames++
+	a.period = a.flickerPeriod(frameDur)
 	a.updateDigital(meanY, clipFrac)
 	if a.Disabled != "" || a.frames%4 != 0 {
 		return
@@ -113,12 +137,8 @@ func (a *AE) Update(meanY, clipFrac float64, frameDur time.Duration) {
 
 	total := float64(a.exp) * float64(a.gain) / float64(a.gMin) * ratio
 	lines := math.Max(float64(a.expMin), math.Min(float64(a.expMax), total))
-	if a.cfg.AntiFlicker > 0 && frameDur > 0 && a.frameLines > 0 {
-		lineTime := frameDur.Seconds() / float64(a.frameLines)
-		period := 1 / (2 * float64(a.cfg.AntiFlicker)) / lineTime // lines per light pulse
-		if lines >= period {
-			lines = math.Floor(lines/period) * period
-		}
+	if a.period > 0 && lines >= a.period {
+		lines = math.Floor(lines/a.period) * a.period
 	}
 	lines = math.Max(float64(a.expMin), math.Round(lines))
 	gMax := math.Min(float64(a.gMax), a.cfg.MaxGain*float64(a.gMin))

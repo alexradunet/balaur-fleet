@@ -1,6 +1,5 @@
 # Steam, for a machine that plays games locally. Separate from `gaming` (Battle.net
-# on Proton, add-ons) so a machine can have one without the other. Needs
-# `nixpkgs.config.allowUnfree` in the host.
+# on Proton, add-ons) so a machine can have one without the other.
 #
 # Remote Play is not opened: streaming goes through Sunshine and Moonlight
 # (`game-streaming`), which also covers non-Steam games and the whole desktop.

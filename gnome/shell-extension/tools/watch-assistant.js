@@ -17,7 +17,7 @@ const opt = name => {
 
 const loop = new GLib.MainLoop(null, false);
 const client = new AssistantClient(s => {
-    const overlay = s.running && !s.muted && ACTIVE_STATES.includes(s.state)
+    const overlay = s.running && ACTIVE_STATES.includes(s.state)
         ? `overlay "${overlayTitle(s.state)}" ${JSON.stringify(trimCaption(s.caption).slice(0, 70))}`
         : 'overlay hidden';
     print(`running=${s.running} state=${s.state} muted=${s.muted} | toggle "${describe(s)}" | ${overlay}`);

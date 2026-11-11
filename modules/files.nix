@@ -79,6 +79,55 @@ in
           fi
         '';
       };
+
+      # Everything the mounted volume needs before Syncthing may touch it (below).
+      prepareVolume = pkgs.writeShellApplication {
+        name = "balaur-files-volume";
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.util-linux
+          pkgs.e2fsprogs
+        ];
+        text = ''
+          # Belt and braces: never act on a directory of the root filesystem.
+          if ! mountpoint -q ${mountPoint}; then
+            echo "${mountPoint} is not a mount point; refusing to touch it" >&2
+            exit 1
+          fi
+
+          # balaur-files-image only extends the backing file. Grow the filesystem
+          # inside it to match, so raising sizeGiB is all it takes. ext4 grows
+          # while mounted, and resize2fs is a no-op once it fills the device, so
+          # this is safe to run every boot. (It never shrinks: making sizeGiB
+          # smaller leaves the filesystem as it is.)
+          resize2fs "$(findmnt -no SOURCE ${mountPoint})"
+
+          # The synced folder is this subdirectory, so the volume's own root and
+          # its lost+found stay out of the synced set. The root itself stays
+          # root-owned and read-only to users, so files can only be dropped in
+          # the place that actually syncs.
+          chown root:root ${mountPoint}
+          chmod 0755 ${mountPoint}
+          # A numeric mode does not clear setgid on a *directory* — GNU chmod
+          # preserves it deliberately — and the volume root carries one over from
+          # when it was the synced folder itself. Say it explicitly.
+          chmod g-s ${mountPoint}
+
+          install -d -o ${config.services.syncthing.user} \
+                       -g ${config.services.syncthing.group} -m 2775 ${folderPath}
+
+          # Syncthing creates its .stfolder marker only for a folder it has never
+          # seen. Once there is an index it refuses, since a missing marker is how
+          # it recognises "my disk did not mount" rather than "everything was
+          # deleted" — it would otherwise propagate the deletion of everything.
+          # Here systemd makes that guarantee far better than a marker file can:
+          # syncthing Requires the mount, and this unit refuses to run unless the
+          # path really is a mount point. So create the marker ourselves, which
+          # also means a folder survives being moved or an image being replaced.
+          install -d -o ${config.services.syncthing.user} \
+                       -g ${config.services.syncthing.group} -m 0755 ${folderPath}/.stfolder
+        '';
+      };
     in
     {
       options.balaur.files = {
@@ -169,64 +218,9 @@ in
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
+            ExecStart = lib.getExe prepareVolume;
           };
-          path = [
-            pkgs.coreutils
-            pkgs.util-linux
-            pkgs.e2fsprogs
-          ];
-          script = ''
-            # Belt and braces: never act on a directory of the root filesystem.
-            if ! mountpoint -q ${mountPoint}; then
-              echo "${mountPoint} is not a mount point; refusing to touch it" >&2
-              exit 1
-            fi
-
-            # balaur-files-image only extends the backing file. Grow the filesystem
-            # inside it to match, so raising sizeGiB is all it takes. ext4 grows
-            # while mounted, and resize2fs is a no-op once it fills the device, so
-            # this is safe to run every boot. (It never shrinks: making sizeGiB
-            # smaller leaves the filesystem as it is.)
-            resize2fs "$(findmnt -no SOURCE ${mountPoint})"
-
-            # The synced folder is this subdirectory, so the volume's own root and
-            # its lost+found stay out of the synced set. The root itself stays
-            # root-owned and read-only to users, so files can only be dropped in
-            # the place that actually syncs.
-            chown root:root ${mountPoint}
-            chmod 0755 ${mountPoint}
-            # A numeric mode does not clear setgid on a *directory* — GNU chmod
-            # preserves it deliberately — and the volume root carries one over from
-            # when it was the synced folder itself. Say it explicitly.
-            chmod g-s ${mountPoint}
-
-            install -d -o ${config.services.syncthing.user} \
-                         -g ${config.services.syncthing.group} -m 2775 ${folderPath}
-
-            # Syncthing creates its .stfolder marker only for a folder it has never
-            # seen. Once there is an index it refuses, since a missing marker is how
-            # it recognises "my disk did not mount" rather than "everything was
-            # deleted" — it would otherwise propagate the deletion of everything.
-            # Here systemd makes that guarantee far better than a marker file can:
-            # syncthing Requires the mount, and this unit refuses to run unless the
-            # path really is a mount point. So create the marker ourselves, which
-            # also means a folder survives being moved or an image being replaced.
-            install -d -o ${config.services.syncthing.user} \
-                         -g ${config.services.syncthing.group} -m 0755 ${folderPath}/.stfolder
-          '';
         };
-
-        systemd.tmpfiles.rules = [
-          # Nothing else creates configDir. The upstream module has no StateDirectory
-          # and creates it only in an ExecStartPre gated on `cert`/`key` being set; the
-          # stock setup gets away with it because the default configDir sits inside
-          # dataDir, which `createHome` makes. Ours is deliberately outside it (keys and
-          # database out of the synced tree), so Syncthing cannot start without this:
-          # it fails with `mkdir /var/lib/syncthing: permission denied`.
-          # 0700 because this holds the device's private key, as upstream's own
-          # `install -dm700` does.
-          "d ${config.services.syncthing.configDir} 0700 syncthing media - -"
-        ];
 
         # ---- syncthing ----
         services.syncthing = {
@@ -240,6 +234,8 @@ in
           # and the folder below sets its path explicitly, so point it at the state
           # directory instead and leave the volume to balaur-files-volume.
           dataDir = "/var/lib/syncthing";
+          # The same directory: `createHome` makes it, 0700 and syncthing-owned, which
+          # suits the device key and the database kept there.
           configDir = "/var/lib/syncthing";
           guiAddress = "0.0.0.0:8384";
           openDefaultPorts = true; # 22000 sync + 21027 discovery

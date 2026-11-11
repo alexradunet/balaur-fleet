@@ -31,10 +31,33 @@ export function truncate(s: string, n: number): string {
 	return c.length <= n ? s : `${c.slice(0, n).join("")}…`;
 }
 
+// No answer from outside is read past this many bytes.
+export const MAX_BODY_BYTES = 2 << 20;
+
+/** The body as text; an error as soon as it is longer than `max` bytes. */
+export async function readText(res: Response, max = MAX_BODY_BYTES): Promise<string> {
+	if (!res.body) return "";
+	const reader = res.body.getReader();
+	const decoder = new TextDecoder();
+	let out = "";
+	let size = 0;
+	for (;;) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		size += value.length;
+		if (size > max) {
+			await reader.cancel();
+			throw new Error(`the answer is longer than ${max} bytes`);
+		}
+		out += decoder.decode(value, { stream: true });
+	}
+	return out + decoder.decode();
+}
+
 async function getJSON(url: string, signal: AbortSignal): Promise<any> {
 	const res = await fetch(url, { headers: { Accept: "application/json" }, signal });
 	if (!res.ok) throw new Error(`${url}: ${res.status} ${res.statusText}`);
-	return res.json();
+	return JSON.parse(await readText(res));
 }
 
 // WMO weather interpretation codes, as Open-Meteo reports them.
@@ -47,11 +70,23 @@ const wmo: Record<number, string> = {
 	96: "thunderstorm with hail", 99: "thunderstorm with heavy hail",
 };
 
-export async function weather(home: Location, place: string, days: number, signal: AbortSignal): Promise<unknown> {
+/** Open-Meteo's endpoints; the parameter of `weather` lets a test point them elsewhere. */
+export const OPEN_METEO = {
+	geocoding: "https://geocoding-api.open-meteo.com/v1/search",
+	forecast: "https://api.open-meteo.com/v1/forecast",
+};
+
+export async function weather(
+	home: Location,
+	place: string,
+	days: number,
+	signal: AbortSignal,
+	api = OPEN_METEO,
+): Promise<unknown> {
 	let loc = home;
 	if (place && fold(place) !== fold(home.name ?? "")) {
 		const g = await getJSON(
-			`https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&name=${encodeURIComponent(place)}`,
+			`${api.geocoding}?count=1&language=en&name=${encodeURIComponent(place)}`,
 			signal,
 		);
 		const r = g?.results?.[0];
@@ -61,7 +96,7 @@ export async function weather(home: Location, place: string, days: number, signa
 	if (!loc.latitude && !loc.longitude) throw new Error("home location is not configured");
 	if (!(days >= 1 && days <= 7)) days = 2;
 	const f = await getJSON(
-		`https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude.toFixed(6)}&longitude=${loc.longitude.toFixed(6)}` +
+		`${api.forecast}?latitude=${loc.latitude.toFixed(6)}&longitude=${loc.longitude.toFixed(6)}` +
 			`&timezone=auto&forecast_days=${days}` +
 			"&current=temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,weather_code,wind_speed_10m,is_day" +
 			"&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_speed_10m_max",
@@ -196,15 +231,21 @@ export class News {
 	private at = 0;
 
 	private feeds: Feed[];
+	private feedTimeoutMs: number;
 
-	constructor(feeds: Feed[]) {
+	/** `feedTimeoutMs`: how long one feed may take, so a slow one does not hold up the others. */
+	constructor(feeds: Feed[], feedTimeoutMs = 8000) {
 		this.feeds = feeds;
+		this.feedTimeoutMs = feedTimeoutMs;
 	}
 
 	private async fetchFeed(f: Feed, signal: AbortSignal): Promise<Headline[]> {
-		const res = await fetch(f.url, { headers: { "User-Agent": "balaur-assistant/0.1 (+home)" }, signal });
+		const res = await fetch(f.url, {
+			headers: { "User-Agent": "balaur-assistant/0.1 (+home)" },
+			signal: AbortSignal.any([signal, AbortSignal.timeout(this.feedTimeoutMs)]),
+		});
 		if (!res.ok) throw new Error(`${f.url}: ${res.status} ${res.statusText}`);
-		return parseFeed(await res.text(), f);
+		return parseFeed(await readText(res), f);
 	}
 
 	async headlines(topic: string, lang: string, signal: AbortSignal): Promise<unknown> {
@@ -269,7 +310,7 @@ export async function webSearch(
 		}),
 		signal,
 	});
-	const body = await res.text();
+	const body = await readText(res);
 	if (!res.ok) throw new Error(`POST /v1/conversations: ${res.status} ${res.statusText}: ${truncate(body, 300)}`);
 	let out: any;
 	try {

@@ -10,7 +10,9 @@ import Gtk from 'gi://Gtk?version=4.0';
 import Adw from 'gi://Adw?version=1';
 
 import {AssistantGate} from '../gate.js';
-import {actionIconButton, clearChildren, formatCountdown, formatWhen, parseTime, secondsUntil} from '../util.js';
+import {
+    actionIconButton, clearChildren, clockText, escape, formatCountdown, formatWhen, parseTime, secondsUntil,
+} from '../util.js';
 
 const REPEAT_TEXT = {daily: 'every day', weekly: 'every week'};
 
@@ -55,8 +57,8 @@ class TimersPage extends Adw.Bin {
         this._key = key;
 
         const name = this._assistant.name;
-        this._empty.description = `Say “${this._assistant.wakePhrase}, set a timer for ten minutes” ` +
-            `or “remind me tomorrow at nine to call the bank”. ${name}'s alarms show up here.`;
+        this._empty.description = `Say “${escape(this._assistant.wakePhrase)}, set a timer for ten minutes” ` +
+            `or “remind me tomorrow at nine to call the bank”. ${escape(name)}'s alarms show up here.`;
         this._stack.visible_child_name = s.timers.length || s.reminders.length ? 'items' : 'empty';
 
         this._timers.visible = s.timers.length > 0;
@@ -65,8 +67,8 @@ class TimersPage extends Adw.Bin {
         for (const t of s.timers) {
             const ends = parseTime(t.ends);
             const row = new Adw.ActionRow({
-                title: GLib.markup_escape_text(t.label || 'Timer', -1),
-                subtitle: ends ? `Rings at ${ends.format('%H:%M:%S')}` : '',
+                title: escape(t.label || 'Timer'),
+                subtitle: ends ? `Rings at ${clockText(ends, undefined, true)}` : '',
             });
             row.add_prefix(new Gtk.Image({icon_name: 'preferences-system-time-symbolic',
                 pixel_size: 24}));
@@ -87,8 +89,8 @@ class TimersPage extends Adw.Bin {
             const when = formatWhen(parseTime(r.at));
             const repeat = REPEAT_TEXT[r.repeat] ?? r.repeat;
             const row = new Adw.ActionRow({
-                title: GLib.markup_escape_text(r.text || 'Reminder', -1),
-                subtitle: [when, repeat].filter(Boolean).join(' · '),
+                title: escape(r.text || 'Reminder'),
+                subtitle: escape([when, repeat].filter(Boolean).join(' · ')),
             });
             row.add_prefix(new Gtk.Image({icon_name: 'alarm-symbolic', pixel_size: 24}));
             row.add_suffix(actionIconButton('window-close-symbolic', 'Cancel reminder',

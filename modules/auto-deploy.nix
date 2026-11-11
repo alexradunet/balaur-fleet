@@ -17,14 +17,19 @@
 #   - After switching, the machine must still reach GitHub: that is how every
 #     later fix arrives, since nobody logs in to repair a machine. If it cannot
 #     within two minutes, it switches back to the generation it came from, and
-#     that counts as a failed attempt.
+#     that counts as a failed attempt. A switch that fails after it has already
+#     activated (a unit that does not start) gets the same check. A commit that
+#     leaves this machine's system unchanged has nothing to switch back.
+#   - A build or switch that hangs is killed after two hours, and the GitHub
+#     lookup after 30 seconds.
 #   - A manual `nixos-rebuild switch` from a working tree (testing something
 #     before you push) stays until the next push: only a new commit on main
 #     makes it act.
 #
 # It also fast-forwards the admin's clone of the repo, so no machine has a stale
-# checkout when you sit down at it. A clone with local commits or a dirty tree is
-# left alone (`git pull --ff-only` refuses), never reset.
+# checkout when you sit down at it. A clone with uncommitted changes to tracked
+# files is left alone (an agent may be editing there), and one with local commits
+# that `git pull --ff-only` refuses is too; it is never reset.
 #
 #   balaur-fleet-status                   every machine: deployed commit, state, failed units
 #   journalctl -u balaur-auto-deploy      what this machine did
@@ -74,10 +79,11 @@ in
           pkgs.coreutils
           pkgs.gitMinimal
           pkgs.util-linux # runuser
+          config.nix.package.out # nix-env, for the roll-back
         ];
         text = ''
           state=${stateDir}
-          main() { git ls-remote ${remote} refs/heads/${cfg.branch} | cut -f1; }
+          main() { timeout 30 git ls-remote ${remote} refs/heads/${cfg.branch} | cut -f1; }
 
           rev=$(main || true)
           if [ -z "$rev" ]; then
@@ -97,10 +103,15 @@ in
             case $attempts in
               1) wait=900 ;;
               2) wait=3600 ;;
-              *) exit 1 ;; # given up: stays failed until the next push
+              *)
+                # Given up: stays failed until the next push.
+                echo "given up on $rev after $attempts attempts, until the next push; remove $state/tried to try again"
+                exit 1
+                ;;
             esac
             if [ "$since" -lt "$wait" ]; then
               # Still failed: keep the unit failed between attempts, so it shows.
+              echo "$rev failed attempt $attempts of 3; next attempt in $((wait - since)) seconds; remove $state/tried to try now"
               exit 1
             fi
           fi
@@ -113,21 +124,43 @@ in
 
           ${lib.optionalString (cfg.clone != null) ''
             if [ -d ${lib.escapeShellArg cfg.clone}/.git ]; then
-              runuser -u ${user} -- env HOME=${config.users.users.${user}.home} \
-                git -C ${lib.escapeShellArg cfg.clone} pull --ff-only --quiet \
-                || echo "left ${cfg.clone} alone: it has local changes or commits"
+              clone_git() {
+                runuser -u ${user} -- env HOME=${config.users.users.${user}.home} \
+                  git -C ${lib.escapeShellArg cfg.clone} "$@"
+              }
+              if [ -n "$(clone_git status --porcelain --untracked-files=no)" ]; then
+                echo "left ${cfg.clone} alone: it has uncommitted changes"
+              elif ! clone_git pull --ff-only; then
+                echo "left ${cfg.clone} alone: git pull failed (see above)"
+              fi
             fi
           ''}
 
-          if ! ${lib.getExe config.system.build.nixos-rebuild} switch --flake "github:${cfg.repo}/$rev#${host}"; then
-            echo "attempt $attempts of 3 at $rev failed; see above"
-            exit 1
+          # The system profile before the switch: what a roll-back returns to.
+          profile=/nix/var/nix/profiles/system
+          before=$(readlink -f "$profile")
+
+          status=0
+          ${lib.getExe config.system.build.nixos-rebuild} switch --flake "github:${cfg.repo}/$rev#${host}" || status=$?
+          after=$(readlink -f "$profile")
+
+          if [ "$status" -ne 0 ]; then
+            echo "attempt $attempts of 3 at $rev failed (exit $status); see above"
+            # The switch sets the profile first and activates after, so a failed
+            # activation (a unit that does not start) leaves the new generation live.
+            if [ "$after" = "$before" ]; then
+              exit 1
+            fi
+            echo "the new generation is already the system profile; checking that GitHub still answers"
           fi
 
           # The way every later fix arrives: GitHub must still answer. It did a
           # moment ago, so a couple of minutes of silence means this commit broke it.
           for try in 1 2 3 4 5 6; do
             if [ -n "$(main || true)" ]; then
+              if [ "$status" -ne 0 ]; then
+                exit 1
+              fi
               echo "$rev" >"$state/deployed"
               echo "deployed $rev"
               exit 0
@@ -135,8 +168,15 @@ in
             echo "GitHub does not answer after the switch ($try/6)"
             sleep 20
           done
-          echo "this machine lost GitHub after switching to $rev: switching back (attempt $attempts of 3)"
-          ${lib.getExe config.system.build.nixos-rebuild} switch --rollback
+
+          if [ "$after" = "$before" ]; then
+            echo "GitHub does not answer, but $rev did not change this machine's system: nothing to switch back"
+            exit 1
+          fi
+          echo "this machine lost GitHub after switching to $rev: switching back to $before (attempt $attempts of 3)"
+          if ! { nix-env -p "$profile" --set "$before" && "$before/bin/switch-to-configuration" switch; }; then
+            echo "switching back to $before failed"
+          fi
           exit 1
         '';
       };
@@ -155,11 +195,13 @@ in
           main=$(git ls-remote ${remote} refs/heads/${cfg.branch} | cut -f1 || true)
           echo "${cfg.branch} on GitHub: $(short "''${main:--}")"
           printf '%-8s %-9s %-10s %-22s %s\n' MACHINE DEPLOYED STATE TRYING "FAILED UNITS"
-          for h in ${lib.escapeShellArgs (lib.attrNames fleet)}; do
+          for entry in ${lib.escapeShellArgs (lib.mapAttrsToList (name: h: "${name}=${h.address}") fleet)}; do
+            h=''${entry%%=*}
+            address=''${entry#*=}
             if [ "$h" = ${host} ]; then
               line=$(balaur-deploy-state)
             else
-              line=$(ssh -n -o BatchMode=yes -o ConnectTimeout=5 "$h" balaur-deploy-state 2>/dev/null || true)
+              line=$(ssh -n -o BatchMode=yes -o ConnectTimeout=5 "$address" balaur-deploy-state 2>/dev/null || true)
             fi
             if [ -z "$line" ]; then
               printf '%-8s %s\n' "$h" "no answer (asleep, off the tailnet, or no auto-deploy yet)"
@@ -218,6 +260,8 @@ in
           serviceConfig = {
             Type = "oneshot";
             ExecStart = lib.getExe deploy;
+            # A build or a switch that hangs must not hold the timer forever.
+            TimeoutStartSec = "2h";
             StateDirectory = "balaur-auto-deploy";
             # A build waits for idle CPU, like the nix daemon on the builders.
             Nice = 19;

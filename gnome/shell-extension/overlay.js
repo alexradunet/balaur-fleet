@@ -154,7 +154,7 @@ export class AssistantOverlay {
     sync(status) {
         if (!this._root)
             return;
-        const state = status.running && !status.muted ? status.state : 'idle';
+        const state = status.running ? status.state : 'idle';
         if (!ACTIVE_STATES.includes(state)) {
             this._hide();
             return;

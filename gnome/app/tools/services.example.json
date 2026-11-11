@@ -3,7 +3,7 @@
     "name": "Jellyfin",
     "description": "Films, series and music",
     "icon": "🎬",
-    "url": "http://balaur.local:8096",
+    "url": "http://tablet:8096",
     "unit": "jellyfin.service",
     "desktopId": "org.jellyfin.JellyfinDesktop.desktop",
     "group": "Media"
@@ -21,7 +21,7 @@
     "name": "AdGuard Home",
     "description": "Blocks ads and trackers for the whole network",
     "icon": "🛡️",
-    "url": "http://balaur.local:3000",
+    "url": "http://tablet:3000",
     "unit": "adguardhome.service",
     "desktopId": null,
     "group": "Network"

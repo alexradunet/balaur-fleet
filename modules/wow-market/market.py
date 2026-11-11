@@ -1,9 +1,12 @@
 """wow-market: World of Warcraft: Forever's auction house, from Auctionator's scans.
 
-Auctionator (the add-on) keeps the lowest buyout and the number listed of every item
-it saw in its last scan, and writes them to its SavedVariables file when the game
-reloads its UI or logs out. This service watches that file, keeps each new scan, and
-serves a page that turns the prices into decisions:
+Auctionator (the add-on) keeps, per realm and item, the last lowest buyout it saw
+(m) and, per day, the highest lowest buyout (h) and the highest number listed (a). It
+writes them to its SavedVariables file when the game reloads its UI or logs out. An
+item missing from a scan keeps its old m, so the newest day in the h tables is the
+scan day and only the items with an h entry for it were on the auction house then.
+This service watches the file, keeps each new scan, and serves a page that turns the
+prices into decisions:
 
   crafts      every recipe of a profession whose result and materials are on the AH
               (or sold by vendors: thread, salt, dyes...), with the profit of
@@ -17,7 +20,8 @@ GET /api/report returns the same as JSON (for the OS agent).
 
 Item names and recipes are Forever's own: the game tables of the installed build
 (.build.info), fetched once per build from wago.tools and kept small in
-$STATE_DIRECTORY/data. Scans are kept in $STATE_DIRECTORY/scans/<realm>/.
+$STATE_DIRECTORY/data. Scans are kept in $STATE_DIRECTORY/scans/<realm>/ for
+KEEP_DAYS (the newest of a realm always stays).
 
 Vendor prices come from the game itself: Blizzard changes some from its servers
 after the tables are made (an Iron Grenade is 5s in them, 1s 25c in the game). The
@@ -56,6 +60,9 @@ STATE = os.environ.get("STATE_DIRECTORY", "/var/lib/wow-market")
 GAME_ROOT = CONFIG["gameRoot"]  # ".../World of Warcraft"
 GAME = os.path.join(GAME_ROOT, CONFIG["flavour"])  # ".../_forever_"
 AH_CUT = 0.05
+KEEP_DAYS = 90  # scans kept on disk; an item's history and its page never reach further
+MAX_SCANS = 120  # scans held in memory for the report (the service has MemoryMax=512M)
+DATA_VERSION = 3  # of the cached game tables, in their file name: 3 has what a vendor asks per item, not per stack
 
 PROFESSIONS = {
     164: "Blacksmithing",
@@ -132,7 +139,9 @@ def build_data(build):
     csv.field_size_limit(1 << 30)
     items = {}
     for r in wago_csv("ItemSparse", build):
-        items[int(r["ID"])] = [r["Display_lang"], int(r["SellPrice"] or 0), int(r["BuyPrice"] or 0)]
+        # BuyPrice is the price of a vendor stack of VendorStackCount items.
+        buy = int(r["BuyPrice"] or 0) // max(1, int(r["VendorStackCount"] or 1))
+        items[int(r["ID"])] = [r["Display_lang"], int(r["SellPrice"] or 0), buy]
     # Forever leaves some old items out of its own table (it sends them to the game
     # later). Classic Era's table still names them; its vendor prices are not
     # Forever's, so those items get none.
@@ -168,26 +177,43 @@ _data = {"build": None, "items": {}, "recipes": []}
 _data_lock = threading.Lock()
 
 
+_fetch = {"build": None, "fails": 0, "retry": 0.0}  # the table fetch's backoff
+
+
+def read_tables(path):
+    """The cached tables at path."""
+    with gzip.open(path, "rt", encoding="utf-8") as f:
+        data = json.load(f)
+    data["items"] = {int(k): v for k, v in data["items"].items()}
+    return data
+
+
 def load_data():
     """Loads the cached tables of the installed build, fetching them when missing."""
     build = game_build()
     if not build or build == _data["build"]:
         return
-    path = os.path.join(STATE, "data", f"{build}.v2.json.gz")
-    if not os.path.exists(path):
+    path = os.path.join(STATE, "data", f"{build}.v{DATA_VERSION}.json.gz")
+    try:
+        data = read_tables(path)
+    except Exception:  # missing, or half-written: fetch them again
+        data = None
+    if data is None:
+        if _fetch["build"] == build and time.time() < _fetch["retry"]:
+            return
         log(f"fetching the game tables of {build} from wago.tools")
         try:
             data = build_data(build)
-        except Exception as e:  # keep the old tables until the next try
-            log(f"could not fetch the tables of {build}: {e}")
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with gzip.open(path + ".tmp", "wt", encoding="utf-8") as f:
+                json.dump(data, f)
+            os.replace(path + ".tmp", path)
+        except Exception as e:  # keep the old tables, and wait longer after each failure
+            fails = min(20, _fetch["fails"] + 1) if _fetch["build"] == build else 1
+            wait = min(3600, CONFIG["pollSeconds"] * 2**fails)
+            _fetch.update(build=build, fails=fails, retry=time.time() + wait)
+            log(f"could not fetch the tables of {build}: {e}; next try in {wait:.0f} s")
             return
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with gzip.open(path + ".tmp", "wt", encoding="utf-8") as f:
-            json.dump(data, f)
-        os.replace(path + ".tmp", path)
-    with gzip.open(path, "rt", encoding="utf-8") as f:
-        data = json.load(f)
-    data["items"] = {int(k): v for k, v in data["items"].items()}
     with _data_lock:
         _data.update(data)
     log(f"game tables of {build}: {len(data['items'])} items, {len(data['recipes'])} recipes")
@@ -223,8 +249,23 @@ def lua_string(raw, p):
         p += 1
 
 
+def _text(k):
+    return k.decode("latin1") if isinstance(k, bytes) else str(k)
+
+
+def _days(table):
+    """{scan day: value} from one of an item's per-day tables (h, l, a)."""
+    out = {}
+    if isinstance(table, dict):
+        for k, x in table.items():
+            k = int(k) if isinstance(k, (int, float)) else _text(k)
+            if isinstance(k, int) or k.isdigit():
+                out[int(k)] = x
+    return out
+
+
 def read_saved_variables(path):
-    """{realm: {item id: (lowest buyout, number listed)}} from Auctionator.lua."""
+    """{realm: {item id: (lowest buyout, number listed)}} of each realm's newest scan day."""
     raw = open(path, "rb").read()
     start = raw.find(b"AUCTIONATOR_PRICE_DATABASE = {")
     if start < 0:
@@ -233,33 +274,20 @@ def read_saved_variables(path):
     realms = {}
     for m in re.finditer(rb'\["([^"]+)"\] = "', raw[start:end]):
         db = cbor2.loads(lua_string(raw, start + m.end()))
-        records = {}
+        entries = []
         for key, v in db.items():
-            key = key.decode("latin1") if isinstance(key, bytes) else str(key)
+            key = _text(key)
             if not key.isdigit() or not isinstance(v, dict):
                 continue
-            v = {(k.decode() if isinstance(k, bytes) else k): x for k, x in v.items()}
-            if "m" not in v:
-                continue
-            days = {
-                str(k.decode() if isinstance(k, bytes) else k): x
-                for k, x in (v.get("h") or {}).items()
-            }
-            listed = {
-                str(k.decode() if isinstance(k, bytes) else k): x
-                for k, x in (v.get("a") or {}).items()
-            } if isinstance(v.get("a"), dict) else {}
-            records[int(key)] = (int(v["m"]), days, listed)
-        # Auctionator never removes an item that sold out: its last price stays. Only
-        # items it saw on the newest scan day are on the AH now (its days count from
-        # its own day 0; the highest one present is the scan's).
-        today = max((int(d) for _, days, _ in records.values() for d in days), default=None)
-        prices = {}
-        for i, (low, days, listed) in records.items():
-            if today is not None and str(today) not in days:
-                continue
-            prices[i] = (low, int(listed.get(str(today), 0)))
-        realms[m.group(1).decode("utf-8", "replace")] = prices
+            v = {_text(k): x for k, x in v.items()}
+            if "m" in v:
+                entries.append((int(key), int(v["m"]), _days(v.get("h")), _days(v.get("a"))))
+        # m is the last price seen, however long ago: only the items with a price
+        # for the newest day were on the auction house in the last scan.
+        day = max((max(h) for _, _, h, _ in entries if h), default=None)
+        realms[m.group(1).decode("utf-8", "replace")] = {
+            i: (price, int(listed.get(day, 0))) for i, price, h, listed in entries if day in h
+        }
     return realms
 
 
@@ -345,8 +373,8 @@ def poll():
             if not prices:
                 continue
             digest = hashlib.sha256(json.dumps(sorted(prices.items())).encode()).hexdigest()
-            files = scan_files(realm)
-            if files and read_scan(files[-1]).get("digest") == digest:
+            last = latest(realm)
+            if last and last.get("digest") == digest:
                 continue
             d = realm_dir(realm)
             os.makedirs(d, exist_ok=True)
@@ -358,15 +386,44 @@ def poll():
             _cache.clear()
 
 
+def scan_time(path):
+    return int(os.path.basename(path).split(".")[0])
+
+
+def prune():
+    """Deletes the scans older than KEEP_DAYS, except each realm's newest."""
+    cutoff = time.time() - max(KEEP_DAYS, CONFIG["historyDays"]) * 86400
+    try:
+        realms_on_disk = os.listdir(os.path.join(STATE, "scans"))
+    except FileNotFoundError:
+        return
+    for realm in realms_on_disk:
+        for path in scan_files(realm)[:-1]:
+            if scan_time(path) < cutoff:
+                try:
+                    os.remove(path)
+                except OSError as e:
+                    log(f"could not remove {path}: {e}")
+                    continue
+                _cache.clear()
+
+
 def watcher():
+    pruned = 0.0
     while True:
-        try:
-            load_data()
-            install_addon()
-            read_game_sell()
-            poll()
-        except Exception as e:
-            log(f"watcher: {e}")
+        # Independent: a failing table fetch or add-on copy must not stop new scans
+        # being kept.
+        for step in (load_data, install_addon, read_game_sell, poll):
+            try:
+                step()
+            except Exception as e:
+                log(f"watcher, {step.__name__}: {e}")
+        if time.time() - pruned > 3600:
+            pruned = time.time()
+            try:
+                prune()
+            except Exception as e:
+                log(f"watcher, prune: {e}")
         time.sleep(CONFIG["pollSeconds"])
 
 
@@ -384,23 +441,41 @@ def realms():
     for n in names:
         files = scan_files(n)
         if files:
-            out.append((n, int(os.path.basename(files[-1]).split(".")[0]), len(files)))
+            out.append((n, scan_time(files[-1]), len(files)))
     return sorted(out, key=lambda r: -r[1])
 
 
 def history(realm, days):
+    """The newest scans of the last `days` days (at most MAX_SCANS), oldest first."""
     key = ("history", realm, days)
     if key not in _cache:
         cutoff = time.time() - days * 86400
-        _cache[key] = [read_scan(f) for f in scan_files(realm) if int(os.path.basename(f).split(".")[0]) >= cutoff]
+        scans = []
+        for f in [f for f in scan_files(realm) if scan_time(f) >= cutoff][-MAX_SCANS:]:
+            try:
+                scans.append(read_scan(f))
+            except Exception as e:  # half-written, or a format change
+                log(f"could not read {f}: {e}")
+        _cache[key] = scans
     return _cache[key]
+
+
+def latest(realm):
+    """The realm's newest readable scan, however old, or None."""
+    for f in reversed(scan_files(realm)):
+        try:
+            return read_scan(f)
+        except Exception as e:
+            log(f"could not read {f}: {e}")
+    return None
 
 
 def report(realm, profession):
     scans = history(realm, CONFIG["historyDays"])
-    if not scans:
+    newest = scans[-1] if scans else latest(realm)  # a scan older than the window still beats none
+    if newest is None:
         return None
-    now = scans[-1]["p"]
+    now = newest["p"]
     with _data_lock:
         items, recipes = _data["items"], _data["recipes"]
     name = lambda i: items.get(i, [f"item {i}"])[0]
@@ -470,8 +545,9 @@ def report(realm, profession):
     dear.sort(key=lambda e: e["diff"])
 
     return {
-        "realm": scans[-1].get("realm", realm),
-        "scanned": scans[-1]["t"],
+        "realm": newest.get("realm", realm),
+        "scanned": newest["t"],
+        "age_days": int((time.time() - newest["t"]) // 86400),
         "scans": len(scans),
         "items": len(now),
         "build": _data["build"],
@@ -488,15 +564,36 @@ def report(realm, profession):
 def item_history(realm, query):
     with _data_lock:
         items = _data["items"]
-    scans = history(realm, 3650)
-    present = set().union(*(s["p"].keys() for s in scans)) if scans else set()
     q = query.lower()
-    matches = sorted((i for i in present if i in items and q in items[i][0].lower()), key=lambda i: items[i][0])
-    out = []
-    for i in matches[:5]:
-        rows = [(s["t"], *s["p"][i]) for s in scans if i in s["p"]]
-        out.append({"item": items[i][0], "id": i, "vendor": _game_sell.get(i), "history": rows})
-    return out
+    found = {}  # the five first items by name that match -> rows
+    rejected = set()
+    hit = {}  # item id -> does its name match
+    for f in scan_files(realm):  # one scan in memory at a time
+        try:
+            s = read_scan(f)
+        except Exception as e:
+            log(f"could not read {f}: {e}")
+            continue
+        for i, (m, n) in s["p"].items():
+            if i not in found:
+                if i in rejected or i not in items:
+                    continue
+                if i not in hit:
+                    hit[i] = q in items[i][0].lower()
+                if not hit[i]:
+                    continue
+                found[i] = []
+                if len(found) > 5:  # the last by name never comes back
+                    last = max(found, key=lambda j: items[j][0])
+                    del found[last]
+                    rejected.add(last)
+                    if last == i:
+                        continue
+            found[i].append((s["t"], m, n))
+    return [
+        {"item": items[i][0], "id": i, "vendor": _game_sell.get(i), "history": found[i]}
+        for i in sorted(found, key=lambda i: items[i][0])
+    ]
 
 
 # ---------------------------------------------------------------- page
@@ -555,28 +652,40 @@ def profit_td(p):
     return td(money(p), "num " + ("pos" if p > 0 else "neg"))
 
 
+NO_SCAN = "<p>No scan yet. In the game, open the auction house, run Auctionator's Full Scan, then type /reload. The scan shows up here within a minute.</p>"
+
+
 def page(realm, profession, query):
     known = realms()
     if not known:
-        return render("<p>No scan yet. In the game, open the auction house, run Auctionator's Full Scan, then type /reload. The scan shows up here within a minute.</p>")
+        return render(NO_SCAN)
     realm = realm if realm in [r[0] for r in known] else known[0][0]
     r = report(realm, profession)
+    if r is None:  # the realm's scans went unreadable
+        return render(NO_SCAN)
     q = lambda **kw: "?" + urllib.parse.urlencode({"realm": realm, "prof": profession, **kw})
+    age = ""
+    if r["age_days"] >= 1:
+        age = f' ({r["age_days"]} day{"s" if r["age_days"] != 1 else ""} ago)'
     out = [
-        f'<p class="sub">{html.escape(r["realm"])} · last scan {when(r["scanned"])} · {r["items"]} items · '
+        f'<p class="sub">{html.escape(r["realm"])} · last scan {when(r["scanned"])}{age} · {r["items"]} items · '
         f'{r["scans"]} scans in {CONFIG["historyDays"]} days · game data {html.escape(r["build"] or "loading")} · '
         f'vendor prices of {r["gameVendorPrices"]} items from the game</p>'
     ]
+    if r["scans"] == 0:
+        out.append(f'<p class="note">The last scan is older than {CONFIG["historyDays"]} days: these prices may be long gone. '
+                   'Run a Full Scan in the game and /reload.</p>')
     if len(known) > 1:
         out.append("<nav>" + "".join(f'<a class="{"on" if n == realm else ""}" href="?realm={urllib.parse.quote(n)}">{html.escape(n)}</a>' for n, _, _ in known) + "</nav>")
     out.append(f'<form method="get"><input type="hidden" name="realm" value="{html.escape(realm)}"><input type="hidden" name="prof" value="{html.escape(profession)}">'
                f'<input name="q" placeholder="An item\'s price history" value="{html.escape(query)}"><button>Look up</button></form>')
     if query:
-        for it in item_history(realm, query):
+        found = item_history(realm, query)
+        for it in found:
             rows = [[td(when(t)), td(money(m), "num"), td(n, "num")] for t, m, n in reversed(it["history"])]
             out.append(f'<h2>{html.escape(it["item"])} <span class="note">vendor pays {money(it["vendor"]) if it["vendor"] is not None else "unknown yet"}</span></h2>')
             out.append(table([("Scan", ""), ("Lowest buyout", "num"), ("Listed", "num")], rows))
-        if not item_history(realm, query):
+        if not found:
             out.append(f'<p class="note">No item matching “{html.escape(query)}” in the scans.</p>')
 
     out.append("<h2>Crafts</h2><nav>" + "".join(f'<a class="{"on" if p == profession else ""}" href="{q(prof=p)}">{p}</a>' for p in sorted(set(PROFESSIONS.values()))) + "</nav>")

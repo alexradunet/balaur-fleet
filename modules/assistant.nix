@@ -189,13 +189,22 @@ in
             prompt="say each twice, a few seconds apart: \"Hey Jarvis\", \"Alexa\", \"Hey Mycroft\", \"Okay Nabu\", \"Hey Rhasspy\""
           fi
           secs="''${1:-$( [ $model = all ] && echo 40 || echo 15 )}"
-          # Muted, the assistant doesn't answer the wake words said for the test.
+          # Muted, the assistant doesn't answer the wake words said for the test;
+          # afterwards the microphone is as the household had left it.
+          getmute() {
+            ${inSession ''
+              gdbus call --session --dest org.balaur.Assistant --object-path /org/balaur/Assistant \
+                            --method org.freedesktop.DBus.Properties.Get org.balaur.Assistant1 Muted''} 2>/dev/null || true
+          }
           setmute() {
             ${inSession ''
               gdbus call --session --dest org.balaur.Assistant --object-path /org/balaur/Assistant \
                             --method org.freedesktop.DBus.Properties.Set org.balaur.Assistant1 Muted "<$1>"''} >/dev/null || true
           }
-          trap 'setmute false' EXIT
+          # gdbus prints "(<true>,)"; no answer (the assistant is not running) counts as not muted.
+          was=$(getmute)
+          case "$was" in *true*) was=true ;; *) was=false ;; esac
+          trap 'setmute "$was"' EXIT
           setmute true
           echo "Recording $secs s: $prompt."
           install -m 600 /dev/null "$rec"
@@ -571,21 +580,32 @@ in
             ];
             before = [ "balaur-assistant.service" ];
             unitConfig.ConditionUser = user;
-            serviceConfig.Type = "oneshot";
-            path = [
-              pkgs.pulseaudio
-              pkgs.alsa-utils
-              pkgs.gnugrep
-              pkgs.coreutils
-            ];
-            script = ''
-              for _ in $(seq 20); do
-                pactl list short sources | grep -q HiFi__Mic1__source && break
-                sleep 1
-              done
-              sleep 1
-              amixer -q -c 0 sset Dmic0 cap ${toString as.audio.micGain}
-            '';
+            serviceConfig = {
+              Type = "oneshot";
+              ExecStart = lib.getExe (
+                pkgs.writeShellApplication {
+                  name = "balaur-mic-gain";
+                  runtimeInputs = [
+                    pkgs.pulseaudio
+                    pkgs.alsa-utils
+                    pkgs.gnugrep
+                    pkgs.coreutils
+                  ];
+                  text = ''
+                    # The listing goes into a variable first: grep -q closing the pipe early
+                    # would make pactl fail under pipefail, and the loop never end on a match.
+                    for _ in $(seq 20); do
+                      if sources=$(pactl list short sources) && grep -q HiFi__Mic1__source <<< "$sources"; then
+                        break
+                      fi
+                      sleep 1
+                    done
+                    sleep 1
+                    amixer -q -c 0 sset Dmic0 cap ${toString as.audio.micGain}
+                  '';
+                }
+              );
+            };
           };
 
           balaur.services = [

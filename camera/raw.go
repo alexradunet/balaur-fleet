@@ -40,15 +40,27 @@ func parallel(n int, fn func(lo, hi, worker int)) int {
 	return workers
 }
 
-// Unpack converts a V4L2 buffer: either 16-bit little-endian (one pixel in
-// the low 10 bits) or MIPI CSI-2 packed 10-bit (4 pixels in 5 bytes).
-func (f *RawFrame) Unpack(data []byte, stride int, packed bool) error {
+// checkBuffer reports whether data holds f's rows at the given stride.
+func (f *RawFrame) checkBuffer(data []byte, stride int, packed bool) error {
 	rowBytes := f.W * 2
 	if packed {
 		rowBytes = f.W * 5 / 4
 	}
 	if stride < rowBytes || len(data) < stride*(f.H-1)+rowBytes {
 		return fmt.Errorf("raw buffer too small: %d bytes, stride %d, for %dx%d", len(data), stride, f.W, f.H)
+	}
+	return nil
+}
+
+// Unpack converts a V4L2 buffer: either 16-bit little-endian (one pixel in
+// the low 10 bits) or MIPI CSI-2 packed 10-bit (4 pixels in 5 bytes).
+func (f *RawFrame) Unpack(data []byte, stride int, packed bool) error {
+	if err := f.checkBuffer(data, stride, packed); err != nil {
+		return err
+	}
+	rowBytes := f.W * 2
+	if packed {
+		rowBytes = f.W * 5 / 4
 	}
 	parallel(f.H, func(lo, hi, _ int) {
 		for y := lo; y < hi; y++ {

@@ -9,7 +9,7 @@ import Gtk from 'gi://Gtk?version=4.0';
 import Adw from 'gi://Adw?version=1';
 
 import {AssistantGate} from '../gate.js';
-import {parseTime, formatWhen, clearChildren} from '../util.js';
+import {parseTime, formatWhen, clearChildren, escape} from '../util.js';
 
 // How much history to draw; the daemon keeps its own (short) log anyway.
 const MAX_EXCHANGES = 60;
@@ -43,7 +43,7 @@ class AssistantPage extends Adw.Bin {
         const page = new Gtk.Box({orientation: Gtk.Orientation.VERTICAL});
 
         // Last error from the daemon (e.g. the LLM is unreachable).
-        this._banner = new Adw.Banner();
+        this._banner = new Adw.Banner({use_markup: false}); // the daemon's error is plain text
         page.append(this._banner);
 
         page.append(this._buildStatus());
@@ -233,7 +233,7 @@ class AssistantPage extends Adw.Bin {
         }
 
         this._emptyLog.title = `Say “${a.wakePhrase}”`;
-        this._emptyLog.description = `Or type a question below. ${a.name} answers out loud.`;
+        this._emptyLog.description = `Or type a question below. ${escape(a.name)} answers out loud.`;
         this._renderLog(a.snapshot.log);
     }
 

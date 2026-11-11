@@ -318,6 +318,15 @@ export class FolderPhotos {
 
 // ---- layout and time helpers ----------------------------------------------------
 
+/**
+ * Is a periodic refresh due? lastAtUs is the monotonic time of the last
+ * attempt, 0 for never. Wait intervalS after one that left something to show,
+ * the shorter retryS after one that left nothing.
+ */
+export function refreshDue(lastAtUs, nowUs, haveValue, intervalS, retryS) {
+    return lastAtUs === 0 || (nowUs - lastAtUs) / 1e6 >= (haveValue ? intervalS : retryS);
+}
+
 /** Size and offset that make an image cover a box (centred, cropped, aspect kept). */
 export function coverRect(imgW, imgH, boxW, boxH) {
     const s = Math.max(boxW / imgW, boxH / imgH);

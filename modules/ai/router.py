@@ -51,6 +51,11 @@ REMOTE = CFG["remote"]  # {"url", "model", "keyCredential"}
 CONNECT_TIMEOUT = CFG.get("connectTimeout", 3)
 READ_TIMEOUT = CFG.get("readTimeout", 600)
 PROBE_INTERVAL = CFG.get("probeInterval", 10)
+# The biggest request body taken (the service has little memory), and how long a
+# caller's connection may sit idle or stall before it is dropped. A long wait for
+# an answer is not idle: nothing is read from or written to the caller meanwhile.
+MAX_BODY = CFG.get("maxBody", 16 * 1024 * 1024)
+CLIENT_TIMEOUT = CFG.get("clientTimeout", 300)
 # Host names the page may be opened under (an Origin with another host is refused).
 ORIGINS = set(CFG.get("origins", [])) | {"localhost", "127.0.0.1"}
 SETTINGS_FILE = os.path.join(os.environ.get("STATE_DIRECTORY", "."), "settings.json")
@@ -68,9 +73,11 @@ MISTRAL_ID = re.compile(r"^[A-Za-z0-9]{9}$")
 ALPHABET = string.ascii_letters + string.digits
 HOP_BY_HOP = {"connection", "keep-alive", "transfer-encoding", "content-length", "upgrade",
               "proxy-authenticate", "proxy-authorization", "te", "trailer"}
-USAGE = re.compile(rb'"usage"\s*:\s*\{[^{}]*\}')
+USAGE_KEY = re.compile(r'"usage"\s*:\s*')
+TAIL = 16384  # the end of an answer, where its usage is
 
 state = {e["name"]: {"up": False, "since": 0.0, "detail": "not probed yet"} for e in LOCAL}
+inflight = {e["name"]: 0 for e in LOCAL}  # requests of ours being answered by each local endpoint
 recent = collections.deque(maxlen=50)
 lock = threading.Lock()
 
@@ -215,7 +222,9 @@ def mistral_id(i):
     return "".join(ALPHABET[(n >> (6 * k)) % len(ALPHABET)] for k in range(9))
 
 
-def for_remote(body):
+def for_remote(body, path):
+    if not path.rstrip("/").endswith("/chat/completions"):
+        return dict(body)  # embeddings and the like: the caller's fields as they are
     out = {k: v for k, v in body.items() if k in REMOTE_FIELDS}
     if "max_tokens" not in out and "max_completion_tokens" in body:
         out["max_tokens"] = body["max_completion_tokens"]
@@ -258,25 +267,49 @@ def tiers(model):
     return [("remote", REMOTE["url"], model, False)]
 
 
+def usage_tokens(tail):
+    """[tokens in, tokens out] from the last `usage` object in the end of an answer (a plain
+    JSON body, or the final event of a stream), or None. The object may hold others."""
+    text = tail.decode("utf-8", "replace")
+    decoder = json.JSONDecoder()
+    for m in reversed(list(USAGE_KEY.finditer(text))):
+        try:
+            u, _ = decoder.raw_decode(text, m.end())
+        except ValueError:
+            continue  # cut off by the start of the tail, or `null`
+        if isinstance(u, dict):
+            tin = u.get("prompt_tokens", u.get("input_tokens"))
+            tout = u.get("completion_tokens", u.get("output_tokens"))
+            if tin is not None or tout is not None:
+                return [tin, tout]
+    return None
+
+
+def release(label):
+    with lock:
+        inflight[label] -= 1
+
+
 def record(asked, label, model, status, seconds, tail=b""):
     entry = {"at": time.time(), "asked": asked, "tier": label, "model": model, "status": status,
              "seconds": round(seconds, 1)}
-    m = USAGE.findall(tail)
-    if m:
-        try:
-            u = json.loads(m[-1].split(b":", 1)[1])
-            entry["tokens"] = [u.get("prompt_tokens"), u.get("completion_tokens")]
-        except ValueError:
-            pass
+    tokens = usage_tokens(tail)
+    if tokens:
+        entry["tokens"] = tokens
     with lock:
         recent.appendleft(entry)
 
 
 # ---- HTTP ----
 
+class TooLarge(Exception):
+    pass
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server_version = "balaur-ai"
+    timeout = CLIENT_TIMEOUT  # each read from or write to the caller, not a whole request
 
     def log_message(self, fmt, *args):
         pass  # one line per request is written by forward()
@@ -286,6 +319,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(data)))
         self.send_header("Cache-Control", "no-store")
+        if self.close_connection:
+            self.send_header("Connection", "close")
         self.end_headers()
         self.wfile.write(data)
 
@@ -295,11 +330,17 @@ class Handler(BaseHTTPRequestHandler):
     def foreign(self):
         """A browser request from another site's page (its Origin is not one of ours)."""
         origin = self.headers.get("Origin")
-        if not origin or origin == "null":
-            return origin == "null"
-        host = urllib.parse.urlsplit(origin).hostname or ""
-        if host in ORIGINS:
-            return False
+        if not origin:
+            return False  # not a browser
+        if origin != "null":
+            try:
+                host = urllib.parse.urlsplit(origin).hostname or ""
+            except ValueError:
+                host = ""
+            if host in ORIGINS:
+                return False
+        # The body is not read, so the connection cannot be used again.
+        self.close_connection = True
         self.reply(403, {"error": {"message": f"requests from web pages of {origin} are not accepted"}})
         return True
 
@@ -329,9 +370,25 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(404, {"error": {"message": f"no GET {path} here"}})
 
     def read_json(self):
-        length = int(self.headers.get("Content-Length") or 0)
+        """The JSON object in the body; raises ValueError (400) or TooLarge (413)."""
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length < 0:
+            self.close_connection = True
+            raise ValueError("Content-Length is not a size")
+        if length > MAX_BODY:
+            self.close_connection = True
+            raise TooLarge(f"the body is over {MAX_BODY} bytes")
         raw = self.rfile.read(length) if length else b""
-        body = json.loads(raw or b"{}")
+        if len(raw) < length:
+            self.close_connection = True
+            raise ValueError("the body ended early")
+        try:
+            body = json.loads(raw or b"{}")
+        except RecursionError:
+            raise ValueError("nested too deeply") from None
         if not isinstance(body, dict):
             raise ValueError("not an object")
         return body
@@ -341,6 +398,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         try:
             body = self.read_json()
+        except TooLarge as ex:
+            self.reply(413, {"error": {"message": str(ex)}})
+            return
         except ValueError as ex:
             self.reply(400, {"error": {"message": f"the body is not a JSON object: {ex}"}})
             return
@@ -362,20 +422,34 @@ class Handler(BaseHTTPRequestHandler):
             if is_local:
                 with lock:
                     up, detail = state[label]["up"], state[label]["detail"]
-                if not up:
-                    last_error = f"{label}: {detail}"
+                    # Local first moves on rather than queue behind someone else's
+                    # answer, ours included; a request for local only waits its turn.
+                    # Taking a place and looking for one is one step, so two
+                    # simultaneous requests cannot both find the endpoint free.
+                    taken = inflight[label] > 0
+                    if up and not (taken and not final):
+                        inflight[label] += 1
+                        claimed = True
+                    else:
+                        claimed = False
+                if not claimed:
+                    last_error = f"{label}: {detail}" if not up else f"{label}: busy"
                     continue
-                # Local first moves on rather than queue behind someone else's
-                # answer; a request for local only waits its turn.
                 if not final and busy(next(e for e in LOCAL if e["name"] == label)):
+                    release(label)  # answering someone who did not come through here
                     last_error = f"{label}: busy"
                     continue
                 payload = dict(body, model=model)
                 headers = {}
             else:
-                payload = for_remote(dict(body, model=model))
+                payload = for_remote(dict(body, model=model), path)
                 headers = {"Authorization": f"Bearer {remote_key()}"}
-            if self.forward(label, url, path, payload, headers, final, asked):
+            try:
+                answered = self.forward(label, url, path, payload, headers, final, asked)
+            finally:
+                if is_local:
+                    release(label)
+            if answered:
                 return
             last_error = f"{label}: failed"
         record(asked, "-", None, 503, 0)
@@ -394,9 +468,14 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(400, {"error": {"message": "remoteModel is a model id"}})
                 return
             new["remoteModel"] = body["remoteModel"].strip()
-        for k, v in (body.get("localEnabled") or {}).items():
-            if k in new["localEnabled"] and isinstance(v, bool):
-                new["localEnabled"][k] = v
+        enabled = body.get("localEnabled")
+        if enabled is not None:
+            if not isinstance(enabled, dict) or not all(isinstance(v, bool) for v in enabled.values()):
+                self.reply(400, {"error": {"message": "localEnabled maps a machine's name to true or false"}})
+                return
+            for k, v in enabled.items():
+                if k in new["localEnabled"]:
+                    new["localEnabled"][k] = v
         save_settings(new)
         self.reply(200, {"settings": settings})
 
@@ -439,12 +518,14 @@ class Handler(BaseHTTPRequestHandler):
                 chunk = r.read1(65536)
                 if not chunk:
                     break
-                tail = (tail + chunk)[-4096:]
+                tail = (tail + chunk)[-TAIL:]
                 self.wfile.write(b"%x\r\n%s\r\n" % (len(chunk), chunk))
                 self.wfile.flush()
             self.wfile.write(b"0\r\n\r\n")
-        except (BrokenPipeError, ConnectionResetError):
-            pass  # the caller went away; dropping the upstream connection stops the answer
+        except (BrokenPipeError, ConnectionResetError, TimeoutError):
+            # The caller went away or stopped reading; dropping the upstream
+            # connection stops the answer.
+            self.close_connection = True
         finally:
             c.close()
             record(asked, label, payload.get("model"), r.status, time.time() - t0, tail)

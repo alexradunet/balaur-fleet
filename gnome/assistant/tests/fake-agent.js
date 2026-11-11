@@ -3,7 +3,11 @@
 //   prompt "slow"   -> waits for abort, then an aborted message and agent_settled
 //   prompt "fail"   -> an assistant message with stopReason "error" ("boom")
 //   prompt "/x"     -> handled without a run (no agent_settled)
+//   prompt "mute"   -> started, then the agent answers nothing at all (a hung pi)
 //   anything else   -> "echo: <text>" (with " (new)" on the first prompt of a session)
+// Environment: BALAUR_FAKE_LOG is a file every command received is appended to
+// ("<type> <message>"); BALAUR_FAKE_MCP=hang leaves "/mcp reconnect" unanswered;
+// BALAUR_FAKE_HANG=state leaves get_state unanswered.
 // With --test as an argument it is the launcher's one-shot test: exit 0, or 1
 // with "no such model" on stderr when BALAUR_LLM_MODEL is "bad".
 
@@ -13,6 +17,9 @@ import GioUnix from 'gi://GioUnix';
 import System from 'system';
 
 if (System.programArgs.includes('--test')) {
+    if (GLib.getenv('BALAUR_LLM_MODEL') === 'hang') {
+        GLib.MainLoop.new(null, false).run();
+    }
     if (GLib.getenv('BALAUR_LLM_MODEL') === 'bad') {
         printerr('warming up\nno such model');
         System.exit(1);
@@ -28,6 +35,9 @@ input.set_newline_type(Gio.DataStreamNewlineType.LF);
 let model = GLib.getenv('BALAUR_LLM_MODEL') || 'm1';
 let fresh = true; // no prompt yet in this session
 let slow = false;
+let mute = false; // hung: answers nothing
+const logPath = GLib.getenv('BALAUR_FAKE_LOG');
+const logStream = logPath ? Gio.File.new_for_path(logPath).append_to(Gio.FileCreateFlags.NONE, null) : null;
 
 const respond = (m, data = undefined, error = '') =>
     send({id: m.id, type: 'response', command: m.type, success: !error, ...(error ? {error} : {data})});
@@ -45,6 +55,11 @@ function next() {
             return;
         }
         const m = JSON.parse(line);
+        logStream?.write_all(new TextEncoder().encode(`${m.type} ${m.message ?? ''}\n`), null);
+        if (mute || (m.type === 'get_state' && GLib.getenv('BALAUR_FAKE_HANG') === 'state')) {
+            next();
+            return;
+        }
         switch (m.type) {
         case 'get_state':
             respond(m, {model: {provider: 'faux', id: model}});
@@ -73,6 +88,8 @@ function next() {
             break;
         case 'prompt':
             if (m.message.startsWith('/')) {
+                if (m.message.startsWith('/mcp reconnect') && GLib.getenv('BALAUR_FAKE_MCP') === 'hang')
+                    break;
                 respond(m, {disposition: 'handled'});
                 break;
             }
@@ -80,6 +97,8 @@ function next() {
             send({type: 'message_end', message: {role: 'user', content: [{type: 'text', text: m.message}]}});
             if (m.message === 'slow') {
                 slow = true;
+            } else if (m.message === 'mute') {
+                mute = true;
             } else if (m.message === 'bold') {
                 answer('**Added.** done');
             } else if (m.message === 'fail') {

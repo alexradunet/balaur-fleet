@@ -33,7 +33,11 @@
       # service of the household session) holds an idle inhibitor while there is
       # some and lifts GNOME's blank screen.
       motionWake = rgbir && cfg ? tablet && cfg.camera.screenTimeout > 0;
-      motionFile = "/run/duet-camera-relay/motion";
+      # The relay's runtime directory outlives its restarts (RuntimeDirectoryPreserve),
+      # so the directory duet-presence watches stays the same inode.
+      runDir = "/run/duet-camera-relay";
+      deviceFile = "${runDir}/device";
+      motionFile = "${runDir}/motion";
       presence = pkgs.writeShellApplication {
         name = "duet-presence";
         runtimeInputs = [
@@ -58,12 +62,17 @@
           release() { if [ -n "$holder" ]; then kill "$holder" 2>/dev/null || true; fi; }
           trap 'release; kill 0' EXIT
           while :; do
-            if [ ! -d "${dirOf motionFile}" ]; then sleep 5; continue; fi
+            if [ ! -d "${runDir}" ]; then sleep 5; continue; fi
             # Read in this shell, not at the end of a pipe: if anything here fails,
             # the service exits and systemd restarts it. In a pipe, the reader died
             # alone while `inotifywait -m` kept running, so the service looked
             # healthy and ignored every movement after that.
-            while read -r name; do
+            exec {events}< <(inotifywait -mq -e close_write -e delete_self -e move_self --format '%e %f' "${runDir}")
+            watcher=$!
+            while read -r event name <&"$events"; do
+              # inotifywait -m keeps running on a directory that was deleted or
+              # replaced and never reports anything again: watch the new one.
+              case "$event" in *DELETE_SELF* | *MOVE_SELF*) break ;; esac
               [ "$name" = "${baseNameOf motionFile}" ] || continue
               [ $(( $(date +%s) - $(cat "$quiet") )) -ge 6 ] || continue
               # Wake the screen if GNOME blanked it (no-op otherwise)...
@@ -74,8 +83,10 @@
               gnome-session-inhibit --inhibit idle --app-id duet-presence \
                 --reason "Someone is in front of the screen" sleep "$timeout" &
               holder=$!
-            done < <(inotifywait -mq -e close_write --format %f "${dirOf motionFile}")
-            sleep 2 # the relay restarted: its directory went away
+            done
+            kill "$watcher" 2>/dev/null || true
+            exec {events}<&-
+            sleep 2
           done
         '';
       };
@@ -100,6 +111,8 @@
       };
 
       # Raw + processed snapshot from the running relay, for tuning (`duet-camera analyze`).
+      # Only the rgbir relay saves one on SIGUSR1; gst-launch dies of it. The files
+      # are readable by root only (the picture is of the room).
       cameraSnapshot = pkgs.writeShellApplication {
         name = "duet-camera-snapshot";
         runtimeInputs = [
@@ -108,13 +121,71 @@
           pkgs.systemd
         ];
         text = ''
-          systemctl kill -s USR1 duet-camera-relay.service
+          systemctl kill --kill-whom=main -s USR1 duet-camera-relay.service
           sleep 2
           # newest two files (the .raw16 and the .png just written)
           find /var/lib/duet-camera/snapshots -maxdepth 1 -type f -printf '%T@ %p\n' \
             | sort -rn | head -n 2 | cut -d' ' -f2-
         '';
       };
+
+      loopbackCtl = "${v4l2loopback.bin}/bin/v4l2loopback-ctl";
+
+      # The relay's three steps. V4L2_DEVICE_FILE (the unit's environment) holds the
+      # device the relay writes to.
+      relayPrepare = pkgs.writeShellApplication {
+        name = "duet-camera-relay-prepare";
+        runtimeInputs = [ pkgs.coreutils ];
+        text = ''
+          # A viewer that kept the device open across a restart stops the stop step
+          # from deleting it; reuse it then instead of failing on "File exists".
+          if test -e /dev/video64 && ! ${loopbackCtl} delete /dev/video64; then
+            echo /dev/video64 > "$V4L2_DEVICE_FILE"
+          else
+            ${loopbackCtl} add -x 1 -n "Duet Front Camera" /dev/video64 > "$V4L2_DEVICE_FILE"
+          fi
+        '';
+      };
+
+      relayRun = pkgs.writeShellApplication {
+        name = "duet-camera-relay";
+        runtimeInputs = [ pkgs.coreutils ];
+        text =
+          if rgbir then
+            ''
+              device="$(cat "$V4L2_DEVICE_FILE")"
+              exec ${lib.getExe duetCamera} run -output "$device"
+            ''
+          else
+            ''
+              device="$(cat "$V4L2_DEVICE_FILE")"
+              exec ${lib.getBin pkgs.gst_all_1.gstreamer}/bin/gst-launch-1.0 -q \
+                libcamerasrc ! \
+                videoconvert ! \
+                'video/x-raw,format=YUY2,width=1280,height=720,framerate=30/1' ! \
+                v4l2sink device="$device" sync=false
+            '';
+      };
+
+      # Leaves the directory: duet-presence watches it across restarts.
+      relayCleanup = pkgs.writeShellApplication {
+        name = "duet-camera-relay-cleanup";
+        runtimeInputs = [ pkgs.coreutils ];
+        text = ''
+          if test -s "$V4L2_DEVICE_FILE"; then
+            ${loopbackCtl} delete "$(cat "$V4L2_DEVICE_FILE")" || true
+          fi
+          rm -f "$V4L2_DEVICE_FILE"
+        '';
+      };
+
+      # /etc/duet-camera.json. The rgbir relay refuses a key it does not know and
+      # then restarts every few seconds: let the build find the typo instead.
+      tuningFile = pkgs.writeText "duet-camera.json" (builtins.toJSON cfg.camera.tuning);
+      tuningChecked = pkgs.runCommand "duet-camera.json" { } ''
+        ${lib.getExe duetCamera} check ${tuningFile}
+        cp ${tuningFile} $out
+      '';
     in
     {
       options.balaur = {
@@ -166,8 +237,10 @@
               Keys: sensor, capture, width, height, outWidth, outHeight, cfa,
               blackLevel, whiteLevel, irCoeffs, ccm, awbGains, saturation, flipH,
               flipV, view (color/raw/noir), aeTarget, maxGain, maxDigitalGain,
-              antiFlicker, motionThreshold, motionArea. Defaults are in
-              camera/config.go. Try values live first in
+              antiFlicker, motionThreshold, motionArea, idleFps. Defaults are in
+              camera/config.go. With the `rgbir` backend a key the daemon does not
+              know, or a value out of range, fails the build (`duet-camera check`).
+              Try values live first in
               /var/lib/duet-camera/tuning.json + `systemctl reload duet-camera-relay`.
             '';
           };
@@ -186,7 +259,7 @@
 
         # The relay never switches the screen itself: GNOME blanks it (tablet.nix),
         # and movement is reported to the session as activity (below).
-        environment.etc."duet-camera.json".text = builtins.toJSON cfg.camera.tuning;
+        environment.etc."duet-camera.json".source = if rgbir then tuningChecked else tuningFile;
 
         # A producer that stays running (v4l2-relayd's on-demand mode stalls after
         # the first black frame with v4l2loopback).
@@ -200,7 +273,7 @@
           restartTriggers = [ config.environment.etc."duet-camera.json".source ];
 
           environment = {
-            V4L2_DEVICE_FILE = "/run/duet-camera-relay/device";
+            V4L2_DEVICE_FILE = deviceFile;
           }
           // lib.optionalAttrs motionWake {
             DUET_MOTION_FILE = motionFile;
@@ -209,50 +282,26 @@
             GST_PLUGIN_PATH = lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstPlugins;
           };
 
-          preStart = ''
-            install -d "$(dirname "$V4L2_DEVICE_FILE")"
-            # A viewer that kept the device open across a restart stops
-            # postStop from deleting it; reuse it then instead of failing on "File exists".
-            if test -e /dev/video64 && ! ${v4l2loopback.bin}/bin/v4l2loopback-ctl delete /dev/video64; then
-              echo /dev/video64 > "$V4L2_DEVICE_FILE"
-            else
-              ${v4l2loopback.bin}/bin/v4l2loopback-ctl \
-                add -x 1 -n "Duet Front Camera" /dev/video64 > "$V4L2_DEVICE_FILE"
-            fi
-          '';
-
-          script =
-            if rgbir then
-              ''
-                exec ${lib.getExe duetCamera} run -output "$(cat "$V4L2_DEVICE_FILE")"
-              ''
-            else
-              ''
-                device="$(cat "$V4L2_DEVICE_FILE")"
-                exec ${lib.getBin pkgs.gst_all_1.gstreamer}/bin/gst-launch-1.0 -q \
-                  libcamerasrc ! \
-                  videoconvert ! \
-                  'video/x-raw,format=YUY2,width=1280,height=720,framerate=30/1' ! \
-                  v4l2sink device="$device" sync=false
-              '';
-
-          postStop = ''
-            if test -s "$V4L2_DEVICE_FILE"; then
-              ${v4l2loopback.bin}/bin/v4l2loopback-ctl \
-                delete "$(cat "$V4L2_DEVICE_FILE")" || true
-            fi
-            rm -rf "$(dirname "$V4L2_DEVICE_FILE")"
-          '';
-
           serviceConfig = {
             Type = "simple";
+            ExecStartPre = lib.getExe relayPrepare;
+            ExecStart = lib.getExe relayRun;
+            ExecStopPost = lib.getExe relayCleanup;
             Restart = "always";
+            # A start that keeps failing waits longer each time (up to 30 s) instead
+            # of creating and deleting the webcam every two seconds.
             RestartSec = "2s";
+            RestartSteps = 4;
+            RestartMaxDelaySec = "30s";
             PrivateNetwork = true;
             PrivateTmp = true;
-            # Snapshots and the live-tuning overlay (tuning.json) live here.
+            # The device name and the motion file; kept across restarts.
+            RuntimeDirectory = "duet-camera-relay";
+            RuntimeDirectoryPreserve = "yes";
+            # Snapshots and the live-tuning overlay (tuning.json) live here: the
+            # pictures are of the room, so root only.
             StateDirectory = "duet-camera";
-            StateDirectoryMode = "0755";
+            StateDirectoryMode = "0750";
           }
           // lib.optionalAttrs rgbir {
             # Re-reads /etc/duet-camera.json + /var/lib/duet-camera/tuning.json without a restart.
@@ -278,12 +327,12 @@
 
         environment.systemPackages = [
           duetCamera # `duet-camera probe` / `duet-camera analyze <raw>`
-          cameraSnapshot
           pkgs.libcamera-qcam # `qcam`: talks to libcamera directly, for diagnosing
           pkgs.libcamera # `cam -l`, and raw dumps for `duet-camera analyze`
           pkgs.v4l-utils # v4l2-ctl, media-ctl
           cameraCheck
-        ];
+        ]
+        ++ lib.optional rgbir cameraSnapshot;
 
         balaur.services = [
           {

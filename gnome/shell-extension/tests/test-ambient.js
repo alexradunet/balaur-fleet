@@ -1,4 +1,4 @@
-// Tests for ambient-data.js and ambient-status.js's helpers (no Shell, no network): `gjs -m tests/test-ambient.js`.
+// Tests for ambient-data.js, ambient-status.js's helpers and assistant.js's text helpers (no Shell, no network): `gjs -m tests/test-ambient.js`.
 // Run by the package build (pkgs/balaur-shell-extension.nix).
 
 import GLib from 'gi://GLib';
@@ -6,9 +6,10 @@ import System from 'system';
 
 import {
     JellyfinPhotos, clockText, countdown, coverRect, decodeSize, describeWeather, isPhotoName,
-    listPhotos, loadConfig, nextReminder, parseWeather, readSecret, shuffled, timersOf,
+    listPhotos, loadConfig, nextReminder, parseWeather, readSecret, refreshDue, shuffled, timersOf,
     weatherLine, weatherUrl, whenText,
 } from '../ambient-data.js';
+import {wakePhrase} from '../assistant.js';
 import {machinesOf, seenText, servicesOf, systemText, unitKind} from '../ambient-status.js';
 
 let failed = 0;
@@ -56,6 +57,20 @@ eq(JellyfinPhotos.imageUrl('http://127.0.0.1:8096', 'ab/c', 2560, 1600),
 eq(coverRect(4000, 3000, 1280, 800), {x: 0, y: -80, width: 1280, height: 960}, 'cover: 4:3 photo on 16:10');
 eq(coverRect(1000, 2000, 1280, 800), {x: 0, y: -880, width: 1280, height: 2560}, 'cover: portrait photo');
 eq(coverRect(1600, 1000, 800, 1280), {x: -624, y: 0, width: 2048, height: 1280}, 'cover: rotated screen');
+
+// when a refresh is due: slower to retry while there is nothing to show, never once per tick
+eq(refreshDue(0, 5e6, false, 30, 60), true, 'refresh: never tried');
+eq(refreshDue(1e6, 30e6, false, 30, 60), false, 'refresh: no value yet waits the retry time, not the interval');
+eq(refreshDue(1e6, 61e6, false, 30, 60), true, 'refresh: no value, retry time over');
+eq(refreshDue(1e6, 29e6, true, 30, 60), false, 'refresh: value, interval not over');
+eq(refreshDue(1e6, 31e6, true, 30, 60), true, 'refresh: value, interval over');
+
+// wake word (the daemon publishes a comma-separated list, with model versions)
+eq(wakePhrase({wakeWord: 'hey_jarvis', name: 'Jarvis'}), 'Hey Jarvis', 'wake phrase');
+eq(wakePhrase({wakeWord: 'hey_jarvis_v0.1', name: 'Jarvis'}), 'Hey Jarvis', 'wake phrase: version dropped');
+eq(wakePhrase({wakeWord: 'hey_jarvis_v0.1, alexa', name: 'Jarvis'}), 'Hey Jarvis', 'wake phrase: first of a list');
+eq(wakePhrase({wakeWord: '', name: 'Jarvis'}), 'Hey Jarvis', 'wake phrase: from the name');
+eq(wakePhrase({wakeWord: '', name: ''}), 'the wake word', 'wake phrase: nothing known');
 
 // timers and reminders
 eq(countdown(0), '0:00', 'countdown zero');

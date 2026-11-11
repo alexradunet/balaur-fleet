@@ -8,11 +8,12 @@
 //   Movement in front of the camera does not end it: it keeps the screen
 //   awake (duet-presence), so the view stays up while people are in the room.
 //   GNOME still blanks the screen when nobody is there.
-// - Any touch, click or key ends it. The first tap lands on the view, not
-//   on the app underneath.
+// - Any touch, click or key ends it. The view holds a modal grab while it is
+//   up, so that first tap or key press lands on it, not on the app underneath.
 // - Not shown over a full-screen window (a film) or while another app holds
-//   an idle inhibitor (a video call, a player). duet-presence's own inhibitor
-//   doesn't count.
+//   an idle inhibitor (a video call, a player), and taken down when one
+//   starts while it is up. duet-presence's own inhibitor doesn't count: the
+//   idle watch ignores inhibitors, and _heldBack() decides.
 // - Lean: no timers, downloads or decoding while it is hidden. Photos are
 //   decoded at about the screen's size (scaled by Jellyfin, or while decoding
 //   a file), off the main thread.
@@ -23,6 +24,7 @@ import Cogl from 'gi://Cogl';
 import GdkPixbuf from 'gi://GdkPixbuf';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
 import Pango from 'gi://Pango';
 import St from 'gi://St';
 
@@ -30,7 +32,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {
     FolderPhotos, Http, JellyfinPhotos, clockText, decodeSize, countdown, coverRect, loadConfig,
-    nextReminder, parseWeather, timersOf, weatherLine, weatherUrl, whenText,
+    nextReminder, parseWeather, refreshDue, timersOf, weatherLine, weatherUrl, whenText,
 } from './ambient-data.js';
 import {FleetStatus} from './ambient-status.js';
 
@@ -39,6 +41,8 @@ const PHOTO_FADE_MS = 1500;
 const RECHECK_S = 30; // idle but held back (film, call): look again this often
 const WEATHER_TTL_S = 15 * 60;
 const WEATHER_RETRY_S = 5 * 60;
+const WEATHER_STALE_S = 2 * 3600; // a reading older than this is not shown as current
+const PHOTO_RETRY_S = 60; // no photo yet (empty folder, server down): try again this often
 const STATUS_S = 30;
 const PRESENCE_APP_ID = 'duet-presence';
 const IDLE_INHIBIT = 8; // GsmInhibitorFlag IDLE
@@ -59,18 +63,26 @@ export class AmbientScreen {
         this._snapshot = null;
         this._weather = null;
         this._weatherAt = 0; // monotonic µs of the last attempt
+        this._weatherOkAt = 0; // ... and of the last success
         this._weatherBusy = false;
         this._photoBusy = false;
         this._photoAt = 0;
         this._photo = null; // {actor, width, height}
         this._statusBusy = false;
         this._statusAt = 0;
+        this._heldAt = 0; // when _heldBack() last ran while shown
+        this._heldBusy = false;
+        this._grab = null;
+        this._fullscreenId = 0;
 
         this._buildUi();
 
+        // Uninhibitable: duet-presence holds an idle inhibitor for as long as
+        // anyone is moving in the room, which must not keep the screen away.
         this._monitor = global.backend.get_core_idle_monitor();
         this._idleWatch = this._cfg.idleSeconds > 0
-            ? this._monitor.add_idle_watch(this._cfg.idleSeconds * 1000, () => this._onIdle())
+            ? this._monitor.add_idle_watch_full(this._cfg.idleSeconds * 1000, () => this._onIdle(),
+                Meta.IdleMonitorWatchFlags.UNINHIBITABLE)
             : 0;
         this._activeWatch = 0;
         this._recheckId = 0;
@@ -84,8 +96,11 @@ export class AmbientScreen {
             this._monitor.remove_watch(this._idleWatch);
         if (this._activeWatch)
             this._monitor.remove_watch(this._activeWatch);
+        this._idleWatch = this._activeWatch = 0;
         this._clearSource('_recheckId');
         this._clearSource('_tickId');
+        this._unwatchFullscreen();
+        this._popGrab();
         Main.layoutManager.disconnect(this._monitorsId);
         this._root?.destroy();
         this._root = null;
@@ -228,23 +243,32 @@ export class AmbientScreen {
     // ---- idle -> shown -> active -------------------------------------------------
 
     async _onIdle() {
+        if (!this._root)
+            return;
         if (!this._activeWatch)
             this._activeWatch = this._monitor.add_user_active_watch(() => this._onActive());
-        if (this._shown || !this._root)
+        if (this._shown)
             return;
-        if (await this._heldBack()) {
-            // Look again later, as long as nobody touches anything.
-            if (!this._recheckId) {
-                this._recheckId = GLib.timeout_add_seconds(GLib.PRIORITY_LOW, RECHECK_S, () => {
-                    this._recheckId = 0;
-                    this._onIdle();
-                    return GLib.SOURCE_REMOVE;
-                });
-            }
+        const held = await this._heldBack();
+        if (!this._root) // disabled during the D-Bus calls
+            return;
+        if (held) {
+            this._recheckLater();
             return;
         }
         if (this._activeWatch) // still idle after the await
             this._show();
+    }
+
+    // Look again later, as long as nobody touches anything.
+    _recheckLater() {
+        if (this._recheckId)
+            return;
+        this._recheckId = GLib.timeout_add_seconds(GLib.PRIORITY_LOW, RECHECK_S, () => {
+            this._recheckId = 0;
+            this._onIdle();
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     _onActive() {
@@ -261,7 +285,8 @@ export class AmbientScreen {
         try {
             return await this._foreignIdleInhibitor();
         } catch (e) {
-            console.warn(`balaur ambient: inhibitors: ${e.message}`);
+            if (!e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
+                console.warn(`balaur ambient: inhibitors: ${e.message}`);
             return false;
         }
     }
@@ -291,7 +316,18 @@ export class AmbientScreen {
     _show() {
         if (this._shown)
             return;
+        if (!this._grab) {
+            try {
+                this._grab = Main.pushModal(this._root);
+            } catch (e) {
+                console.warn(`balaur ambient: no modal grab: ${e.message}`);
+                this._recheckLater();
+                return;
+            }
+        }
         this._shown = true;
+        this._heldAt = GLib.get_monotonic_time();
+        this._fullscreenId = global.display.connect('in-fullscreen-changed', () => this._checkHeld());
         this._place();
         this._tick();
         this._tickId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 1, () => {
@@ -308,17 +344,57 @@ export class AmbientScreen {
             return;
         this._shown = false;
         this._clearSource('_tickId');
-        // Stays reactive while it fades, so the touch that ended it doesn't
-        // reach the app underneath.
+        this._unwatchFullscreen();
+        // The grab stays while it fades, so the touch or key that ended it
+        // doesn't reach the app underneath.
         this._root?.ease({
             opacity: 0,
             duration: FADE_MS,
             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
             onStopped: () => {
-                if (this._root && !this._shown)
+                if (this._root && !this._shown) {
                     this._root.hide();
+                    this._popGrab();
+                }
             },
         });
+    }
+
+    _popGrab() {
+        if (!this._grab)
+            return;
+        const grab = this._grab;
+        this._grab = null;
+        try {
+            Main.popModal(grab);
+        } catch (e) {
+            console.warn(`balaur ambient: popModal: ${e.message}`);
+        }
+    }
+
+    _unwatchFullscreen() {
+        if (this._fullscreenId) {
+            global.display.disconnect(this._fullscreenId);
+            this._fullscreenId = 0;
+        }
+    }
+
+    // A film or call that starts while the screen is up (no input to end it).
+    async _checkHeld() {
+        if (!this._shown || this._heldBusy)
+            return;
+        this._heldBusy = true;
+        this._heldAt = GLib.get_monotonic_time();
+        let held = false;
+        try {
+            held = await this._heldBack();
+        } finally {
+            this._heldBusy = false;
+        }
+        if (held && this._root && this._shown) {
+            this._hide();
+            this._recheckLater();
+        }
     }
 
     // ---- what is on it ---------------------------------------------------------------
@@ -333,6 +409,8 @@ export class AmbientScreen {
         this._maybeWeather();
         this._maybePhoto();
         this._maybeStatus();
+        if (refreshDue(this._heldAt, GLib.get_monotonic_time(), true, STATUS_S, STATUS_S))
+            this._checkHeld();
     }
 
     _syncTimers(nowMs) {
@@ -372,16 +450,21 @@ export class AmbientScreen {
 
     async _maybeWeather() {
         const loc = this._cfg.location;
-        const age = (GLib.get_monotonic_time() - this._weatherAt) / 1e6;
-        const due = this._weatherAt === 0 || age > (this._weather ? WEATHER_TTL_S : WEATHER_RETRY_S);
-        if (!loc || this._weatherBusy || !due)
+        const now = GLib.get_monotonic_time();
+        if (this._weather && (now - this._weatherOkAt) / 1e6 > WEATHER_STALE_S) {
+            this._weather = null;
+            this._weatherRow.visible = false;
+        }
+        if (!loc || this._weatherBusy || !refreshDue(this._weatherAt, now, !!this._weather, WEATHER_TTL_S, WEATHER_RETRY_S))
             return;
         this._weatherBusy = true;
-        this._weatherAt = GLib.get_monotonic_time();
+        this._weatherAt = now;
         try {
             const w = parseWeather(await this._http.getJSON(weatherUrl(loc), {}, this._cancellable));
-            if (w)
+            if (w) {
                 this._weather = w;
+                this._weatherOkAt = GLib.get_monotonic_time();
+            }
         } catch (e) {
             if (!e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
                 console.warn(`balaur ambient: weather: ${e.message}`);
@@ -397,8 +480,7 @@ export class AmbientScreen {
     }
 
     async _maybeStatus() {
-        const due = this._statusAt === 0 || (GLib.get_monotonic_time() - this._statusAt) / 1e6 >= STATUS_S;
-        if (!this._fleet || this._statusBusy || !due)
+        if (!this._fleet || this._statusBusy || !refreshDue(this._statusAt, GLib.get_monotonic_time(), true, STATUS_S, STATUS_S))
             return;
         this._statusBusy = true;
         this._statusAt = GLib.get_monotonic_time();
@@ -428,8 +510,8 @@ export class AmbientScreen {
 
     async _maybePhoto() {
         const interval = this._cfg.photos?.intervalSeconds ?? 30;
-        const due = !this._photo || (GLib.get_monotonic_time() - this._photoAt) / 1e6 >= interval;
-        if (!this._photos || this._photoBusy || !due)
+        if (!this._photos || this._photoBusy
+            || !refreshDue(this._photoAt, GLib.get_monotonic_time(), !!this._photo, interval, PHOTO_RETRY_S))
             return;
         this._photoBusy = true;
         this._photoAt = GLib.get_monotonic_time();
@@ -474,7 +556,11 @@ export class AmbientScreen {
             opacity: 255,
             duration: PHOTO_FADE_MS,
             mode: Clutter.AnimationMode.EASE_IN_OUT_QUAD,
-            onStopped: () => old?.actor.destroy(),
+            // Disabled during the crossfade: the actors went with the root.
+            onStopped: () => {
+                if (this._root)
+                    old?.actor.destroy();
+            },
         });
     }
 

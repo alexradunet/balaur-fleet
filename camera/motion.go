@@ -26,7 +26,7 @@ type Motion struct {
 const (
 	motionCols  = 32
 	motionRows  = 18
-	motionAlpha = 0.1 // background memory: ~10 frames, a third of a second
+	motionAlpha = 0.1 // background memory: ~10 processed frames (a third of a second at 30 fps, 3 s at 3 fps)
 	// How often movement is reported at most: each report rewrites the motion
 	// file and restarts the session's idle inhibitor, which needs no more.
 	motionReport = 2 * time.Second
@@ -72,6 +72,30 @@ func (m *Motion) Update(yuyv []byte, w, h int) bool {
 			sum += float64(v)
 		}
 	}
+	return m.step(sum)
+}
+
+// UpdateGrid is Update for a grid of cell brightnesses measured elsewhere
+// (Processor.Sample), motionCols x motionRows in row-major order.
+func (m *Motion) UpdateGrid(grid []float32) bool {
+	if len(grid) != len(m.cur) {
+		return false
+	}
+	copy(m.cur, grid)
+	var sum float64
+	for _, v := range m.cur {
+		sum += float64(v)
+	}
+	return m.step(sum)
+}
+
+// Reset forgets the background, for when the way the grid is measured changes.
+func (m *Motion) Reset() {
+	m.ready, m.hits = false, 0
+}
+
+// step compares m.cur (whose cells add up to sum) with the background.
+func (m *Motion) step(sum float64) bool {
 	if !m.ready {
 		copy(m.bg, m.cur)
 		m.ready = true

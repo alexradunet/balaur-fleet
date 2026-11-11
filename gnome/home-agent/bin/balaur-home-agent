@@ -40,12 +40,13 @@ else
   model=${model:-mistral-medium-latest}
 fi
 
-# No tools of pi's own, and nothing found on disk: the extension is all there is.
-args=(--no-session --no-builtin-tools --no-skills --no-prompt-templates --no-context-files
-  --no-themes --provider "$provider" --model "$model")
+# No tools of pi's own, and nothing found on disk: no extension, skill, template,
+# context file or theme but the ones named here.
+args=(--no-session --no-builtin-tools --no-extensions --no-skills --no-prompt-templates
+  --no-context-files --no-themes --provider "$provider" --model "$model")
 
 if [ "${1:-}" = --test ]; then
-  exec @pi@ "${args[@]}" --no-mcp --no-extensions --print "Reply with the single word OK." > /dev/null
+  exec @pi@ "${args[@]}" --no-mcp --print "Reply with the single word OK." > /dev/null
 fi
 
 # House devices: Home Assistant's MCP server, as the assistant's own non-admin
@@ -67,7 +68,7 @@ if [ -n "$url" ] && [ -n "$token" ] && [ -r "$token" ]; then
       description: "The house devices: lights, TV, speakers, scenes"
     } }
   }' > "$state/mcp.json"
-  args+=(--exclude-tools list_mcp_resources,list_mcp_resource_templates,read_mcp_resource)
+  args+=(--extension builtin:mcp --exclude-tools list_mcp_resources,list_mcp_resource_templates,read_mcp_resource)
   # For the extension: tell the model about the house (prompt.ts).
   export BALAUR_HOUSE_DEVICES=1
 else

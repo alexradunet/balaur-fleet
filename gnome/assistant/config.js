@@ -6,7 +6,6 @@ import GLib from 'gi://GLib';
 
 export function defaultConfig() {
     return {
-        listen: '127.0.0.1:8770', // unused: there is no HTTP API any more
         name: 'Jarvis',
         defaultLanguage: 'ro',
         audio: {input: 'default', output: 'default', card: '0', volume: 70},

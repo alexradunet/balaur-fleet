@@ -131,6 +131,9 @@ export function parseWAV(b) {
             channels = dv.getUint16(bodyOff + 2, true);
             rate = dv.getUint32(bodyOff + 4, true);
             bits = dv.getUint16(bodyOff + 14, true);
+            // Playback steps through the data by whole frames: a zero would never advance.
+            if (channels < 1 || rate <= 0 || bits < 8 || bits > 64 || bits % 8 !== 0)
+                throw new Error(`speech: bad WAV header (${channels} channels, ${rate} Hz, ${bits} bits)`);
             if (format === 0xFFFE && size >= 26) // WAVE_FORMAT_EXTENSIBLE: real format in the sub-GUID
                 format = dv.getUint16(bodyOff + 24, true);
         } else if (id === 'data') {

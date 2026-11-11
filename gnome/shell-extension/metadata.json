@@ -1,7 +1,7 @@
 {
   "uuid": "balaur@balaur.local",
   "name": "Balaur Assistant",
-  "description": "Shows the voice assistant over every app while it listens, thinks, speaks or rings (tap to stop), and adds a microphone toggle to Quick Settings.",
+  "description": "Shows the voice assistant over every app while it listens, thinks, speaks or rings (tap to stop), adds a microphone toggle to Quick Settings, and shows an ambient screen (photos, clock, weather, fleet status) when nobody has touched the screen for a while.",
   "shell-version": ["50"],
   "url": "https://github.com/alexradunet/balaur-fleet",
   "version": 1

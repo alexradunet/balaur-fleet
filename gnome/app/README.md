@@ -24,11 +24,18 @@ below 720 sp (portrait). Style follows the system dark/light setting.
   `url` answers, since its unit is out of reach.
 - `src/services.js`: reads `/etc/balaur/services.json` (`$BALAUR_SERVICES`
   overrides) and opens a service (its `desktopId` app, else its `url`).
+- `src/format.js`: the helpers without GTK (times in the desktop's clock format,
+  markup escaping, the speech address check), tested headless.
+- `src/util.js`: widget helpers for the pages (and the re-exports of format.js).
 - `src/pages/*.js`, `src/style.css`: the pages.
 - `src/settings-dialog.js`: "Assistant Settings" (gear on the Assistant page,
   or the main menu): the chat model (one of the agent's) and Mistral speech settings
   in GSettings `org.balaur.Assistant`, the Mistral key via the daemon's
-  `SetApiKey` (never shown or read back), and a Test button (`TestModel`).
+  `SetApiKey` (never shown or read back), and a Test button (`TestModel`). Text
+  rows save on Apply, not while typing; the speech address must be `https://`
+  (or `http://` to this machine) or empty, which means the machine's default.
+- `tests/test-app.js`: the headless tests (`gjs -m gnome/app/tests/test-app.js`;
+  the package's check phase runs them).
 - `data/`: desktop file and icon. Packaged by `pkgs/balaur-app.nix`.
 
 `icon` in services.json may be an icon name, an absolute file path or an
@@ -52,16 +59,18 @@ gdbus call --session -d org.balaur.Balaur -o /org/balaur/Balaur -m org.gtk.Actio
 ```
 
 The GSettings schema ships with the daemon. To try the settings dialog
-without it, compile the test copy and point GLib at it:
+without it, compile the daemon's own schema into a temporary directory and
+point GLib at it:
 
 ```sh
-glib-compile-schemas --targetdir=/tmp/balaur-schemas gnome/app/tools
-GSETTINGS_SCHEMA_DIR=/tmp/balaur-schemas GSETTINGS_BACKEND=memory ./result/bin/balaur-app
+schemas=$(mktemp -d)
+glib-compile-schemas --targetdir="$schemas" gnome/assistant
+GSETTINGS_SCHEMA_DIR="$schemas" GSETTINGS_BACKEND=memory ./result/bin/balaur-app
 ```
 
 Without the schema the dialog says so and only the API key rows work.
 
-`tools/screenshot.js <dir>` opens the app, saves a PNG of every page in
+`tools/screenshot.js <dir>` opens the app, saves a PNG of every page and of the settings dialog in
 landscape and portrait, and quits (run it with `GDK_BACKEND=broadway` and
 `gtk4-broadwayd` to stay off the real screen; needs the same
 `GI_TYPELIB_PATH` as the packaged launcher).

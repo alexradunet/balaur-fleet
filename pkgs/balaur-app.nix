@@ -24,6 +24,7 @@ stdenv.mkDerivation {
     fileset = lib.fileset.unions [
       ../gnome/app/src
       ../gnome/app/data
+      ../gnome/app/tests
     ];
   };
 
@@ -40,6 +41,15 @@ stdenv.mkDerivation {
   ];
 
   dontBuild = true;
+
+  # The helpers without GTK (gnome/app/src/format.js) and the daemon client's pure parts.
+  doCheck = true;
+  nativeCheckInputs = [ gjs ];
+  checkPhase = ''
+    runHook preCheck
+    HOME=$TMPDIR LC_ALL=C gjs -m tests/test-app.js
+    runHook postCheck
+  '';
 
   installPhase = ''
     runHook preInstall

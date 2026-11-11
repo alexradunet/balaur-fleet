@@ -7,7 +7,8 @@ GNOME Shell 50 extension for the Duet's built-in screen. It follows the
   a large animated orb (blue breathing, violet with orbiting dots, green, amber)
   with the caption under it, centred over everything on the primary monitor.
   Tap it to `Stop()`. The dimmed area around it lets taps through and nothing
-  takes keyboard focus. Hidden when idle, muted or when the daemon is not running.
+  takes keyboard focus. Hidden when idle or when the daemon is not running;
+  a muted microphone does not hide it (an alarm or a typed question still shows).
 - **Quick Settings toggle** "Assistant": on = microphone on (`Muted` false).
   Subtitle "Listening for Hey Jarvis" / "Microphone off" / "Not running"
   (greyed out). A crossed-out mic shows in the top bar while muted.

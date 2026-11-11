@@ -7,7 +7,10 @@
 //   gjs -m gnome/app/tools/mock-assistant.js
 //
 // Ask("fail ...") fails with org.balaur.Assistant.Error.Failed, to see the
-// app's error toast. Ask() walks State through thinking -> speaking -> idle.
+// app's error toast. An item whose text starts with "fail" cannot be ticked
+// (ListSetDone fails). Ask() walks State through thinking -> speaking -> idle.
+// MOCK_NAME and MOCK_ERROR start it with another assistant name and a last
+// error, to see how the app shows text that looks like markup.
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -74,8 +77,9 @@ const house = {
     ],
 };
 
-const props = {State: 'idle', Caption: '', Muted: false, Volume: 60, Name: 'Jarvis',
-    WakeWord: 'hey_jarvis_v0.1', Error: ''};
+const props = {State: 'idle', Caption: '', Muted: false, Volume: 60,
+    Name: GLib.getenv('MOCK_NAME') ?? 'Jarvis',
+    WakeWord: 'hey_jarvis_v0.1', Error: GLib.getenv('MOCK_ERROR') ?? ''};
 
 const fail = text => {
     const e = new Error(text);
@@ -212,6 +216,8 @@ const impl = {
         const it = list(name).find(i => i.id === id);
         if (!it)
             throw fail('No such item');
+        if (it.text.startsWith('fail'))
+            throw fail('The mock refuses to tick this item');
         it.done = done;
         changed(['Snapshot']);
     },

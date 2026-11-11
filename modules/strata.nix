@@ -4,8 +4,8 @@
 # 16 GB with its 62 GB of RAM. OpenAI-compatible /v1 (and Anthropic /v1/messages)
 # on :8090, tailnet only: the port is not opened on the LAN, the tailnet is trusted.
 #
-# It is the fleet's local inference tier: the `ai` aspect on every machine finds
-# this one in the registry and sends model `balaur` here first (ai.nix).
+# It is the fleet's local inference tier: the `ai-gateway` aspect (on the tablet)
+# finds this one in the registry and sends model `balaur` here first (ai.nix).
 #
 # Upstream ships three parts, and only the first is Nix's:
 #   - the Terminal (`strata-control`: a Python CLI with its own interpreter),
@@ -27,8 +27,10 @@
 # Sharing the machine with games (`yieldToGames`): while a Steam game or anything on Wine (Battle.net)
 # or Proton runs, Strata is stopped, so the game has the whole card and the RAM back;
 # the router meanwhile answers from Mistral. It starts again a minute after the
-# game ends, and loading the model again takes a few minutes. A Strata stopped by
-# hand (`systemctl stop strata`) stays stopped.
+# game ends, and loading the model again takes a few minutes. A start during a
+# game (a deploy, a boot) is skipped by an ExecCondition and made up for after the
+# game, the same way. A Strata stopped by hand (`systemctl stop strata`) stays
+# stopped until the next deploy or boot, which start it, or until the next game ends.
 #
 # Booted without the eGPU dock, it does not start (ExecCondition), and the router
 # simply finds no local tier.
@@ -174,6 +176,24 @@
         '';
       };
 
+      # A Steam game (Steam's `reaper` runs beside each one), anything on Wine or
+      # Proton (`wineserver`: Battle.net and Proton games) or umu. Process names,
+      # not command lines: a shell or editor merely showing these words must not count.
+      gameRunning = "pgrep -x 'reaper|wineserver|umu-run' >/dev/null";
+
+      # strata.service's ExecCondition (exit 1: skipped, not failed): a start during
+      # a game would load the model only for strata-yield to stop it again.
+      noGame = pkgs.writeShellApplication {
+        name = "strata-no-game";
+        runtimeInputs = [ pkgs.procps ];
+        text = ''
+          if ${gameRunning}; then
+            echo "a game is running: not starting Strata" >&2
+            exit 1
+          fi
+        '';
+      };
+
       yield = pkgs.writeShellApplication {
         name = "strata-yield";
         runtimeInputs = [
@@ -185,16 +205,15 @@
           flag=/run/strata-yield/yielded
           quiet=0
           while true; do
-            # A Steam game (Steam's `reaper` runs beside each one), anything on Wine or
-            # Proton (`wineserver`: Battle.net and Proton games) or umu. Process names,
-            # not command lines: a shell or editor merely showing these words must not count.
-            if pgrep -x 'reaper|wineserver|umu-run' >/dev/null; then
+            if ${gameRunning}; then
               quiet=0
+              # Also when Strata is not running (noGame skipped a start), so it
+              # comes back after the game.
+              touch "$flag"
               state=$(systemctl is-active strata.service || true)
               case "$state" in
                 active | activating | reloading)
                   echo "a game started: stopping Strata"
-                  touch "$flag"
                   systemctl stop strata.service
                   ;;
               esac
@@ -322,7 +341,10 @@
             User = "strata";
             Group = "strata";
             WorkingDirectory = state;
-            ExecCondition = lib.getExe gpuPresent;
+            ExecCondition = [
+              (lib.getExe gpuPresent)
+            ]
+            ++ lib.optional cfg.yieldToGames (lib.getExe noGame);
             ExecStart = "${control}/share/strata-control/bin/strata serve --profile ${cfg.profile} --host 0.0.0.0 --port ${toString cfg.port}";
             Restart = "on-failure";
             RestartSec = 30;

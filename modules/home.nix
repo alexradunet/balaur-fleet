@@ -17,8 +17,10 @@ in
       home-manager = {
         useGlobalPkgs = true; # our nixpkgs and its settings, no second copy
         useUserPackages = true; # packages land in /etc/profiles, next to the system's
-        # A dotfile that was there before home-manager is kept as <name>.pre-balaur.
+        # A dotfile that was there before home-manager is kept as <name>.pre-balaur,
+        # replacing an older backup: without that the activation aborts on it.
         backupFileExtension = "pre-balaur";
+        overwriteBackup = true;
 
         users.${config.balaur.user} = {
           imports = with hm; [

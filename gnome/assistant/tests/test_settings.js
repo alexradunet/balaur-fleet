@@ -5,6 +5,15 @@ import {eq, ok, until} from './assert.js';
 import {makeAssistant, memorySettings} from './helpers.js';
 import {sleep} from '../util.js';
 
+// Tests that need the installed schema fail without it: run through the package
+// (or with GSETTINGS_SCHEMA_DIR pointing at the compiled gnome/assistant schema).
+function schemaSettings() {
+    const gs = memorySettings();
+    if (!gs)
+        throw new Error('schema org.balaur.Assistant is not installed; run through the package');
+    return gs;
+}
+
 export const tests = {
     async fallbacksAndVoices() {
         const a = makeAssistant();
@@ -17,6 +26,37 @@ export const tests = {
         await a.shutdown();
     },
 
+    // The schema's keys are empty by default, so the config file (the Nix
+    // options) is what an unset key means; a value in dconf wins over it.
+    async emptySchemaKeysFallBackToTheConfigFile() {
+        const gs = schemaSettings();
+        const a = makeAssistant({gsettings: gs});
+        eq(gs.get_string('speech-base-url'), '', 'the schema default is empty');
+        a.cfg.llm.baseUrl = 'https://speech.example/v1';
+        eq(a.settings.speechBaseUrl, 'https://speech.example/v1', 'the config file when the key is empty');
+        gs.set_string('speech-base-url', 'https://other.example/v1');
+        eq(a.settings.speechBaseUrl, 'https://other.example/v1', 'the key when set');
+        gs.set_string('speech-base-url', '');
+        eq((await a._agentEnv()).BALAUR_SPEECH_BASE_URL, 'https://speech.example/v1');
+        await a.shutdown();
+    },
+
+    // What the empty llm-model key means: the config's model if the agent has it, else its own.
+    async defaultModelIsTheConfigsWhenTheAgentHasIt() {
+        const a = makeAssistant();
+        const ready = model => ({models: {providers: [{id: 'faux', name: 'faux', models: [{id: 'm1', name: 'M1'}, {id: 'm2', name: 'M2'}]}]}, model});
+        a._agentReady(ready('m2'));
+        eq(JSON.parse(a.models).defaults.model, 'm1', "the config's llm.model, which the agent has");
+        a.cfg.llm.model = 'gone';
+        a._agentReady(ready('m2'));
+        eq(JSON.parse(a.models).defaults.model, 'm2', "the agent's own when the config's is not among its models");
+        a.cfg.llm.model = 'm2';
+        a._agentReady(ready('m1'));
+        await a.settingsChanged([]);
+        eq(JSON.parse(a.models).defaults.model, 'm2', 'recomputed when settings change');
+        await a.shutdown();
+    },
+
     async theAgentGetsItsModelAndTheMistralKeyOnly() {
         const a = makeAssistant();
         eq(Object.keys(await a._agentEnv()).sort().join(),
@@ -25,19 +65,18 @@ export const tests = {
     },
 
     async debouncedModelChangeAndRestartNotMidTurn() {
-        const gs = memorySettings();
-        if (!gs) {
-            print('      (skipped: schema org.balaur.Assistant not installed; run through the package)');
-            return;
-        }
+        const gs = schemaSettings();
         const a = makeAssistant({gsettings: gs});
         const batches = [];
-        // As application.js wires it, with the test's short debounce.
-        a.settings.gs.connect('changed', () => {});
         const restarts = [];
         const models = [];
         a.agent.restart = async () => restarts.push(Date.now());
         a.agent.setModel = async id => (models.push(id), '');
+        // A turn that lasts until the test lets it go; the loop marks itself busy.
+        let finishTurn = null;
+        a.agent.ask = () => new Promise(resolve => (finishTurn = resolve));
+        a._run();
+        // As application.js wires it, with the test's short debounce.
         const origChanged = a.settingsChanged.bind(a);
         a.settings = new (a.settings.constructor)(a.cfg, keys => {
             batches.push(keys);
@@ -59,13 +98,15 @@ export const tests = {
 
         // The speech server is in the agent's environment (web search): a restart,
         // and mid-turn it waits for the turn to end.
-        a.busy = true;
+        const turn = a.ask('a question', false);
+        await until(() => finishTurn && a.busy, 2000, 'the turn to be under way');
         gs.set_string('speech-base-url', 'https://example.invalid/v1');
         await sleep(400);
         eq(restarts.length, 0, 'no restart during a turn');
-        a.busy = false;
-        a._restartAgentWhenIdle(false);
-        eq(restarts.length, 1, 'restarted once idle');
+        finishTurn('an answer');
+        eq(await turn, 'an answer');
+        await until(() => restarts.length > 0, 2000, 'the restart after the turn');
+        eq(restarts.length, 1, 'restarted once, by the loop, when idle');
         await a.shutdown();
     },
 };

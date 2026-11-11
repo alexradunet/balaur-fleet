@@ -1,8 +1,8 @@
 // Language heuristics and reply cleaning (TestDetectLang, TestSentencesAndSpoken,
-// TestIsStopAndNoise, TestLooksRoOrEn in assistant_test.go).
+// TestIsStopAndNoise in assistant_test.go).
 
 import {deepEq, eq, ok} from './assert.js';
-import {detectLang, fold, isNoise, isStop, looksRoOrEn, normLang, sentences, spoken} from '../lang.js';
+import {detectLang, fold, isNoise, isStop, normLang, sentences, spoken} from '../lang.js';
 
 export const tests = {
     detectLang() {
@@ -32,17 +32,14 @@ export const tests = {
         ok(isNoise(' . '), 'empty is noise');
     },
 
-    looksRoOrEn() {
-        const cases = {
-            'Bir sonraki videoda görüşürüz.': false, // what STT made of "Cât e ceasul?"
-            'Cât e ceasul?': true,
-            "What's the weather like tomorrow?": true,
-            'Adaugă lapte și ouă pe listă.': true,
-            'Ciao, come stai oggi amico': false,
-            'Mihai': true,
-        };
-        for (const [input, want] of Object.entries(cases))
-            eq(looksRoOrEn(input), want, input);
+    // "Bine" answers the assistant's own question; out of the blue it ends the turn.
+    isStopWhenAnswering() {
+        for (const s of ['Bine', 'OK.', 'Okay', 'Mersi', 'Mulțumesc', 'Thanks!']) {
+            ok(isStop(s), `isStop(${s})`);
+            ok(!isStop(s, true), `isStop(${s}, followUp)`);
+        }
+        for (const s of ['Stop', 'Gata', 'Lasă', 'Never mind', 'Nu mai contează', 'Anulează'])
+            ok(isStop(s, true), `a real stop word still stops a follow-up: ${s}`);
     },
 
     normLangAndFold() {

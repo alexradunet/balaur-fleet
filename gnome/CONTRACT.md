@@ -33,8 +33,11 @@ launcher `balaur-home-agent` (`$BALAUR_AGENT`, set by its wrapper) with
   locks: the launcher passes `--no-builtin-tools`; the extension exits when the
   model is offered any tool but ours (pi keeps its own registered, so what is
   checked is the active set); and a call to any other tool is blocked.
-- **Nothing found on disk**: no skills, prompt templates, context files
-  (AGENTS.md), themes or MCP servers, no session file, an empty working
+- **Nothing found on disk**: the launcher passes `--no-extensions` (so neither
+  pi's built-in extensions nor anything in the agent directory's `extensions/`
+  load: only the ones it names with `--extension`), `--no-skills`,
+  `--no-prompt-templates`, `--no-context-files` (AGENTS.md) and `--no-themes`;
+  no MCP servers but Home Assistant's (below), no session file, an empty working
   directory, a private agent directory under the daemon's state directory.
 - **House devices**: one MCP server, Home Assistant's (`/api/mcp`), when the
   unit gives `BALAUR_HOME_ASSISTANT_URL` and a readable
@@ -42,9 +45,11 @@ launcher `balaur-home-agent` (`$BALAUR_AGENT`, set by its wrapper) with
   shared sops secret `home-assistant-agent-token`, a non-admin Home Assistant
   user for the assistant). The launcher writes pi's `mcp.json` with it:
   `exposure: direct`, no codemode, the resource tools excluded, the token read
-  by the header's command. Its tools, `mcp__homeassistant__*`, are the only
-  ones not ours the extension allows; what they can switch is what is exposed
-  to Assist. Without them it runs with `--no-mcp`, as before.
+  by the header's command. The launcher loads pi's own MCP extension
+  (`--extension builtin:mcp`) for it, and only then. Its tools,
+  `mcp__homeassistant__*`, are the only ones not ours the extension allows; what
+  they can switch is what is exposed to Assist. Without them it runs with
+  `--no-mcp`, as before.
 - Our tools, registered by the extension (TypeBox schemas):
   - in the extension (Node `fetch`): weather (Open-Meteo), news (RSS feeds from
     the config), web search (Mistral's web_search);
@@ -54,6 +59,14 @@ launcher `balaur-home-agent` (`$BALAUR_AGENT`, set by its wrapper) with
 - The system prompt is built for every question (`prompt.ts`) from the
   daemon's `AgentContext`: time, language, typed or spoken, memories.
 - At most 6 model rounds per question; the last gets no tools, so it answers.
+- **Text from the web is untrusted.** Once `web_search` or `news` has returned in a
+  conversation, the extension refuses the tools that act, for the rest of that
+  conversation: Home Assistant's (all but its two read-only ones), `remember`,
+  `forget`, `add_reminder`, `delete_reminder` and `set_volume`. It tells the model
+  to have the user ask again as a new request; a new conversation (`new_session`)
+  starts clean. A page cannot make it switch the house or save a fact that every
+  later prompt would repeat. A `remember` fact is one line of at most 200
+  characters (`gnome/assistant/tools.js`), and there are at most 50.
 - Conversation: one pi session kept across turns (follow-ups work), a new one
   after 5 quiet minutes (the daemon sends `new_session`).
 
@@ -67,7 +80,14 @@ pi → daemon  {"id":"p1","type":"response","command":"prompt","success":true,"d
 pi → daemon  {"type":"message_end","message":{"role":"assistant","content":[...],"stopReason":"stop"}}   (the last one is the answer)
 pi → daemon  {"type":"agent_settled","aborted":false}
 daemon → pi  {"type":"abort"}  |  {"type":"new_session"}  |  {"type":"set_model","provider":"balaur","modelId":"balaur-local"}
+daemon → pi  {"id":"p0","type":"prompt","message":"/mcp reconnect homeassistant"}   (a new conversation, with house devices; the response says "handled")
 ```
+
+pi connects Home Assistant once, at its start, and never retries a first connection
+that failed, so the daemon asks it to before the first question of each conversation
+(4 seconds at most). A child that does not answer its start-up commands, or does not
+settle within 5 seconds of an `abort`, is killed and started again; one that keeps
+exiting is restarted after 3 s, 6 s and so on up to 5 minutes.
 
 Packaging: `pkgs/balaur-home-agent.nix`: the launcher and the extension's three
 files, nothing to build (pi runs TypeScript). Its check runs the real pi with
@@ -81,13 +101,15 @@ Editable in the app (Preferences on the Assistant page), GNOME-native:
 - **GSettings** schema `org.balaur.Assistant` (path `/org/balaur/assistant/`),
   shipped by the daemon package. Keys:
   `llm-model` (s, one of the agent's models: `balaur`, `balaur-local`,
-  `balaur-remote`), `speech-base-url` (s, Mistral, default
-  `https://api.mistral.ai/v1`), `stt-model` (s), `tts-model` (s), `voice-ro` (s),
+  `balaur-remote`), `speech-base-url` (s, Mistral's API; empty by default, which
+  means the config file's `llm.baseUrl`), `stt-model` (s), `tts-model` (s), `voice-ro` (s),
   `voice-en` (s).
   An empty key falls back to the config file, which NixOS writes from
   `balaur.assistant.*`; a gschema override would only reach a session after the
   next login. User changes live in dconf. `Models` also carries `defaults`
-  ({model}: what the empty key means), so the app shows it. The daemon watches
+  ({model}: what the empty key means), so the app shows it. The app writes a
+  text key when the row is applied, not while it is typed, and takes a speech
+  address only if it is https or this machine (it receives the API key). The daemon watches
   `changed::` and applies new values without a restart: a new model is set on
   the running agent (`set_model`); `speech-base-url` restarts the agent child,
   which has it in its environment for web search.
@@ -143,7 +165,7 @@ the provider it runs on) and publishes them as `Models`.
     <!-- Speaker volume 0-100: the session's default sink, kept in step with GNOME. -->
     <property name="Volume" type="u" access="readwrite"/>
     <property name="Name" type="s" access="read"/>       <!-- "Jarvis" -->
-    <property name="WakeWord" type="s" access="read"/>   <!-- "hey_jarvis" -->
+    <property name="WakeWord" type="s" access="read"/>   <!-- the configured wake words (config `wake.words`) joined with ", ": "hey_jarvis" for the default one -->
     <property name="Error" type="s" access="read"/>      <!-- last error, "" when fine -->
     <!-- Everything else, as one JSON document (shape below). Changes are
          announced with PropertiesChanged like the others. -->
@@ -205,11 +227,15 @@ Timers and reminders going off are GNOME notifications from
 - Config: JSON file at `$BALAUR_ASSISTANT_CONFIG` (read by
   `gnome/assistant/config.js`; Nix writes it in `modules/assistant.nix`).
 - API keys: the GNOME Keyring (see Settings); fallback for Mistral the file at
-  `$BALAUR_ASSISTANT_KEY_FILE` (`sudo balaur-assistant-login`), `$BALAUR_ASSISTANT_LLM_KEY` for development.
-- State: `$STATE_DIRECTORY` (= `~/.local/state/balaur-assistant`), file
-  `house.json`. The household's lists and memories live there, in
-  Go's `encoding/json` format (`gojson.js`), kept byte-compatible with the
-  service it replaced.
+  `$BALAUR_ASSISTANT_KEY_FILE` (the sops secret `assistant-llm-key`; without the
+  `secrets` aspect, what `sudo balaur-assistant-login` writes), `$BALAUR_ASSISTANT_LLM_KEY` for development.
+- State: `$STATE_DIRECTORY` (= `~/.local/state/balaur-assistant`), with these
+  files (`store.js`): `house.json` holds the household's lists (`shopping`,
+  `tasks` and any others, each a list of items), `memory.json` the remembered
+  facts, `reminders.json` the reminders. They are in Go's `encoding/json`
+  format (`gojson.js`), kept byte-compatible with the service it replaced. The
+  daemon's own state is beside them: `timers.json` (running timers, which survive
+  a restart) and `mute.json` (the microphone switch).
 - Timezone: `$TZ` (Europe/Bucharest).
 - Volume: `wpctl get-volume/set-volume @DEFAULT_AUDIO_SINK@` (or `pactl`).
 - Home services for the app: `/etc/balaur/services.json`, an array of
@@ -223,9 +249,12 @@ Timers and reminders going off are GNOME notifications from
 - Testing on this box: the assistant is live; a second copy run by hand would
   also answer "Hey Jarvis", so keep such runs short. You may run your piece by hand as the household user, e.g.
   `sudo -u home env XDG_RUNTIME_DIR=/run/user/1002 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus <cmd>`
-  (passwordless sudo is on for development). Tools: `nix shell nixpkgs#gjs nixpkgs#libadwaita ...`.
-- Nixpkgs for packaging: the flake's input, e.g.
-  `nix build --impure --expr 'let p = (builtins.getFlake (toString ./.)).inputs.nixpkgs.legacyPackages.x86_64-linux; in p.callPackage ./pkgs/<file>.nix {}'`.
+  (`sudo` asks for the admin's password, which an agent does not have: this is a
+  step for the user). Tools: `nix shell nixpkgs#gjs nixpkgs#libadwaita ...`.
+- Packaging: the packages are the flake's (`modules/flake/packages.nix`; they need
+  each other, so build them by their flake name, not with `callPackage`):
+  `nix build .#balaur-assistant` (also `balaur-app`, `balaur-shell-extension`,
+  `balaur-home-agent`, `duet-camera`, `aminte`).
 
 ## Style (house rules)
 

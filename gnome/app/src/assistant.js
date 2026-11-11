@@ -57,6 +57,10 @@ const IFACE_INFO = Gio.DBusNodeInfo.new_for_xml(IFACE_XML).interfaces[0];
 // default 25 s timeout would cut long ones off.
 const ASK_TIMEOUT_MS = 180 * 1000;
 
+// The first key stored makes GNOME ask for a keyring password, and the daemon
+// waits for the person to answer.
+const SET_API_KEY_TIMEOUT_MS = 5 * 60 * 1000;
+
 // What the pages see when the daemon is away or sends something unreadable.
 function emptySnapshot() {
     return {log: [], timers: [], reminders: [], lists: {}, listOrder: [], memories: []};
@@ -64,7 +68,7 @@ function emptySnapshot() {
 
 // Fill in missing fields so pages never have to check for undefined (the Go
 // service sends `null` for some empty slices).
-function normalize(s) {
+export function normalize(s) {
     const out = emptySnapshot();
     if (!s || typeof s !== 'object')
         return out;
@@ -241,7 +245,9 @@ export const Assistant = GObject.registerClass({
     timerCancel(id) { return this._call('TimerCancel', '(s)', [id]); }
     reminderCancel(id) { return this._call('ReminderCancel', '(s)', [id]); }
     // "" deletes the key.
-    setApiKey(provider, key) { return this._call('SetApiKey', '(ss)', [provider, key]); }
+    setApiKey(provider, key) {
+        return this._call('SetApiKey', '(ss)', [provider, key], SET_API_KEY_TIMEOUT_MS);
+    }
 
     // One small request with the current settings; resolves to "" when it
     // worked, else the human error. Network round trip, so allow a minute.
@@ -252,7 +258,7 @@ export const Assistant = GObject.registerClass({
 });
 
 // GLib.Error from D-Bus -> Error with just the human part of the message.
-function humanError(e) {
+export function humanError(e) {
     if (e instanceof GLib.Error) {
         if (Gio.DBusError.is_remote_error(e))
             Gio.DBusError.strip_remote_error(e);

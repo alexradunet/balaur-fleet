@@ -19,6 +19,10 @@
 // launcher configured it: its tools (mcp__homeassistant__*) switch the house's
 // devices as the assistant's own non-admin Home Assistant user.
 //
+// Text from a web search or from the news is written by strangers. Once either
+// has come back in a conversation, the tools that act are refused until the next
+// conversation (see UNTRUSTED below).
+//
 // Environment (set by the launcher and the daemon):
 //   BALAUR_ASSISTANT_CONFIG   the assistant's config JSON (location, newsFeeds, search.model)
 //   MISTRAL_API_KEY, BALAUR_SPEECH_BASE_URL   Mistral, for web_search
@@ -29,7 +33,7 @@ import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { Type } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { systemPrompt, type TurnContext } from "./prompt.ts";
+import { apology, fallbackPrompt, systemPrompt, type TurnContext } from "./prompt.ts";
 import { News, weather, webSearch } from "./web.ts";
 
 // A cap on model rounds per question; the last one gets no tools, so it answers.
@@ -41,6 +45,17 @@ const BUS = ["org.balaur.Assistant", "/org/balaur/Assistant", "org.balaur.Assist
 // Home Assistant's MCP server (the launcher's mcp.json): its tools are the only
 // ones not ours that may be offered or run.
 const HOUSE = "mcp__homeassistant__";
+
+// What a web search or a news feed returns is text from strangers. Once one has
+// come back, the conversation may not act on the house, the speaker, the
+// reminders or the memory until a new one starts, so that text cannot make the
+// assistant do anything (a poisoned page asking for a reminder, or a fact to
+// remember, which every later prompt would repeat).
+const UNTRUSTED = ["web_search", "news"];
+const ACTING = ["add_reminder", "delete_reminder", "remember", "forget", "set_volume"];
+// The house tools that only read; any other house tool acts.
+const HOUSE_READS = [`${HOUSE}GetLiveContext`, `${HOUSE}GetDateTime`];
+const TAINTED = "I can't do that in the same conversation as a web search or the news. Tell the user to ask again, as a new request, once this conversation has ended.";
 
 const str = (description: string) => Type.String({ description });
 const opt = <T>(t: T) => Type.Optional(t as any);
@@ -187,6 +202,9 @@ export default function (pi: ExtensionAPI) {
 	const searchModel: string = cfg.search?.model ?? "";
 	const ours: string[] = [];
 	const allowed = (name: string) => ours.includes(name) || name.startsWith(HOUSE);
+	const acts = (name: string) => ACTING.includes(name) || (name.startsWith(HOUSE) && !HOUSE_READS.includes(name));
+	let tainted = false; // a web search or the news was read in this conversation
+	let lang = "";
 	/** The house tools pi has registered: once the server answered, and only if it did. */
 	const house = () =>
 		pi
@@ -270,7 +288,8 @@ export default function (pi: ExtensionAPI) {
 
 	let rounds = 0;
 
-	pi.on("session_start", async () => {
+	pi.on("session_start", async (event: any) => {
+		if (event?.reason === "new" || event?.reason === "startup") tainted = false;
 		checkTools();
 		console.error(`balaur-home-agent: ready (tools ${ours.join(", ")})`);
 	});
@@ -279,8 +298,16 @@ export default function (pi: ExtensionAPI) {
 		rounds = 0;
 		pi.setActiveTools([...ours, ...house()]); // back after a capped run
 		checkTools();
-		const ctx: TurnContext = JSON.parse(await daemon("AgentContext", []));
-		return { systemPrompt: systemPrompt(ctx, ctx.lang ?? "", !!env.BALAUR_HOUSE_DEVICES) };
+		try {
+			const ctx: TurnContext = JSON.parse(await daemon("AgentContext", []));
+			lang = ctx.lang ?? "";
+			return { systemPrompt: systemPrompt(ctx, lang, !!env.BALAUR_HOUSE_DEVICES) };
+		} catch (e) {
+			// Without it pi would answer with its own coding assistant's prompt.
+			console.error(`balaur-home-agent: no context from the assistant: ${(e as Error).message}`);
+			lang = "";
+			return { systemPrompt: fallbackPrompt() };
+		}
 	});
 
 	pi.on("turn_end", async () => {
@@ -288,8 +315,24 @@ export default function (pi: ExtensionAPI) {
 		if (++rounds === MAX_TOOL_ROUNDS - 1) pi.setActiveTools([]);
 	});
 
+	// A model that still calls a tool in the last round would get "tool not found"
+	// and another round, for ever: its message loses the calls, so the run ends.
+	pi.on("message_end", async (event: any) => {
+		const m = event.message;
+		if (m?.role !== "assistant" || rounds < MAX_TOOL_ROUNDS - 1) return undefined;
+		if (!Array.isArray(m.content) || !m.content.some((c: any) => c.type === "toolCall")) return undefined;
+		console.error("balaur-home-agent: the model kept calling tools after the last round");
+		return { message: { ...m, content: [{ type: "text", text: apology(lang) }], stopReason: "stop" } };
+	});
+
 	pi.on("tool_call", async (event: any) => {
 		if (!allowed(event.toolName)) return { block: true, reason: "this assistant has only its own tools" };
+		if (tainted && acts(event.toolName)) return { block: true, reason: TAINTED };
+		return undefined;
+	});
+
+	pi.on("tool_result", async (event: any) => {
+		if (UNTRUSTED.includes(event.toolName)) tainted = true;
 		return undefined;
 	});
 }

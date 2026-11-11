@@ -54,7 +54,7 @@ uses the default. `sudo balaur-wake-test` on each, with real voices.
 
 ### 4. Keep an eye on the tablet's disk
 
-56% used at the last look; the Syncthing volume reserves 200 GiB up front and now
+64% used at the last look (275 of 459 GB, 2026-11-10); the Syncthing volume reserves 200 GiB up front and now
 also keeps 30 days of replaced and deleted files inside that cap. qBittorrent
 downloads into what is left.
 
@@ -72,10 +72,7 @@ Claude Code and pi integrations are installed there. Left:
 - **The phone** (needs the user): a key from its SSH app, as
   `balaur.sshKeys = [ "ssh-ed25519 ..." ];` in `modules/hosts/tablet.nix`; then
   `ssh alex@tablet` and `dev` from mobile data.
-- **`gh auth login` on the tablet** (needs the user): its token is invalid.
 - **The laptop**: `dev` there, once it is awake and on main.
-- **A deploy leaves the server alone**: `systemctl --user show herdr-server -p MainPID`
-  on the tablet was 235170 before the first switch after `c7be55a`; it should not change.
 - **A reboot of the tablet**: see what herdr restores (the layout, and the agents through
   the integrations). The old workspace `yoga-duet-7-home-server` points at a directory
   that is gone and can be closed.
@@ -93,7 +90,7 @@ Samsung" reached Home Assistant without error. Left:
 - **Android TV Remote** fails to set up (`No module named 'androidtvremote2'`):
   `androidtv_remote` in `extraComponents` if the user wants it.
 - **The tablet** has not been asked a real question since it moved to pi (it
-  started cleanly). `git revert 664e4b4` brings the old engine back if it misbehaves.
+  started cleanly).
 
 ### 8. The ambient screen: photos and the fleet's status (2026-11-10, on the tablet)
 
@@ -115,6 +112,56 @@ blanks after 15 minutes (`camera.screenTimeout`). Left:
   and shows blurry). Full-size originals look better. HEIC is not shown (GdkPixbuf).
 - **Not seen yet:** the status panel with a failed unit (red row, "N failed") and a
   rotated tablet on the real screen. Both were checked only in a headless gnome-shell.
+
+### 9. From the review of 2026-11-10 (needs a deploy, and the user)
+
+A review compared the code and the docs with each other, and its fixes are in the
+working tree (one commit; `git log` says which). Once they are deployed:
+
+- **Exercise what could not be tried before**, on the tablet unless said:
+  - auto-deploy's roll-back never worked before; it now returns to the generation it
+    recorded before the switch. Test it once on purpose, with a switch after which the
+    machine cannot reach GitHub (`journalctl -u balaur-auto-deploy` should say
+    "switching back to ...").
+  - `https://torrents.<domain>` answers (`ServerDomains` is quoted now: an unquoted `;`
+    ended the list).
+  - A restart of the camera relay no longer deafens `duet-presence`:
+    `sudo systemctl restart duet-camera-relay`, wave, and the screen wakes.
+  - The ambient screen appears while someone is in the room.
+  - The relay's idle CPU: `systemctl show duet-camera-relay -p CPUUsageNSec`, twice, ten
+    minutes apart.
+  - House devices right after a reboot of the tablet: "turn on the lamp" as the first
+    question.
+  - The ambient screen now holds a modal grab, so the key or tap that ends it no longer
+    reaches the app underneath. Seen only in a headless gnome-shell: on the real screen,
+    check that the tablet still blanks after 15 minutes with the photos up and wakes on
+    movement, and that locking the pc with the photos up works. Known cost: an alarm
+    that rings while the photos are up needs two taps (one ends the photos, one stops it).
+  - While nobody uses the webcam the relay no longer feeds it (it only samples the
+    sensor): open Snapshot and see how long the first picture takes (up to about 2 s).
+  - `balaur-torrent` with a magnet link and with a `.torrent` file whose name has a comma;
+    qBittorrent 5.2 answers `torrents/add` with JSON, which the script reads for failures.
+  - On the pc: Strata is not started by a deploy that lands during a game and comes back
+    a minute after the game; `http://pc:8790` (WoW Market) still reads the game folder
+    and keeps its add-on current with the rest of the home hidden (`ProtectHome=tmpfs`,
+    the game folder bound read-only and its AddOns folder writable: tried only in a
+    transient user unit on the tablet). It now deletes scans older than 90 days.
+  - AdGuard: the Samsung rules are a filter list from a file now, and a custom rule made
+    in its UI survives `sudo systemctl restart adguardhome`.
+  - The voice assistant: mute, restart it, still muted; a timer survives a restart; a
+    search followed by "remind me" in the same conversation is refused, by design.
+- **`gnome/agent/` in each machine's clone** (tablet, pc, laptop) is the old Node agent's
+  orphaned `node_modules` (156 MB, untracked, now git-ignored): delete it by hand.
+- **`cups-browsed` runs on every machine** (the NixOS default with avahi).
+  `services.printing.browsed.enable = false` would be leaner if no printer is found by
+  browsing (needs the user).
+- **Long-lived herdr panes on the tablet keep a stale `LOCALE_ARCHIVE`** after a deploy that
+  changes the locales (`setlocale: LC_TIME: cannot change locale`). Restarting
+  `herdr-server` (`systemctl --user restart herdr-server`) or rebooting fixes it, at the
+  cost of the sessions.
+- **The Sunshine password is passed on the command line** at each session start (its only
+  interface: `sunshine --creds`, in `sunshine.service`'s `ExecStartPre`), so it is briefly
+  visible in `/proc` on the pc.
 
 ## Backlog from the review (decisions, not fixes)
 

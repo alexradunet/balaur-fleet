@@ -12,6 +12,8 @@ import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk?version=4.0';
 import Adw from 'gi://Adw?version=1';
 
+import {speechUrlProblem} from './format.js';
+
 const SCHEMA_ID = 'org.balaur.Assistant';
 
 // The schema comes from the daemon package; without it Gio.Settings would
@@ -125,21 +127,49 @@ class AssistantSettingsDialog extends Adw.PreferencesDialog {
         const mistralKey = this._keyRow('Mistral API key', () => 'mistral');
         group.add(mistralKey.row);
         const fields = [
-            ['speech-base-url', 'Speech server address', Gtk.InputPurpose.URL],
-            ['stt-model', 'Speech-to-text model'],
-            ['tts-model', 'Text-to-speech model'],
+            ['speech-base-url', 'Speech server address (empty: default)', Gtk.InputPurpose.URL, speechUrlProblem],
+            ['stt-model', 'Speech-to-text model (empty: default)'],
+            ['tts-model', 'Text-to-speech model (empty: default)'],
             ['voice-ro', 'Romanian voice (empty: default)'],
             ['voice-en', 'English voice (empty: default)'],
         ];
-        for (const [key, title, purpose] of fields) {
-            const row = new Adw.EntryRow({title, input_purpose: purpose ?? Gtk.InputPurpose.FREE_FORM});
-            if (this._settings)
-                this._settings.bind(key, row, 'text', Gio.SettingsBindFlags.DEFAULT);
-            else
-                row.sensitive = false;
-            group.add(row);
-        }
+        for (const [key, title, purpose, problemOf] of fields)
+            group.add(this._textRow(key, title, purpose, problemOf));
         return group;
+    }
+
+    // A free-text setting. Nothing is written while typing: the daemon applies
+    // a change at once (a new address even restarts the agent), so only the
+    // apply button or Enter saves, and `problemOf` may refuse the value first.
+    _textRow(key, title, purpose, problemOf) {
+        const row = new Adw.EntryRow({title, show_apply_button: true,
+            input_purpose: purpose ?? Gtk.InputPurpose.FREE_FORM});
+        if (!this._settings) {
+            row.sensitive = false;
+            return row;
+        }
+        const settings = this._settings;
+        row.text = settings.get_string(key);
+        row.connect('changed', () => row.remove_css_class('error'));
+        row.connect('apply', () => {
+            const text = row.text.trim();
+            const problem = problemOf?.(text);
+            if (problem) {
+                row.add_css_class('error');
+                this._toast(`${title.replace(/ \(empty: default\)$/, '')}: ${problem}`);
+                return;
+            }
+            if (text !== settings.get_string(key))
+                settings.set_string(key, text);
+            if (row.text !== text)
+                row.text = text;
+        });
+        // A change from elsewhere (dconf) shows up, unless the person is typing.
+        settings.connect(`changed::${key}`, () => {
+            if (!row.get_focus_child() && row.text !== settings.get_string(key))
+                row.text = settings.get_string(key);
+        });
+        return row;
     }
 
     // ---- API keys ----

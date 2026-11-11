@@ -148,6 +148,33 @@ func (p *Processor) shade(f *RawFrame, cx, cy int, st *Stats) (uint8, uint8, uin
 	return p.finish(r, g, b, clipped)
 }
 
+// neighbour is the n-th (0..3) cell next to (cx, cy) whose colour difference
+// cell() averages, reflected at the edges so it keeps the opposite parity.
+func neighbour(cx, cy, n, cw, ch int) (int, int) {
+	nx, ny := cx, cy
+	switch n {
+	case 0:
+		nx = cx - 1
+	case 1:
+		nx = cx + 1
+	case 2:
+		ny = cy - 1
+	case 3:
+		ny = cy + 1
+	}
+	if nx < 0 {
+		nx = 1
+	} else if nx >= cw {
+		nx = cw - 2
+	}
+	if ny < 0 {
+		ny = 1
+	} else if ny >= ch {
+		ny = ch - 2
+	}
+	return nx, ny
+}
+
 // cell rebuilds linear R, G, B (infrared already subtracted) and IR for one
 // 2x2 cell. Green is the mean of the cell's two greens. The cell has red or
 // blue; the other one is interpolated as a colour difference from the four
@@ -163,28 +190,7 @@ func (p *Processor) cell(f *RawFrame, cx, cy int) (r, g, b, ir float32, clipped 
 
 	var diff float32
 	for n := 0; n < 4; n++ {
-		nx, ny := cx, cy
-		switch n {
-		case 0:
-			nx = cx - 1
-		case 1:
-			nx = cx + 1
-		case 2:
-			ny = cy - 1
-		case 3:
-			ny = cy + 1
-		}
-		// Reflect at the edges so the neighbour keeps the opposite parity.
-		if nx < 0 {
-			nx = 1
-		} else if nx >= cw {
-			nx = cw - 2
-		}
-		if ny < 0 {
-			ny = 1
-		} else if ny >= ch {
-			ny = ch - 2
-		}
+		nx, ny := neighbour(cx, cy, n, cw, ch)
 		N := &p.cfa.cells[ny&1][nx&1]
 		nx0, ny0 := 2*nx, 2*ny
 		ng := (p.at(f, nx0+N.g[0][0], ny0+N.g[0][1]) + p.at(f, nx0+N.g[1][0], ny0+N.g[1][1])) * 0.5
@@ -279,8 +285,8 @@ func (p *Processor) Frame(f *RawFrame, outW, outH int, yuyv []byte) Stats {
 					R, G, B := p.shade(f, cx, cy, s)
 					rgb[k] = [3]int32{int32(R), int32(G), int32(B)}
 				}
-				y0 := 16 + (66*rgb[0][0]+129*rgb[0][1]+25*rgb[0][2]+128)>>8
-				y1 := 16 + (66*rgb[1][0]+129*rgb[1][1]+25*rgb[1][2]+128)>>8
+				y0 := lumaBT601(rgb[0][0], rgb[0][1], rgb[0][2])
+				y1 := lumaBT601(rgb[1][0], rgb[1][1], rgb[1][2])
 				ar, ag, ab := rgb[0][0]+rgb[1][0], rgb[0][1]+rgb[1][1], rgb[0][2]+rgb[1][2]
 				u := 128 + (-38*ar-74*ag+112*ab+256)>>9
 				v := 128 + (112*ar-94*ag-18*ab+256)>>9
@@ -294,6 +300,9 @@ func (p *Processor) Frame(f *RawFrame, outW, outH int, yuyv []byte) Stats {
 	}
 	return total
 }
+
+// lumaBT601 is the limited-range luma of an 8-bit RGB pixel.
+func lumaBT601(r, g, b int32) int32 { return 16 + (66*r+129*g+25*b+128)>>8 }
 
 func clampByte(v int32) byte {
 	if v < 0 {

@@ -198,6 +198,8 @@ const PLAYOUT_MARGIN_MS = 150;
 
 /** Splits 16-bit PCM into views of at most `ms` each, on frame boundaries. */
 export function splitPCM(pcm, ms) {
+    if (!(pcm.channels >= 1)) // a zero-byte step would never end
+        throw new Error(`bad PCM: ${pcm.channels} channels`);
     const frame = 2 * pcm.channels;
     const step = Math.max(1, Math.round(pcm.rate * ms / 1000)) * frame;
     const parts = [];

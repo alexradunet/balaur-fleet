@@ -9,6 +9,19 @@ export function log(...parts) {
     printerr(parts.join(' '));
 }
 
+// What people say and what the assistant answers is private: the journal gets
+// lengths only. BALAUR_ASSISTANT_DEBUG=1 in the daemon's environment
+// (`systemctl --user edit balaur-assistant`) adds the text, to find a bug.
+export function debugEnabled() {
+    return GLib.getenv('BALAUR_ASSISTANT_DEBUG') === '1';
+}
+
+/** A piece of personal text for the journal: quoted when debugging, else only its length. */
+export function logText(s) {
+    s = String(s ?? '');
+    return debugEnabled() ? JSON.stringify(s) : `${[...s].length} chars`;
+}
+
 export function errText(e) {
     return e?.message ?? String(e);
 }

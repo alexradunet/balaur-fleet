@@ -1,7 +1,8 @@
-// The daemon-side tools: the agent (gnome/agent/) forwards the model's calls
-// to these as tool_call records, because the state lives here (timers,
-// reminders, house lists, memory, the speaker). Same behaviour and results as
-// the matching tools in assistant/tools.go (the former Go service, in git history).
+// The daemon-side tools: the agent (gnome/home-agent/) forwards the model's
+// calls to these over the D-Bus method AgentTool, because the state lives here
+// (timers, reminders, house lists, memory, the speaker). Same behaviour and
+// results as the matching tools in assistant/tools.go (the former Go service,
+// in git history).
 
 import GLib from 'gi://GLib';
 
@@ -33,6 +34,9 @@ function decode(args, fields) {
 }
 
 const itemTexts = items => items.map(it => it.text);
+
+// A remembered fact goes into every later system prompt, so it stays one short line.
+export const MAX_FACT_CHARS = 200;
 
 /** "YYYY-MM-DD HH:MM" (or with a T) in local time -> GLib.DateTime, or null. */
 export function parseLocal(s) {
@@ -96,9 +100,13 @@ export async function runTool(a, name, args, turn) {
     }
     case 'remember': {
         const p = decode(args, {fact: 'string'});
-        if (!(p.fact ?? '').trim())
+        const fact = (p.fact ?? '').replace(/\s+/g, ' ').trim();
+        if (!fact)
             throw new Error('empty fact');
-        const m = a.store.Remember(p.fact);
+        const n = [...fact].length;
+        if (n > MAX_FACT_CHARS)
+            throw new Error(`fact too long (${n} characters, at most ${MAX_FACT_CHARS}): say it shorter`);
+        const m = a.store.Remember(fact);
         return {id: m.id, saved: m.fact};
     }
     case 'forget': {
@@ -137,6 +145,8 @@ export async function runTool(a, name, args, turn) {
     }
     case 'set_volume': {
         const p = decode(args, {percent: 'int', change: 'int'});
+        if (p.percent === undefined)
+            await a.refreshVolume(); // a change is relative to what GNOME's slider says now
         const v = p.percent ?? a.volume + (p.change ?? 0);
         await a.setVolume(v);
         return {volume: a.volume};

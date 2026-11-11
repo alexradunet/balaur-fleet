@@ -6,8 +6,11 @@
 # Either way, reserve this machine's IP in the router first.
 #
 # Settings below are applied on every start and win over the web UI for the keys
-# they set (upstreams, filter lists, the Samsung rules, the `web` rewrites). Everything else, such as
-# per-client settings, the query log and allow-listing in the UI, is kept.
+# they set (upstreams, filter lists, the `web` rewrites). Lists are replaced whole,
+# so the UI's own filter lists do not survive a restart. Everything else, such as
+# per-client settings, the query log and the custom rules (`user_rules`, where the UI
+# keeps its allow-list and "Unblock" entries), is kept: the Samsung rules are a
+# filter list from a file, not custom rules.
 { config, ... }:
 let
   fleet = config.fleet;
@@ -49,6 +52,22 @@ in
         ) webHosts
       );
       webPort = 3000;
+
+      # Samsung TVs: home-screen ads and viewing-data tracking (ACR). Deliberately
+      # NOT blocked: samsungcloudsolution.* (blocking it breaks app installs and
+      # Smart Hub) and samsungotn.net (firmware updates).
+      samsungText = ''
+        ||samsungads.com^
+        ||ads.samsung.com^
+        ||samsungacr.com^
+        ||samsungtifa.com^
+        ||gpm.samsungqbe.com^
+      '';
+      samsungRules = pkgs.writeText "samsung-tv-rules.txt" samsungText;
+      # AdGuard reads a local list again only when its update interval (24 h) is
+      # up, unless it is a list it has not seen: so the id follows the content.
+      samsungId =
+        100 + lib.fromHexString (builtins.substring 0 6 (builtins.hashString "sha256" samsungText));
     in
     {
       services.adguardhome = {
@@ -77,6 +96,8 @@ in
             protection_enabled = true;
             filtering_enabled = true;
             inherit rewrites;
+            # A local list may only be read from a path matching one of these.
+            safe_fs_patterns = [ (toString samsungRules) ];
           };
           filters = [
             {
@@ -91,16 +112,12 @@ in
               name = "AdAway default blocklist";
               url = "https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt";
             }
-          ];
-          # Samsung TVs: home-screen ads and viewing-data tracking (ACR). Deliberately
-          # NOT blocked: samsungcloudsolution.* (blocking it breaks app installs and
-          # Smart Hub) and samsungotn.net (firmware updates).
-          user_rules = [
-            "||samsungads.com^"
-            "||ads.samsung.com^"
-            "||samsungacr.com^"
-            "||samsungtifa.com^"
-            "||gpm.samsungqbe.com^"
+            {
+              enabled = true;
+              id = samsungId;
+              name = "Samsung TV ads and tracking";
+              url = toString samsungRules;
+            }
           ];
         };
       };
