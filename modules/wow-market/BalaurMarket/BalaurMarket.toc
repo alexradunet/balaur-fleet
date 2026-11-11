@@ -1,0 +1,9 @@
+## Interface: 16001
+## Title: Balaur Market
+## Notes: Saves the game's vendor prices of the items Auctionator has seen, for WoW Market on the pc.
+## Author: Balaur
+## Version: 1
+## OptionalDeps: Auctionator
+## SavedVariables: BALAUR_MARKET
+
+BalaurMarket.lua

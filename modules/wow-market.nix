@@ -10,12 +10,15 @@
 # items cheaper or dearer than their median over the past scans. GET /api/report is
 # the same as JSON, for the OS agent.
 #
-# Item names, vendor prices and recipes are the installed build's own game tables,
-# fetched from wago.tools once per build (Forever changes vendor prices and recipes
-# from Classic Era's), so a patch needs nothing here.
+# Item names and recipes are the installed build's own game tables, fetched from
+# wago.tools once per build (Forever's differ from Classic Era's), so a patch needs
+# nothing here. Vendor prices come from the game itself, because Blizzard changes
+# some from its servers after those tables are made: the Balaur Market add-on
+# (wow-market/BalaurMarket) saves them, and the service installs it into the AddOns
+# folder and keeps it current. That folder is all it may write in the game.
 #
-# It only reads the game's folder: nothing reaches the game, and buying stays a
-# click in it (automating the auction house breaks Blizzard's rules).
+# Nothing reaches the game while it runs, and buying stays a click in it
+# (automating the auction house breaks Blizzard's rules).
 #
 #   journalctl -u wow-market        scans kept, tables fetched
 {
@@ -41,6 +44,7 @@
             ;
           flavour = "_forever_";
           product = "wowf"; # Forever in Battle.net's .build.info
+          addon = ./wow-market/BalaurMarket;
           pollSeconds = 30;
           minScansForUsual = 3;
         }
@@ -94,6 +98,9 @@
             PrivateTmp = true;
             PrivateDevices = true;
             ProtectHome = "read-only";
+            # Except the game's AddOns folder, for Balaur Market ("-": skipped while
+            # the game is not installed; quoted: the path has spaces).
+            ReadWritePaths = [ ''-"${cfg.gameRoot}/_forever_/Interface/AddOns"'' ];
             ProtectSystem = "strict";
             ProtectKernelTunables = true;
             ProtectKernelModules = true;

@@ -15,12 +15,19 @@ serves a page that turns the prices into decisions:
 
 GET /api/report returns the same as JSON (for the OS agent).
 
-Item names, vendor prices and recipes are Forever's own: the game tables of the
-installed build (.build.info), fetched once per build from wago.tools and kept small
-in $STATE_DIRECTORY/data. Scans are kept in $STATE_DIRECTORY/scans/<realm>/.
+Item names and recipes are Forever's own: the game tables of the installed build
+(.build.info), fetched once per build from wago.tools and kept small in
+$STATE_DIRECTORY/data. Scans are kept in $STATE_DIRECTORY/scans/<realm>/.
 
-It never writes to the game's folder, and nothing reaches the game: the add-on
-cannot talk to the network, and buying stays a click in the game.
+Vendor prices come from the game itself: Blizzard changes some from its servers
+after the tables are made (an Iron Grenade is 5s in them, 1s 25c in the game). The
+Balaur Market add-on (BalaurMarket/, next to this file) asks the game for the vendor
+price of every item Auctionator has seen and saves them on /reload; this service
+installs it into the AddOns folder and keeps it current. Only those prices make a
+vendor deal; the tables' are used for vendor-sold materials (thread, salt) alone.
+
+That add-on folder is all it writes in the game's folder. Nothing reaches the game
+while it runs (add-ons cannot talk to the network), and buying stays a click in it.
 
 Usage: market.py CONFIG.json  (written by modules/wow-market.nix)
 """
@@ -276,6 +283,47 @@ def read_scan(path):
 
 
 _seen = {}  # path -> mtime
+_game_sell = {}  # item id -> what a vendor pays, as the game said (Balaur Market)
+
+
+def install_addon():
+    """Copies the Balaur Market add-on into the AddOns folder when it differs."""
+    addons = os.path.join(GAME, "Interface", "AddOns")
+    if not os.path.isdir(addons):
+        return
+    src, dst = CONFIG["addon"], os.path.join(addons, "BalaurMarket")
+    for name in sorted(os.listdir(src)):
+        new = open(os.path.join(src, name), "rb").read()
+        try:
+            if open(os.path.join(dst, name), "rb").read() == new:
+                continue
+        except OSError:
+            pass
+        os.makedirs(dst, exist_ok=True)
+        with open(os.path.join(dst, name), "wb") as f:
+            f.write(new)
+        log(f"installed {name} of the Balaur Market add-on")
+
+
+def read_game_sell():
+    """Merges every account's Balaur Market prices into _game_sell."""
+    for path in glob.glob(os.path.join(GAME, "WTF", "Account", "*", "SavedVariables", "BalaurMarket.lua")):
+        try:
+            mtime = os.stat(path).st_mtime
+            if _seen.get(path) == mtime:
+                continue
+            text = open(path, encoding="utf-8", errors="replace").read()
+        except OSError:
+            continue
+        _seen[path] = mtime
+        start = text.find('["sell"] = {')
+        if start < 0:
+            continue
+        block = text[start : text.find("}", start)]
+        prices = {int(i): int(p) for i, p in re.findall(r"\[(\d+)\] = (\d+)", block)}
+        _game_sell.update(prices)
+        _cache.clear()
+        log(f"vendor prices from the game: {len(prices)} items")
 
 
 def poll():
@@ -314,6 +362,8 @@ def watcher():
     while True:
         try:
             load_data()
+            install_addon()
+            read_game_sell()
             poll()
         except Exception as e:
             log(f"watcher: {e}")
@@ -390,10 +440,11 @@ def report(realm, profession):
         )
     crafts.sort(key=lambda c: -c["profit"])
 
+    # Only the game's own vendor prices: the tables' are wrong for some items.
     vendor = [
-        {"item": name(i), "id": i, "buyout": m, "vendor": items[i][1], "profit": items[i][1] - m, "listed": n}
+        {"item": name(i), "id": i, "buyout": m, "vendor": _game_sell[i], "profit": _game_sell[i] - m, "listed": n}
         for i, (m, n) in now.items()
-        if i in items and items[i][1] > m
+        if _game_sell.get(i, 0) > m
     ]
     vendor.sort(key=lambda v: -v["profit"])
 
@@ -424,6 +475,7 @@ def report(realm, profession):
         "scans": len(scans),
         "items": len(now),
         "build": _data["build"],
+        "gameVendorPrices": len(_game_sell),
         "profession": profession,
         "crafts": crafts,
         "vendor": vendor,
@@ -443,7 +495,7 @@ def item_history(realm, query):
     out = []
     for i in matches[:5]:
         rows = [(s["t"], *s["p"][i]) for s in scans if i in s["p"]]
-        out.append({"item": items[i][0], "id": i, "vendor": items[i][1], "history": rows})
+        out.append({"item": items[i][0], "id": i, "vendor": _game_sell.get(i), "history": rows})
     return out
 
 
@@ -512,7 +564,8 @@ def page(realm, profession, query):
     q = lambda **kw: "?" + urllib.parse.urlencode({"realm": realm, "prof": profession, **kw})
     out = [
         f'<p class="sub">{html.escape(r["realm"])} · last scan {when(r["scanned"])} · {r["items"]} items · '
-        f'{r["scans"]} scans in {CONFIG["historyDays"]} days · game data {html.escape(r["build"] or "loading")}</p>'
+        f'{r["scans"]} scans in {CONFIG["historyDays"]} days · game data {html.escape(r["build"] or "loading")} · '
+        f'vendor prices of {r["gameVendorPrices"]} items from the game</p>'
     ]
     if len(known) > 1:
         out.append("<nav>" + "".join(f'<a class="{"on" if n == realm else ""}" href="?realm={urllib.parse.quote(n)}">{html.escape(n)}</a>' for n, _, _ in known) + "</nav>")
@@ -521,7 +574,7 @@ def page(realm, profession, query):
     if query:
         for it in item_history(realm, query):
             rows = [[td(when(t)), td(money(m), "num"), td(n, "num")] for t, m, n in reversed(it["history"])]
-            out.append(f'<h2>{html.escape(it["item"])} <span class="note">vendor pays {money(it["vendor"])}</span></h2>')
+            out.append(f'<h2>{html.escape(it["item"])} <span class="note">vendor pays {money(it["vendor"]) if it["vendor"] is not None else "unknown yet"}</span></h2>')
             out.append(table([("Scan", ""), ("Lowest buyout", "num"), ("Listed", "num")], rows))
         if not item_history(realm, query):
             out.append(f'<p class="note">No item matching “{html.escape(query)}” in the scans.</p>')
@@ -541,8 +594,10 @@ def page(realm, profession, query):
     out.append("<h2>Buy, then sell to a vendor</h2>")
     out.append(table([("Item", ""), ("Lowest buyout", "num"), ("Vendor pays", "num"), ("Profit each", "num"), ("Listed", "num")],
                      [[td(html.escape(v["item"])), td(money(v["buyout"]), "num"), td(money(v["vendor"]), "num"), profit_td(v["profit"]), td(v["listed"], "num")] for v in r["vendor"]],
-                     "Nothing below vendor price in the last scan."))
-    out.append('<p class="note">Only the lowest listing is known: check how many are at that price before buying.</p>')
+                     "Nothing below vendor price in the last scan." if r["gameVendorPrices"] else
+                     "No vendor prices from the game yet: log in with the Balaur Market add-on enabled, wait a minute, then /reload."))
+    out.append('<p class="note">Vendor prices are the game\'s own (the Balaur Market add-on). Only the lowest listing is known: '
+               'check how many are at that price before buying.</p>')
 
     out.append("<h2>Enchanting essences</h2>")
     out.append(table([("Right-click", ""), ("Cost", "num"), ("Sells for", "num"), ("Profit", "num")],
