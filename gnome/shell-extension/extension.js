@@ -3,6 +3,7 @@
 // - an orb + caption overlay over everything while the assistant listens,
 //   thinks, speaks or rings (tap = Stop);
 // - a Quick Settings "Assistant" toggle for the microphone;
+// - a Quick Settings "Scenes" menu: Home Assistant's scenes and scripts;
 // - the ambient screen when nobody has touched the Duet for a while: clock,
 //   weather, the machines and services, timers, the next reminder, photos.
 //
@@ -16,6 +17,8 @@ import {AmbientScreen} from './ambient.js';
 import {AssistantClient} from './assistant.js';
 import {AssistantOverlay} from './overlay.js';
 import {AssistantIndicator} from './toggle.js';
+import {loadHouse} from './house.js';
+import {ScenesIndicator} from './scenes.js';
 
 export default class BalaurExtension extends Extension {
     enable() {
@@ -30,6 +33,13 @@ export default class BalaurExtension extends Extension {
         this._indicator = new AssistantIndicator(
             micOn => this._client.setMuted(!micOn));
         Main.panel.statusArea.quickSettings.addExternalIndicator(this._indicator);
+
+        // Home Assistant's scenes, where this machine's assistant has house devices.
+        const house = loadHouse();
+        if (house) {
+            this._scenes = new ScenesIndicator(house);
+            Main.panel.statusArea.quickSettings.addExternalIndicator(this._scenes);
+        }
 
         // Start in the "Not running" look until the proxy says otherwise.
         const initial = this._client.status;
@@ -46,6 +56,8 @@ export default class BalaurExtension extends Extension {
         this._client = null;
         this._indicator.destroy();
         this._indicator = null;
+        this._scenes?.destroy();
+        this._scenes = null;
         this._overlay.destroy();
         this._overlay = null;
         this._ambient.destroy();

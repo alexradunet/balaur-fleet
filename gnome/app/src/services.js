@@ -9,6 +9,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GioUnix from 'gi://GioUnix?version=2.0';
 import Gtk from 'gi://Gtk?version=4.0';
+import Gdk from 'gi://Gdk?version=4.0';
 
 Gio._promisify(Gtk.UriLauncher.prototype, 'launch', 'launch_finish');
 
@@ -67,10 +68,11 @@ export const Services = GObject.registerClass({
     }
 
     // Its GNOME app if installed, else its web address in the default browser.
+    // `window` is null when the overview's search opens it (no Balaur window).
     async open(service, window) {
         const app = this.appInfo(service);
         if (app) {
-            const ctx = window.get_display().get_app_launch_context();
+            const ctx = (window?.get_display() ?? Gdk.Display.get_default()).get_app_launch_context();
             app.launch([], ctx);
             return;
         }

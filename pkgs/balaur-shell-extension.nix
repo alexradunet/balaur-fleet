@@ -7,9 +7,10 @@
 }:
 
 # GNOME Shell extension balaur@balaur.local (gnome/shell-extension/): the voice
-# assistant's orb overlay, the Quick Settings microphone toggle and the ambient
-# screen. Plain GJS and CSS, no settings schema (the ambient screen reads
-# /etc/balaur/ambient.json), so installing is just copying the files.
+# assistant's orb overlay, the Quick Settings microphone toggle and Home
+# Assistant scenes, and the ambient screen. Plain GJS and CSS, no settings schema
+# (they read /etc/balaur/ambient.json and house.json), so installing is just
+# copying the files.
 let
   dir = ../gnome/shell-extension;
 in
@@ -50,7 +51,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   };
 
   meta = {
-    description = "Balaur household screen in GNOME Shell: assistant orb overlay, microphone toggle, ambient screen";
+    description = "Balaur household screen in GNOME Shell: assistant orb overlay, microphone toggle, Home Assistant scenes, ambient screen";
     platforms = lib.platforms.linux;
   };
 })

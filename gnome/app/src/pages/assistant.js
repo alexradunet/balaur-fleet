@@ -163,6 +163,13 @@ class AssistantPage extends Adw.Bin {
         return new Adw.Clamp({maximum_size: 900, child: outer});
     }
 
+    // Text from the overview's search, ready to send or edit.
+    prefill(text) {
+        this._entry.text = text;
+        this._entry.grab_focus();
+        this._entry.set_position(-1);
+    }
+
     _submit() {
         const text = this._entry.text.trim();
         if (!text)

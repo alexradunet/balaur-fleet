@@ -115,14 +115,29 @@ export class Http {
     }
 
     /** GET -> GLib.Bytes; throws on transport errors and non-2xx answers. */
-    async get(url, headers = {}, cancellable = null) {
-        const msg = Soup.Message.new('GET', url);
+    get(url, headers = {}, cancellable = null) {
+        return this.request('GET', url, headers, null, cancellable);
+    }
+
+    /** POST a JSON body -> GLib.Bytes, like get(). */
+    post(url, json, headers = {}, cancellable = null) {
+        return this.request('POST', url, headers, json, cancellable);
+    }
+
+    async request(method, url, headers = {}, json = null, cancellable = null) {
+        const msg = Soup.Message.new(method, url);
         if (!msg)
             throw new Error(`bad URL ${url}`);
         for (const [k, v] of Object.entries(headers))
             msg.request_headers.append(k, v);
+        if (json !== null) {
+            msg.set_request_body_from_bytes('application/json',
+                new GLib.Bytes(new TextEncoder().encode(JSON.stringify(json))));
+        }
+        // What the user asked for (a scene) goes first; background refreshes wait.
+        const priority = method === 'GET' ? GLib.PRIORITY_LOW : GLib.PRIORITY_DEFAULT;
         const bytes = await new Promise((resolve, reject) => {
-            this._session.send_and_read_async(msg, GLib.PRIORITY_LOW, cancellable, (s, res) => {
+            this._session.send_and_read_async(msg, priority, cancellable, (s, res) => {
                 try {
                     resolve(s.send_and_read_finish(res));
                 } catch (e) {

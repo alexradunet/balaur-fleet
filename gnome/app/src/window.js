@@ -28,7 +28,8 @@ class BalaurWindow extends Adw.ApplicationWindow {
 
         const stack = new Adw.ViewStack({vexpand: true});
         this._stack = stack;
-        stack.add_titled_with_icon(new AssistantPage(app), 'assistant', 'Assistant',
+        this._assistantPage = new AssistantPage(app);
+        stack.add_titled_with_icon(this._assistantPage, 'assistant', 'Assistant',
             'audio-input-microphone-symbolic');
         stack.add_titled_with_icon(new ListsPage(app), 'lists', 'Lists',
             'checkbox-checked-symbolic');
@@ -83,6 +84,10 @@ class BalaurWindow extends Adw.ApplicationWindow {
 
     showPage(name) {
         this._stack.visible_child_name = name;
+    }
+
+    prefillAsk(text) {
+        this._assistantPage.prefill(text);
     }
 
     toast(text) {

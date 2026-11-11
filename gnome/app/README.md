@@ -11,6 +11,18 @@ is away, Home keeps working.
 Layout follows the window: header-bar tabs in landscape, a bottom tab bar
 below 720 sp (portrait). Style follows the system dark/light setting.
 
+It is also a **search provider** for GNOME's overview: typing finds the home's
+services (a result opens the service itself), list items, memories, timers and
+reminders (a result opens the app on that page), ignoring case and diacritics;
+three words or more also offer "Ask <name>", which asks the assistant. The Shell
+starts the app for this by D-Bus activation, without a window; it quits a minute
+after the last search. Try it without the Shell:
+
+```sh
+gdbus call --session -d org.balaur.Balaur -o /org/balaur/Balaur/SearchProvider \
+  -m org.gnome.Shell.SearchProvider2.GetInitialResultSet "['milk']"
+```
+
 ## Files
 
 - `src/main.js`: entry point (`gjs -m src/main.js`).
@@ -24,6 +36,10 @@ below 720 sp (portrait). Style follows the system dark/light setting.
   `url` answers, since its unit is out of reach.
 - `src/services.js`: reads `/etc/balaur/services.json` (`$BALAUR_SERVICES`
   overrides) and opens a service (its `desktopId` app, else its `url`).
+- `src/search.js`: what the overview's search finds, without GTK (tested
+  headless); `src/search-provider.js` answers `org.gnome.Shell.SearchProvider2`
+  with it. `data/org.balaur.Balaur.search-provider.ini` and
+  `data/org.balaur.Balaur.service` tell the Shell and D-Bus where it is.
 - `src/format.js`: the helpers without GTK (times in the desktop's clock format,
   markup escaping, the speech address check), tested headless.
 - `src/util.js`: widget helpers for the pages (and the re-exports of format.js).

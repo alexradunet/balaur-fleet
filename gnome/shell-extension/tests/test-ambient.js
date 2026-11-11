@@ -1,4 +1,4 @@
-// Tests for ambient-data.js, ambient-status.js's helpers and assistant.js's text helpers (no Shell, no network): `gjs -m tests/test-ambient.js`.
+// Tests for ambient-data.js, ambient-status.js's helpers, house.js and assistant.js's text helpers (no Shell, no network): `gjs -m tests/test-ambient.js`.
 // Run by the package build (pkgs/balaur-shell-extension.nix).
 
 import GLib from 'gi://GLib';
@@ -11,6 +11,7 @@ import {
 } from '../ambient-data.js';
 import {wakePhrase} from '../assistant.js';
 import {machinesOf, seenText, servicesOf, systemText, unitKind} from '../ambient-status.js';
+import {actionsOf, callOf, iconOf, loadHouse} from '../house.js';
 
 let failed = 0;
 function eq(actual, expected, what) {
@@ -171,6 +172,29 @@ eq(servicesOf([
 ], 'services: units, user units, other machines, nothing to show dropped');
 eq(servicesOf(null), [], 'services: no file');
 
+// house.js: Home Assistant's scenes and scripts for Quick Settings
+eq(loadHouse(`${tmp}/nope.json`), null, 'house: no file');
+eq(loadHouse(write('house-bad.json', '{"url": 1}')), null, 'house: no url');
+eq(loadHouse(write('house.json', '{"url": "http://127.0.0.1:8123/", "tokenFile": "/run/secrets/t"}')),
+    {url: 'http://127.0.0.1:8123', tokenFile: '/run/secrets/t'}, 'house: trailing slash dropped');
+eq(actionsOf(null), [], 'house: no states');
+eq(actionsOf([
+    {entity_id: 'light.lamp', state: 'on', attributes: {friendly_name: 'Lamp'}},
+    {entity_id: 'script.film_mode', state: 'off', attributes: {friendly_name: 'Film mode', icon: 'mdi:movie'}},
+    {entity_id: 'scene.night', state: '2026-11-10T22:00:00', attributes: {friendly_name: 'night', icon: 'mdi:weather-night'}},
+    {entity_id: 'scene.Evening', state: 'unknown', attributes: {friendly_name: 'Evening'}},
+    {entity_id: 'scene.gone', state: 'unavailable', attributes: {}},
+    {entity_id: 'scene.no_name', state: 'unknown', attributes: {}},
+    {state: 'on'},
+]).map(a => [a.entityId, a.name, a.icon]), [
+    ['scene.Evening', 'Evening', 'preferences-desktop-wallpaper-symbolic'],
+    ['scene.night', 'night', 'night-light-symbolic'],
+    ['scene.no_name', 'no name', 'preferences-desktop-wallpaper-symbolic'],
+    ['script.film_mode', 'Film mode', 'video-display-symbolic'],
+], 'house: scenes then scripts, by name, without the unavailable');
+eq(callOf({domain: 'scene', entityId: 'scene.night'}),
+    {path: '/api/services/scene/turn_on', body: {entity_id: 'scene.night'}}, 'house: a scene call');
+eq(iconOf('script', null), 'system-run-symbolic', 'house: a script without an icon');
 GLib.spawn_command_line_sync(`rm -rf ${tmp}`);
 if (failed) {
     print(`${failed} failed`);

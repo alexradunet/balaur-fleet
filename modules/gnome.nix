@@ -17,6 +17,16 @@
 # untouched, a full-screen clock, date, weather, the assistant's timers and
 # reminders, the fleet's machines and services, over the photos in the synced
 # folder (gnome/shell-extension/ambient.js).
+#
+# GNOME's own search finds Balaur's things too (the app is a search provider:
+# services, list items, memories, timers, reminders, and "Ask" for a question),
+# and Quick Settings has a "Scenes" menu with Home Assistant's scenes and scripts
+# wherever the assistant has house devices (/etc/balaur/house.json, below).
+{ config, ... }:
+let
+  nixosConfigs = config.flake.nixosConfigurations;
+  fleet = config.fleet;
+in
 {
   flake.modules.nixos.gnome =
     {
@@ -29,6 +39,26 @@
       inherit (lib.gvariant) mkTuple;
       cfg = config.balaur;
       ambient = cfg.ambient;
+      me = config.networking.hostName;
+
+      # The Scenes menu reaches Home Assistant the way the assistant does: its
+      # machine and its non-admin user's token (`assistant` aspect,
+      # balaur.assistant.homeAssistant). The token is readable by the group
+      # balaur-assistant, which the session's account is in wherever the assistant
+      # runs in it (the household account on the tablet, the admin's on a desktop).
+      hass = cfg.assistant.homeAssistant or null;
+      houseJson =
+        if hass != null && hass.host != null && hass.tokenFile != null then
+          let
+            hassConfig = if hass.host == me then config else nixosConfigs.${hass.host}.config;
+            address = if hass.host == me then "127.0.0.1" else fleet.${hass.host}.address;
+          in
+          builtins.toJSON {
+            url = "http://${address}:${toString hassConfig.services.home-assistant.config.http.server_port}";
+            tokenFile = toString hass.tokenFile;
+          }
+        else
+          null;
       ambientJson = builtins.toJSON {
         inherit (ambient) idleSeconds;
         location = { inherit (cfg.location) name latitude longitude; };
@@ -118,7 +148,10 @@
       };
 
       config = {
-        environment.etc."balaur/ambient.json".text = ambientJson;
+        environment.etc = {
+          "balaur/ambient.json".text = ambientJson;
+        }
+        // lib.optionalAttrs (houseJson != null) { "balaur/house.json".text = houseJson; };
 
         services.displayManager.gdm.enable = true;
         services.desktopManager.gnome.enable = true;
@@ -155,6 +188,9 @@
                 color-scheme = "prefer-dark";
                 clock-show-weekday = true;
                 show-battery-percentage = true;
+                # The fleet's colour on buttons, switches and selections (GNOME 47+:
+                # blue, teal, green, yellow, orange, red, pink, purple, slate).
+                accent-color = "green";
               };
             };
           }

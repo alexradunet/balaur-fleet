@@ -69,11 +69,18 @@ stdenv.mkDerivation {
     desktop-file-validate $out/share/applications/org.balaur.Balaur.desktop
     install -Dm644 data/org.balaur.Balaur.svg -t $out/share/icons/hicolor/scalable/apps
 
+    # GNOME's overview search: the Shell finds the provider by the .ini and
+    # starts the app for it by D-Bus activation (src/search-provider.js).
+    install -Dm644 data/org.balaur.Balaur.search-provider.ini -t $out/share/gnome-shell/search-providers
+    install -Dm644 data/org.balaur.Balaur.service -t $out/share/dbus-1/services
+    substituteInPlace $out/share/dbus-1/services/org.balaur.Balaur.service \
+      --replace-fail "Exec=balaur-app" "Exec=$out/bin/balaur-app"
+
     runHook postInstall
   '';
 
   meta = {
-    description = "The Balaur home server's household app: assistant, lists, timers, memory, services";
+    description = "The Balaur home server's household app: assistant, lists, timers, memory, services, and their overview search";
     mainProgram = "balaur-app";
     platforms = lib.platforms.linux;
   };

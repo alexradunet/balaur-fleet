@@ -10,8 +10,8 @@ Nix packaging needs). Three pieces talk over the **session D-Bus**:
 | Piece | Dir | What |
 |---|---|---|
 | Assistant daemon | `gnome/assistant/` | Voice assistant ("Hey Jarvis"): a `Gio.Application` running as the systemd **user** service `balaur-assistant.service` in the household session. Owns `org.balaur.Assistant` on the session bus. (It replaced a Go service; its state files keep that format.) |
-| Shell extension | `gnome/shell-extension/` | `balaur@balaur.local`: orb + captions over every app while the assistant listens/thinks/speaks/rings (tap = Stop), a Quick Settings toggle for the microphone, and the ambient screen when idle (reads `Snapshot` for timers and reminders). |
-| App | `gnome/app/` | `org.balaur.Balaur`, libadwaita: conversation (+ type to ask), lists, timers & reminders, memory, home services. |
+| Shell extension | `gnome/shell-extension/` | `balaur@balaur.local`: orb + captions over every app while the assistant listens/thinks/speaks/rings (tap = Stop), a Quick Settings toggle for the microphone and a "Scenes" menu (Home Assistant), and the ambient screen when idle (reads `Snapshot` for timers and reminders). |
+| App | `gnome/app/` | `org.balaur.Balaur`, libadwaita: conversation (+ type to ask), lists, timers & reminders, memory, home services; the overview's search provider. |
 
 ## The agent: the fleet's pi in its home role (`gnome/home-agent/`)
 

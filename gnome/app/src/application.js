@@ -17,6 +17,8 @@ import {Assistant} from './assistant.js';
 import {Services} from './services.js';
 import {BalaurWindow} from './window.js';
 import {AssistantSettingsDialog} from './settings-dialog.js';
+import {SearchProvider} from './search-provider.js';
+import {PAGE_OF, parseId} from './search.js';
 
 export const BalaurApplication = GObject.registerClass(
 class BalaurApplication extends Adw.Application {
@@ -24,8 +26,26 @@ class BalaurApplication extends Adw.Application {
         super({
             application_id: 'org.balaur.Balaur',
             flags: Gio.ApplicationFlags.DEFAULT_FLAGS,
+            // Started by GNOME's search (D-Bus activation, no window): stay a
+            // minute after the last search rather than start again for each.
+            inactivity_timeout: 60 * 1000,
         });
         GLib.set_application_name('Balaur');
+        this._searchProvider = new SearchProvider(this);
+    }
+
+    // The overview's search provider, on the app's own bus connection (the
+    // primary instance only; startup runs before the first call is answered).
+    vfunc_dbus_register(connection, objectPath) {
+        if (!super.vfunc_dbus_register(connection, objectPath))
+            return false;
+        this._searchProvider.export(connection);
+        return true;
+    }
+
+    vfunc_dbus_unregister(connection, objectPath) {
+        this._searchProvider.unexport();
+        super.vfunc_dbus_unregister(connection, objectPath);
     }
 
     vfunc_startup() {
@@ -52,6 +72,27 @@ class BalaurApplication extends Adw.Application {
             win.maximize();
         }
         win.present();
+    }
+
+    // A search result chosen in the overview: a service opens itself (no
+    // Balaur window); anything else opens the app on its page.
+    activateResult(id, terms) {
+        const {kind, key} = parseId(id);
+        if (kind === 'service') {
+            this._openService(key);
+            return;
+        }
+        this.activate();
+        this.active_window?.showPage(PAGE_OF[kind] ?? 'assistant');
+        if (kind === 'ask')
+            this.ask(key || terms.join(' '));
+    }
+
+    // The provider's own row in the overview: the app, with the terms ready to ask.
+    launchSearch(terms) {
+        this.activate();
+        this.active_window?.showPage('assistant');
+        this.active_window?.prefillAsk(terms.join(' '));
     }
 
     // Show a failure where the user is looking.

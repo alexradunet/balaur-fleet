@@ -213,6 +213,9 @@
               # `gnome` aspect's, on every machine.)
               "org/gnome/desktop/a11y/applications".screen-keyboard-enabled = false; # false = automatic, on touch
               "org/gnome/settings-daemon/peripherals/touchscreen".orientation-lock = false;
+              # Read from the couch, not from arm's length: text a fifth larger,
+              # in the Shell and the apps alike. Not locked (Settings > Accessibility).
+              "org/gnome/desktop/interface".text-scaling-factor = 1.2;
 
               # The home screen.
               "org/gnome/shell" = {

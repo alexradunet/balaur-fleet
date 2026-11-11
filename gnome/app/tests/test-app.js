@@ -1,5 +1,5 @@
 // Tests for the app's helpers that need no GTK (format.js) and for the daemon
-// client's pure parts (assistant.js): `gjs -m tests/test-app.js`.
+// client's pure parts (assistant.js) and the overview's search (search.js): `gjs -m tests/test-app.js`.
 // Run by the package build (pkgs/balaur-app.nix).
 
 import Gio from 'gi://Gio';
@@ -10,6 +10,7 @@ import {
     clockText, escape, formatCountdown, formatWhen, listTitle, parseTime, speechUrlProblem,
 } from '../src/format.js';
 import {humanError, normalize} from '../src/assistant.js';
+import {fold, isQuestion, matches, parseId, resultIds, search, searchItems} from '../src/search.js';
 
 let failed = 0;
 function eq(actual, expected, what) {
@@ -108,6 +109,49 @@ eq(humanError(dbus('org.freedesktop.DBus.Error.NameHasNoOwner', 'x')).message, "
 eq(humanError(new GLib.Error(GLib.quark_from_string('x'), 1, 'plain')).message, 'plain', 'other GLib error');
 const own = new Error('mine');
 eq(humanError(own) === own, true, 'JS errors pass through');
+
+
+// the overview's search (search.js)
+eq(fold('Pâine Ședință'), 'paine sedinta', 'fold diacritics');
+eq(matches(['mil'], 'oat milk'), true, 'word prefix');
+eq(matches(['ilk'], 'oat milk'), false, 'not mid-word');
+eq(matches(['paine'], 'Pâine neagră'), true, 'without diacritics');
+eq(matches(['oat', 'MILK'], 'oat milk'), true, 'every term, any case');
+eq(matches(['oat', 'bread'], 'oat milk'), false, 'a term missing');
+eq(isQuestion(['when', 'is']), false, 'two words are a lookup');
+eq(isQuestion(['when', 'is', 'sunset']), true, 'three words are a question');
+
+const snap = normalize({
+    lists: {shopping: [{id: 'a', text: 'Oat milk', done: false}, {id: 'b', text: 'Pâine', done: true}]},
+    listOrder: ['shopping'],
+    memories: [{id: 'm1', fact: 'The wifi password is on the fridge'}],
+    timers: [{id: 't1', label: 'pasta', ends: '2026-11-10T14:30:00+00:00'}],
+    reminders: [{id: 'r1', text: 'Call the plumber', at: '2026-11-11T09:00:00+00:00'}],
+});
+const svc = [
+    {name: 'Jellyfin', description: 'Films & series', icon: '🎬', desktopId: 'org.jellyfin.JellyfinDesktop.desktop', group: 'Media'},
+    {name: 'Torrents', description: 'Downloads', icon: 'folder-download-symbolic', host: 'pc'},
+    {name: 'Milkman', description: 'A service starting like milk'},
+];
+const items = searchItems(snap, svc, GLib.DateTime.new_utc(2026, 11, 10, 12, 0, 0).to_local());
+eq(items.map(i => i.id), ['service:Jellyfin', 'service:Torrents', 'service:Milkman', 'list:shopping:a', 'list:shopping:b',
+    'memory:m1', 'timer:t1', 'reminder:r1'], 'every item, in order');
+eq(items[0].icon, null, 'an emoji is not an icon');
+eq(items[1].icon, 'folder-download-symbolic', 'an icon name is');
+eq(items[1].description, 'Downloads · On pc', 'another machine says so');
+eq(items[4].description, 'Shopping list · done', 'a done item says so');
+eq(search(items, ['milk']).map(i => i.id), ['service:Milkman', 'list:shopping:a'], 'name prefix first');
+eq(search(items, ['shopping']).map(i => i.id), ['list:shopping:a', 'list:shopping:b'], 'by list name');
+eq(search(items, ['paine']).map(i => i.id), ['list:shopping:b'], 'diacritics');
+eq(search(items, ['media']).map(i => i.id), ['service:Jellyfin'], 'by group');
+eq(search(items, ['timer']).map(i => i.id), ['timer:t1'], 'timers by the word');
+eq(search(items, ['plumber']).map(i => i.id), ['reminder:r1'], 'reminders');
+eq(search(items, ['wifi']).map(i => i.id), ['memory:m1'], 'memories');
+eq(resultIds(items, ['when', 'is', 'sunset'], true), ['ask:when is sunset'], 'a question asks');
+eq(resultIds(items, ['when', 'is', 'sunset'], false), [], 'not while the assistant is away');
+eq(resultIds(items, ['milk'], true), ['service:Milkman', 'list:shopping:a'], 'a lookup does not ask');
+eq(parseId('list:shopping:a:b'), {kind: 'list', key: 'shopping:a:b'}, 'parse id keeps the rest');
+eq(parseId('ask:what: now'), {kind: 'ask', key: 'what: now'}, 'parse ask');
 
 if (failed) {
     print(`${failed} failed`);
