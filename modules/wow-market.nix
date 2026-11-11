@@ -18,6 +18,10 @@
 # (wow-market/BalaurMarket) saves them, and the service installs it into the AddOns
 # folder and keeps it current. That folder is all it may write in the game.
 #
+# Between your scans, the same house's prices come every hour from Life on Azeroth
+# (lifeonazeroth.com), a fan site that gathers them from its players' uploads
+# (`balaur.wow-market.live`).
+#
 # Nothing reaches the game while it runs, and buying stays a click in it
 # (automating the auction house breaks Blizzard's rules).
 #
@@ -42,6 +46,7 @@
             gameRoot
             profession
             historyDays
+            live
             ;
           flavour = "_forever_";
           product = "wowf"; # Forever in Battle.net's .build.info
@@ -68,6 +73,28 @@
           type = lib.types.str;
           default = "Leatherworking";
           description = "The profession whose crafts the page shows first.";
+        };
+        live = lib.mkOption {
+          type = lib.types.nullOr (
+            lib.types.submodule {
+              options = {
+                house = lib.mkOption {
+                  type = lib.types.str;
+                  description = "The house in Life on Azeroth's API: <region>/house/<ruleset><faction>, the ruleset 0 PvP, 1 Normal, 2 Roleplay, 3 Roleplay PvP, the faction A or H.";
+                };
+                realm = lib.mkOption {
+                  type = lib.types.str;
+                  description = "The realm its snapshots join, as Auctionator names it (the ruleset in Forever).";
+                };
+              };
+            }
+          );
+          # Europe, Roleplay PvP, Horde: Auctionator's "RPPvP".
+          default = {
+            house = "eu/house/3H";
+            realm = "RPPvP";
+          };
+          description = "The auction house to fetch every hour from Life on Azeroth (lifeonazeroth.com), or null for your own scans only.";
         };
         historyDays = lib.mkOption {
           type = lib.types.ints.positive;

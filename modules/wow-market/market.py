@@ -21,7 +21,8 @@ GET /api/report returns the same as JSON (for the OS agent).
 Item names and recipes are Forever's own: the game tables of the installed build
 (.build.info), fetched once per build from wago.tools and kept small in
 $STATE_DIRECTORY/data. Scans are kept in $STATE_DIRECTORY/scans/<realm>/ for
-KEEP_DAYS (the newest of a realm always stays).
+KEEP_DAYS, Life on Azeroth's (<time>.live.json.gz) for historyDays (the newest of a
+realm always stays).
 
 Vendor prices come from the game itself: Blizzard changes some from its servers
 after the tables are made (an Iron Grenade is 5s in them, 1s 25c in the game). The
@@ -29,6 +30,13 @@ Balaur Market add-on (BalaurMarket/, next to this file) asks the game for the ve
 price of every item Auctionator has seen and saves them on /reload; this service
 installs it into the AddOns folder and keeps it current. Only those prices make a
 vendor deal; the tables' are used for vendor-sold materials (thread, salt) alone.
+
+Between your own scans, the auction house's prices also come every hour from Life on
+Azeroth (lifeonazeroth.com), a fan site that gathers Forever's auction houses from its
+players' uploads: CONFIG["live"] names one house there ("eu/house/3H" is Europe,
+Roleplay PvP, Horde) and the realm its snapshots join, so they count like scans
+(the "usual" prices) and the newest of either makes the report. Your own scan stays
+the exact one: theirs only has what their players' uploads saw.
 
 That add-on folder is all it writes in the game's folder. Nothing reaches the game
 while it runs (add-ons cannot talk to the network), and buying stays a click in it.
@@ -61,7 +69,9 @@ GAME_ROOT = CONFIG["gameRoot"]  # ".../World of Warcraft"
 GAME = os.path.join(GAME_ROOT, CONFIG["flavour"])  # ".../_forever_"
 AH_CUT = 0.05
 KEEP_DAYS = 90  # scans kept on disk; an item's history and its page never reach further
-MAX_SCANS = 120  # scans held in memory for the report (the service has MemoryMax=512M)
+MAX_SCANS = 400  # scans held in memory for the report, ~0.33 MB each (the service has MemoryMax=512M): 14 days of hourly ones
+LIVE_API = "https://forever-live.sanredz.workers.dev/v1"  # Life on Azeroth's, what its pages read
+LIVE_SECONDS = 1200  # how often to ask it; it changes once an hour
 DATA_VERSION = 3  # of the cached game tables, in their file name: 3 has what a vendor asks per item, not per stack
 
 PROFESSIONS = {
@@ -373,7 +383,7 @@ def poll():
             if not prices:
                 continue
             digest = hashlib.sha256(json.dumps(sorted(prices.items())).encode()).hexdigest()
-            last = latest(realm)
+            last = latest(realm, own=True)
             if last and last.get("digest") == digest:
                 continue
             d = realm_dir(realm)
@@ -386,20 +396,53 @@ def poll():
             _cache.clear()
 
 
+_live = {"next": 0.0, "t": 0}  # when to ask Life on Azeroth next, the newest snapshot kept
+
+
+def poll_live():
+    """Keeps Life on Azeroth's newest snapshot of the configured house as a scan."""
+    live = CONFIG.get("live")
+    if not live or time.time() < _live["next"]:
+        return
+    _live["next"] = time.time() + LIVE_SECONDS
+    req = urllib.request.Request(f"{LIVE_API}/market/{live['house']}", headers={"User-Agent": "balaur-wow-market (one house, every 20 minutes)"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        d = json.load(r)
+    t = int(d["state"]["t"][-1])
+    realm = live["realm"]
+    if t <= _live["t"] or any(scan_time(f) == t for f in scan_files(realm)):
+        _live["t"] = max(_live["t"], t)
+        return
+    # Per item: [market price, lowest buyout, quantity, listings, change]; prices in copper.
+    prices = {int(i): (int(v[1]), int(v[2] or 0)) for i, v in d["latest"].items() if str(i).isdigit() and v and v[1]}
+    if not prices:
+        return
+    folder = realm_dir(realm)
+    os.makedirs(folder, exist_ok=True)
+    out = os.path.join(folder, f"{t}.live.json.gz")  # .live: kept historyDays only
+    with gzip.open(out + ".tmp", "wt") as f:
+        json.dump({"t": t, "realm": realm, "source": "Life on Azeroth", "digest": "", "p": prices}, f)
+    os.replace(out + ".tmp", out)
+    _live["t"] = t
+    log(f"kept Life on Azeroth's {live['house']} as a scan of {realm}: {len(prices)} items")
+    _cache.clear()
+
+
 def scan_time(path):
     return int(os.path.basename(path).split(".")[0])
 
 
 def prune():
-    """Deletes the scans older than KEEP_DAYS, except each realm's newest."""
+    """Deletes the scans older than KEEP_DAYS (Life on Azeroth's: historyDays), except each realm's newest."""
     cutoff = time.time() - max(KEEP_DAYS, CONFIG["historyDays"]) * 86400
+    live_cutoff = time.time() - CONFIG["historyDays"] * 86400
     try:
         realms_on_disk = os.listdir(os.path.join(STATE, "scans"))
     except FileNotFoundError:
         return
     for realm in realms_on_disk:
         for path in scan_files(realm)[:-1]:
-            if scan_time(path) < cutoff:
+            if scan_time(path) < (live_cutoff if path.endswith(".live.json.gz") else cutoff):
                 try:
                     os.remove(path)
                 except OSError as e:
@@ -413,7 +456,7 @@ def watcher():
     while True:
         # Independent: a failing table fetch or add-on copy must not stop new scans
         # being kept.
-        for step in (load_data, install_addon, read_game_sell, poll):
+        for step in (load_data, install_addon, read_game_sell, poll, poll_live):
             try:
                 step()
             except Exception as e:
@@ -460,13 +503,16 @@ def history(realm, days):
     return _cache[key]
 
 
-def latest(realm):
-    """The realm's newest readable scan, however old, or None."""
+def latest(realm, own=False):
+    """The realm's newest readable scan (own: of Auctionator's), however old, or None."""
     for f in reversed(scan_files(realm)):
         try:
-            return read_scan(f)
+            s = read_scan(f)
         except Exception as e:
             log(f"could not read {f}: {e}")
+            continue
+        if not (own and s.get("source")):
+            return s
     return None
 
 
@@ -547,6 +593,7 @@ def report(realm, profession):
     return {
         "realm": newest.get("realm", realm),
         "scanned": newest["t"],
+        "source": newest.get("source", "your Auctionator scan"),
         "age_days": int((time.time() - newest["t"]) // 86400),
         "scans": len(scans),
         "items": len(now),
@@ -668,7 +715,7 @@ def page(realm, profession, query):
     if r["age_days"] >= 1:
         age = f' ({r["age_days"]} day{"s" if r["age_days"] != 1 else ""} ago)'
     out = [
-        f'<p class="sub">{html.escape(r["realm"])} · last scan {when(r["scanned"])}{age} · {r["items"]} items · '
+        f'<p class="sub">{html.escape(r["realm"])} · last scan {when(r["scanned"])}{age}, {html.escape(r["source"])} · {r["items"]} items · '
         f'{r["scans"]} scans in {CONFIG["historyDays"]} days · game data {html.escape(r["build"] or "loading")} · '
         f'vendor prices of {r["gameVendorPrices"]} items from the game</p>'
     ]
@@ -682,7 +729,7 @@ def page(realm, profession, query):
     if query:
         found = item_history(realm, query)
         for it in found:
-            rows = [[td(when(t)), td(money(m), "num"), td(n, "num")] for t, m, n in reversed(it["history"])]
+            rows = [[td(when(t)), td(money(m), "num"), td(n, "num")] for t, m, n in reversed(it["history"][-150:])]
             out.append(f'<h2>{html.escape(it["item"])} <span class="note">vendor pays {money(it["vendor"]) if it["vendor"] is not None else "unknown yet"}</span></h2>')
             out.append(table([("Scan", ""), ("Lowest buyout", "num"), ("Listed", "num")], rows))
         if not found:
