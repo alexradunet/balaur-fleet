@@ -123,13 +123,9 @@ working tree (one commit; `git log` says which). Once they are deployed:
     recorded before the switch. Test it once on purpose, with a switch after which the
     machine cannot reach GitHub (`journalctl -u balaur-auto-deploy` should say
     "switching back to ...").
-  - `https://torrents.<domain>` answers (`ServerDomains` is quoted now: an unquoted `;`
-    ended the list).
   - A restart of the camera relay no longer deafens `duet-presence`:
     `sudo systemctl restart duet-camera-relay`, wave, and the screen wakes.
   - The ambient screen appears while someone is in the room.
-  - The relay's idle CPU: `systemctl show duet-camera-relay -p CPUUsageNSec`, twice, ten
-    minutes apart.
   - House devices right after a reboot of the tablet: "turn on the lamp" as the first
     question.
   - The ambient screen now holds a modal grab, so the key or tap that ends it no longer
@@ -141,15 +137,18 @@ working tree (one commit; `git log` says which). Once they are deployed:
     sensor): open Snapshot and see how long the first picture takes (up to about 2 s).
   - `balaur-torrent` with a magnet link and with a `.torrent` file whose name has a comma;
     qBittorrent 5.2 answers `torrents/add` with JSON, which the script reads for failures.
-  - On the pc: Strata is not started by a deploy that lands during a game and comes back
-    a minute after the game; `http://pc:8790` (WoW Market) still reads the game folder
-    and keeps its add-on current with the rest of the home hidden (`ProtectHome=tmpfs`,
-    the game folder bound read-only and its AddOns folder writable: tried only in a
-    transient user unit on the tablet). It now deletes scans older than 90 days.
+  - On the pc: Strata comes back a minute after the last game or Wine process ends
+    (`journalctl -u strata-yield`: "no game for a minute: starting Strata"). WoW Market
+    now deletes scans older than 90 days.
   - AdGuard: the Samsung rules are a filter list from a file now, and a custom rule made
     in its UI survives `sudo systemctl restart adguardhome`.
   - The voice assistant: mute, restart it, still muted; a timer survives a restart; a
     search followed by "remind me" in the same conversation is refused, by design.
+- **Seen working after the deploy** (2026-11-11, `67fb27d` and `086a1b1`):
+  `https://torrents.<domain>` answers; the relay idles at about 2% of a core (3 frames
+  a second sampled, 3.6 ms each); on the pc a deploy during a game skipped Strata, and
+  WoW Market runs with its home hidden (the game folder read-only, AddOns writable).
+  The shell extension's changes load at each machine's next login.
 - **`gnome/agent/` in each machine's clone** (tablet, pc, laptop) is the old Node agent's
   orphaned `node_modules` (156 MB, untracked, now git-ignored): delete it by hand.
 - **`cups-browsed` runs on every machine** (the NixOS default with avahi).
