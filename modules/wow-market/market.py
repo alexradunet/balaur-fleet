@@ -109,8 +109,9 @@ def game_build():
     return None
 
 
-def wago_csv(table, build):
-    url = f"https://wago.tools/db2/{table}/csv?build={build}"
+def wago_csv(table, build=None, product=None):
+    query = f"build={build}" if build else f"product={product}"
+    url = f"https://wago.tools/db2/{table}/csv?{query}"
     req = urllib.request.Request(url, headers={"User-Agent": "balaur-wow-market"})
     with urllib.request.urlopen(req, timeout=120) as r:
         text = r.read().decode("utf-8")
@@ -125,6 +126,11 @@ def build_data(build):
     items = {}
     for r in wago_csv("ItemSparse", build):
         items[int(r["ID"])] = [r["Display_lang"], int(r["SellPrice"] or 0), int(r["BuyPrice"] or 0)]
+    # Forever leaves some old items out of its own table (it sends them to the game
+    # later). Classic Era's table still names them; its vendor prices are not
+    # Forever's, so those items get none.
+    for r in wago_csv("ItemSparse", product="wow_classic_era"):
+        items.setdefault(int(r["ID"]), [r["Display_lang"], 0, 0])
     spells = {}
     for r in wago_csv("SkillLineAbility", build):
         skill = int(r["SkillLine"] or 0)
@@ -160,7 +166,7 @@ def load_data():
     build = game_build()
     if not build or build == _data["build"]:
         return
-    path = os.path.join(STATE, "data", f"{build}.json.gz")
+    path = os.path.join(STATE, "data", f"{build}.v2.json.gz")
     if not os.path.exists(path):
         log(f"fetching the game tables of {build} from wago.tools")
         try:
@@ -220,7 +226,7 @@ def read_saved_variables(path):
     realms = {}
     for m in re.finditer(rb'\["([^"]+)"\] = "', raw[start:end]):
         db = cbor2.loads(lua_string(raw, start + m.end()))
-        prices = {}
+        records = {}
         for key, v in db.items():
             key = key.decode("latin1") if isinstance(key, bytes) else str(key)
             if not key.isdigit() or not isinstance(v, dict):
@@ -228,8 +234,24 @@ def read_saved_variables(path):
             v = {(k.decode() if isinstance(k, bytes) else k): x for k, x in v.items()}
             if "m" not in v:
                 continue
-            listed = max((v.get("a") or {}).values(), default=0) if isinstance(v.get("a"), dict) else 0
-            prices[int(key)] = (int(v["m"]), int(listed))
+            days = {
+                str(k.decode() if isinstance(k, bytes) else k): x
+                for k, x in (v.get("h") or {}).items()
+            }
+            listed = {
+                str(k.decode() if isinstance(k, bytes) else k): x
+                for k, x in (v.get("a") or {}).items()
+            } if isinstance(v.get("a"), dict) else {}
+            records[int(key)] = (int(v["m"]), days, listed)
+        # Auctionator never removes an item that sold out: its last price stays. Only
+        # items it saw on the newest scan day are on the AH now (its days count from
+        # its own day 0; the highest one present is the scan's).
+        today = max((int(d) for _, days, _ in records.values() for d in days), default=None)
+        prices = {}
+        for i, (low, days, listed) in records.items():
+            if today is not None and str(today) not in days:
+                continue
+            prices[i] = (low, int(listed.get(str(today), 0)))
         realms[m.group(1).decode("utf-8", "replace")] = prices
     return realms
 
