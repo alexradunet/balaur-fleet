@@ -18,11 +18,19 @@
 # Add-ons are kept by instawow, not declared here: picking one should not need a
 # rebuild.
 #
-# Nothing runs in the background: no daemon, no service.
+# One small user service: GNOME counts only keyboards, mice and touch as activity,
+# and games on Proton do not ask it to stay awake, so on a controller the screen
+# blanked and locked mid-game. `balaur-gamepad-awake` holds GNOME's idle inhibitor
+# while a gamepad is in use, until 5 minutes after its last input
+# (gaming/gamepad-awake.py).
 {
   flake.modules.nixos.gaming =
-    { pkgs, ... }:
+    { pkgs, lib, ... }:
     let
+      gamepadAwake = pkgs.writers.writePython3Bin "balaur-gamepad-awake" {
+        libraries = [ pkgs.python3Packages.evdev ];
+      } (builtins.readFile ./gaming/gamepad-awake.py);
+
       # The Wine prefix Battle.net and its games live in, as a shell expression.
       prefix = ''"''${XDG_DATA_HOME:-$HOME/.local/share}/battlenet/prefix"'';
 
@@ -158,6 +166,22 @@
         MinConnectionInterval = 7;
         MaxConnectionInterval = 9;
         ConnectionLatency = 0;
+      };
+
+      systemd.user.services.balaur-gamepad-awake = {
+        description = "Keep the screen awake while a gamepad is in use";
+        wantedBy = [ "graphical-session.target" ];
+        partOf = [ "graphical-session.target" ];
+        after = [ "graphical-session.target" ];
+        path = [
+          pkgs.gnome-session
+          pkgs.coreutils
+        ];
+        serviceConfig = {
+          ExecStart = lib.getExe gamepadAwake;
+          Restart = "on-failure";
+          RestartSec = 10;
+        };
       };
 
       environment.systemPackages = [
