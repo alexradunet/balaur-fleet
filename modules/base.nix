@@ -117,6 +117,14 @@ in
                     example = "jellyfin";
                     description = "Where the `web` aspect, on a machine that has it, serves this web UI: https://<subdomain>.<balaur.web.domain>.";
                   };
+                  audience = lib.mkOption {
+                    type = lib.types.enum [
+                      "owner"
+                      "household"
+                    ];
+                    default = "owner";
+                    description = "Who the `web` aspect serves this web UI to: the owner's devices only, or also the devices of the people the machine is shared with. Household only for a service with accounts of its own, or one the whole household may run.";
+                  };
                   unit = lib.mkOption {
                     type = lib.types.str;
                     default = "";

@@ -67,6 +67,7 @@ balaur.services = [{
   icon = "🧩";              # an emoji, an icon name or a file
   port = cfg.port;          # on this machine
   subdomain = "thing";      # https://thing.<domain> through Caddy, where `web` is
+  audience = "owner";       # the default; "household" also serves the people the machine is shared with
   unit = "thing.service";   # `user:<unit>` for a unit of the desktop session
   group = "Home";           # the Home page's section
   appIcon = null;           # an icon here installs it as a GNOME web app on the tablet

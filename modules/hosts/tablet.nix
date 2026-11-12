@@ -58,6 +58,8 @@ in
           adblock
           web
           aminte
+          # The household's notes: an account for each person the tablet is shared with.
+          memos
           home-assistant
           camera
         ])

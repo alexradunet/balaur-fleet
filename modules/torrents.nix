@@ -235,6 +235,9 @@ in
             icon = "🧲";
             port = webuiPort;
             subdomain = "torrents";
+            # No login, and it can run a program when a download ends: whoever opens
+            # it is trusted with this machine's other loopback services too.
+            audience = "household";
             unit = "qbittorrent.service";
             appIcon = "${pkgs.qbittorrent-nox.src}/dist/unix/menuicons/scalable/apps/qbittorrent.svg";
             group = "Media & files";

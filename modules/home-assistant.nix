@@ -98,6 +98,7 @@
           icon = "🏠";
           inherit port;
           subdomain = "home";
+          audience = "household"; # its own accounts: the others are not administrators
           unit = "home-assistant.service";
           appIcon = "${hass.package.frontend}/${hass.package.python3Packages.python.sitePackages}/hass_frontend/static/icons/favicon-192x192.png";
           group = "Home";
