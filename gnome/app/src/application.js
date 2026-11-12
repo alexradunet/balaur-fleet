@@ -15,6 +15,7 @@ import Adw from 'gi://Adw?version=1';
 
 import {Assistant} from './assistant.js';
 import {Services} from './services.js';
+import {People} from './people.js';
 import {BalaurWindow} from './window.js';
 import {AssistantSettingsDialog} from './settings-dialog.js';
 import {SearchProvider} from './search-provider.js';
@@ -59,6 +60,7 @@ class BalaurApplication extends Adw.Application {
 
         this.assistant = new Assistant();
         this.services = new Services();
+        this.people = new People();
         this._addActions();
         this.set_accels_for_action('app.quit', ['<Control>q']);
         this.set_accels_for_action('window.close', ['<Control>w']);

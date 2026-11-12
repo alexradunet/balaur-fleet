@@ -6,7 +6,9 @@
     "url": "http://tablet:8096",
     "unit": "jellyfin.service",
     "desktopId": "org.jellyfin.JellyfinDesktop.desktop",
-    "group": "Media"
+    "group": "Media",
+    "login": true,
+    "shared": true
   },
   {
     "name": "Camera",

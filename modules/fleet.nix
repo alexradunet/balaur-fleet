@@ -180,6 +180,9 @@ in
         s: if s.port == null then null else "${s.scheme}://127.0.0.1:${toString s.port}${s.path}";
       # `tablet` installs a GNOME web app for each of these (tablet.nix).
       hasWebApp = s: cfg ? tablet && s.port != null && s.appIcon != null;
+      # Whether a household device opens it (the People page): only what a machine
+      # with `web` serves by name, to the `household` audience (web.nix).
+      sharedBy = balaur: s: balaur ? web && s.subdomain != null && s.audience == "household";
       localServices = map (s: {
         inherit (s)
           name
@@ -187,10 +190,12 @@ in
           icon
           unit
           group
+          login
           ;
         url = localUrl s;
         desktopId = if hasWebApp s then "${s.webAppId}.desktop" else s.desktopId;
         host = null;
+        shared = sharedBy cfg s;
       }) cfg.services;
       # Where that machine runs the `web` aspect, its subdomain over HTTPS (web.nix).
       remoteUrl =
@@ -206,18 +211,27 @@ in
         lib.mapAttrsToList (
           host: _:
           map (s: {
-            inherit (s) name description icon;
+            inherit (s)
+              name
+              description
+              icon
+              login
+              ;
             inherit host;
             group = "On ${host}";
             url = remoteUrl host s;
             unit = "";
             desktopId = null;
+            shared = sharedBy nixosConfigs.${host}.config.balaur s;
           }) (lib.filter (s: s.port != null) nixosConfigs.${host}.config.balaur.services)
         ) (lib.intersectAttrs nixosConfigs others)
       );
     in
     {
       environment.etc."balaur/services.json".text = builtins.toJSON (localServices ++ remoteServices);
+      # The app's People page: who they are; what each opens it works out from the
+      # services' `shared` and `url` (gnome/app/src/access.js).
+      environment.etc."balaur/people.json".text = builtins.toJSON cfg.people;
 
       programs.ssh.knownHosts = lib.mapAttrs (name: h: {
         hostNames =

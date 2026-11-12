@@ -3,14 +3,13 @@
 // Doesn't need the assistant, so it works when the assistant is down.
 
 import GObject from 'gi://GObject';
-import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Gtk from 'gi://Gtk?version=4.0';
-import Gdk from 'gi://Gdk?version=4.0';
 import Adw from 'gi://Adw?version=1';
 
 import {UnitWatcher} from '../systemd.js';
 import {ReachWatcher} from '../reach.js';
+import {serviceIcon} from '../service-icon.js';
 import {escape} from '../util.js';
 
 const KIND_CLASS = {ok: 'success', busy: 'warning', bad: 'error', off: 'dim-label', unknown: 'dim-label'};
@@ -67,7 +66,7 @@ class HomePage extends Adw.Bin {
             title: escape(s.name),
             subtitle: escape(s.description ?? ''),
         });
-        row.add_prefix(this._icon(s));
+        row.add_prefix(serviceIcon(this._services, s));
 
         // A local unit's systemd state, or for another machine's service
         // whether its address answers.
@@ -101,24 +100,5 @@ class HomePage extends Adw.Bin {
             row.activatable_widget = open; // the whole row opens it
         }
         return row;
-    }
-
-    // services.json's icon may be an icon name, a file, or (as on the old web
-    // dashboard) an emoji. Real icons look best, so prefer: a named/file
-    // icon, then the GNOME app's own icon, then the emoji.
-    _icon(s) {
-        const size = 32;
-        const icon = s.icon ?? '';
-        if (icon.startsWith('/') && GLib.file_test(icon, GLib.FileTest.EXISTS))
-            return new Gtk.Image({gicon: Gio.FileIcon.new(Gio.File.new_for_path(icon)), pixel_size: size});
-        const theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default());
-        if (/^[\w.-]+$/.test(icon) && theme.has_icon(icon))
-            return new Gtk.Image({icon_name: icon, pixel_size: size});
-        const appIcon = this._services.appInfo(s)?.get_icon();
-        if (appIcon)
-            return new Gtk.Image({gicon: appIcon, pixel_size: size});
-        if (icon)
-            return new Gtk.Label({label: icon, css_classes: ['balaur-emoji'], width_request: size});
-        return new Gtk.Image({icon_name: 'application-x-executable-symbolic', pixel_size: size});
     }
 });

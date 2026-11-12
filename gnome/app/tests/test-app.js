@@ -11,6 +11,7 @@ import {
 } from '../src/format.js';
 import {humanError, normalize} from '../src/assistant.js';
 import {fold, isQuestion, matches, parseId, resultIds, search, searchItems} from '../src/search.js';
+import {ROLE_TEXT, canOpen, countFor, faceText, loginText, openable} from '../src/access.js';
 
 let failed = 0;
 function eq(actual, expected, what) {
@@ -152,6 +153,31 @@ eq(resultIds(items, ['when', 'is', 'sunset'], false), [], 'not while the assista
 eq(resultIds(items, ['milk'], true), ['service:Milkman', 'list:shopping:a'], 'a lookup does not ask');
 eq(parseId('list:shopping:a:b'), {kind: 'list', key: 'shopping:a:b'}, 'parse id keeps the rest');
 eq(parseId('ask:what: now'), {kind: 'ask', key: 'what: now'}, 'parse ask');
+
+// who opens what (access.js): the People page
+const alex = {name: 'Alex', role: 'owner'}, partner = {name: 'Ana', role: 'household'},
+    screen = {name: 'Balaur', role: 'screen'};
+const page = {name: 'Notes', url: 'http://127.0.0.1:5230', shared: true, login: true};
+const mine = {name: 'Journal', url: 'http://127.0.0.1:7780', shared: false, login: true};
+const open = {name: 'Ads', url: 'http://127.0.0.1:3000', shared: false};
+const noPage = {name: 'Tailscale', url: null, shared: true};
+eq(openable([page, noPage, null, mine]).map(s => s.name), ['Notes', 'Journal'], 'only what has a page');
+eq([alex, partner, screen].map(p => canOpen(p, page)), [true, true, true], 'a shared service: everyone');
+eq([alex, partner, screen].map(p => canOpen(p, mine)), [true, false, true], 'an owner service: not the household');
+eq([alex, partner, screen].map(p => canOpen(p, open)), [true, false, true], 'shared missing means not shared');
+eq([alex, partner, screen].map(p => canOpen(p, noPage)), [false, false, false], 'no page, nobody');
+eq(canOpen({name: 'X', role: 'admin'}, page), false, 'an unknown role opens nothing');
+eq(canOpen(null, page), false, 'nobody opens nothing');
+eq(canOpen(partner, {...page, shared: 'yes'}), false, 'shared must be true itself');
+eq([alex, partner, screen].map(p => countFor(p, [page, mine, open])), [3, 1, 3], 'how many each opens');
+eq([loginText(page), loginText(open)], ['Asks for its own login', 'No login'], 'login text');
+eq(Object.keys(ROLE_TEXT), ['owner', 'household', 'screen'], 'a text for every role');
+const andreea = {name: 'Andreea', role: 'household'};
+eq([alex, andreea, screen].map(p => faceText(p, [alex, andreea, screen])), ['A l', 'A n', 'Balaur'],
+    'the same first letter: two letters each');
+eq(faceText(alex, [alex, screen]), 'Alex', 'no clash, the name as it is');
+eq(faceText({name: 'Ana Pop'}, [{name: 'alex'}]), 'Ana Pop', 'two words already tell apart');
+eq(faceText({name: 'A'}, [{name: 'Al'}]), 'A', 'one letter has no second');
 
 if (failed) {
     print(`${failed} failed`);

@@ -56,6 +56,7 @@
           port = 8096;
           subdomain = "jellyfin";
           audience = "household"; # its own accounts: a profile each
+          login = true;
           unit = "jellyfin.service";
           desktopId = "org.jellyfin.JellyfinDesktop.desktop";
           group = "Media & files";

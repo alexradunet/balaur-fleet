@@ -78,6 +78,24 @@ in
         # create a new user and drop yours, so set it before the first rebuild.
         user = "alex";
 
+        # Who uses this machine, for the Balaur app's People page. It only describes:
+        # the `web` aspect and the tailnet policy are what let each of them in.
+        people = [
+          {
+            name = "Alex";
+            role = "owner";
+          }
+          {
+            name = "Andreea";
+            role = "household";
+          }
+          {
+            # The household account on the built-in screen.
+            name = "Balaur";
+            role = "screen";
+          }
+        ];
+
         # The living-room Samsung (UE65AU7172, Tizen 6) is at 192.168.50.106, this machine at
         # 192.168.50.233 (both reserved in the router); AdGuard (the adblock aspect) blocks its ads.
 

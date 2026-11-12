@@ -227,6 +227,7 @@ in
             icon = "📓";
             port = webPort;
             subdomain = "aminte";
+            login = true; # its bearer token
             unit = "aminte.service";
             group = "Personal";
           }

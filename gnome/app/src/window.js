@@ -1,4 +1,4 @@
-// The main window: five pages in an AdwViewStack. Wide (landscape) shows the
+// The main window: its pages in an AdwViewStack. Wide (landscape) shows the
 // page switcher in the header bar; narrow (portrait) moves it to a bar at
 // the bottom, within reach of thumbs.
 
@@ -12,6 +12,7 @@ import {ListsPage} from './pages/lists.js';
 import {TimersPage} from './pages/timers.js';
 import {MemoryPage} from './pages/memory.js';
 import {HomePage} from './pages/home.js';
+import {PeoplePage} from './pages/people.js';
 
 export const BalaurWindow = GObject.registerClass(
 class BalaurWindow extends Adw.ApplicationWindow {
@@ -38,6 +39,14 @@ class BalaurWindow extends Adw.ApplicationWindow {
         stack.add_titled_with_icon(new MemoryPage(app), 'memory', 'Memory',
             'user-bookmarks-symbolic');
         stack.add_titled_with_icon(new HomePage(app), 'home', 'Home', 'go-home-symbolic');
+        // Only on a machine whose configuration names people (the shared tablet).
+        const peoplePage = stack.add_titled_with_icon(new PeoplePage(app), 'people', 'People',
+            'system-users-symbolic');
+        const syncPeople = () => {
+            peoplePage.visible = app.people.list.length > 0;
+        };
+        app.people.connect('changed', syncPeople);
+        syncPeople();
 
         // Header: the switcher when wide, the app name when narrow.
         const switcher = new Adw.ViewSwitcher({stack, policy: Adw.ViewSwitcherPolicy.WIDE});
@@ -61,9 +70,9 @@ class BalaurWindow extends Adw.ApplicationWindow {
         view.add_bottom_bar(bar);
         this.content = view;
 
-        // Five wide tabs need ~700 px; below that (portrait) use the bottom bar.
+        // Six wide tabs need ~840 px; below that (portrait) use the bottom bar.
         const narrow = new Adw.Breakpoint({
-            condition: Adw.BreakpointCondition.parse('max-width: 720sp'),
+            condition: Adw.BreakpointCondition.parse('max-width: 860sp'),
         });
         narrow.add_setter(switcher, 'visible', false);
         narrow.add_setter(title, 'visible', true);

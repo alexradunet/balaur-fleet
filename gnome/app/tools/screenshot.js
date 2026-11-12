@@ -17,7 +17,8 @@ import {BalaurApplication} from '../src/application.js';
 
 const outDir = programArgs[0] ?? '.';
 GLib.mkdir_with_parents(outDir, 0o755);
-const PAGES = ['assistant', 'lists', 'timers', 'memory', 'home'];
+// `people` only shows with a people file ($BALAUR_PEOPLE, tools/people.example.json).
+const PAGES = ['assistant', 'lists', 'timers', 'memory', 'home', 'people'];
 const SIZES = {landscape: [1080, 675], portrait: [675, 1080]};
 // Optional style: BALAUR_SHOT_STYLE=dark
 const style = GLib.getenv('BALAUR_SHOT_STYLE');

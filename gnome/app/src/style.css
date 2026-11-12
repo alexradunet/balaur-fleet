@@ -59,6 +59,12 @@ entry.balaur-ask {
   background-color: alpha(currentColor, 0.12);
 }
 
+/* People page: the picture of someone who cannot open the service. */
+.balaur-no-access {
+  opacity: 0.16;
+  filter: grayscale(100%);
+}
+
 /* Emoji icons from services.json. */
 .balaur-emoji {
   font-size: 24px;

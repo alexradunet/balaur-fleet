@@ -114,6 +114,7 @@
             port = cfg.port;
             subdomain = "memos";
             audience = "household";
+            login = true;
             unit = "memos.service";
             group = "Home";
           }

@@ -239,13 +239,19 @@ Timers and reminders going off are GNOME notifications from
 - Timezone: `$TZ` (Europe/Bucharest).
 - Volume: `wpctl get-volume/set-volume @DEFAULT_AUDIO_SINK@` (or `pactl`).
 - Home services for the app: `/etc/balaur/services.json`, an array of
-  `{name, description, icon, url, unit, desktopId, group, host}` (`unit` = systemd system
+  `{name, description, icon, url, unit, desktopId, group, host, login, shared}` (`unit` = systemd system
   unit, or `user:<unit>` for a unit of the user session; `desktopId` = the
   GNOME app to launch for it, may be null; `url` may be null; `group` sections
   the page; `host` = null for this machine's services, else the fleet machine
   it runs on, whose web UI `url` points at its fleet `address`, the tailnet name
-  (`http://tablet:8096`), with `unit` empty).
+  (`http://tablet:8096`), with `unit` empty; `login` = it asks for a login of
+  its own; `shared` = the machine that runs it serves it to the household's own
+  devices too, not only the owner's).
   Written on every machine by the `fleet` aspect.
+- The household's people, for the app's People page: `/etc/balaur/people.json`,
+  an array of `{name, role}` from `balaur.people` (`role` = `owner`, `household`
+  or `screen`; `gnome/app/src/access.js` says what each opens). Empty where no
+  people are named, and the page hides. Also written by the `fleet` aspect.
 - Testing on this box: the assistant is live; a second copy run by hand would
   also answer "Hey Jarvis", so keep such runs short. You may run your piece by hand as the household user, e.g.
   `sudo -u home env XDG_RUNTIME_DIR=/run/user/1002 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus <cmd>`

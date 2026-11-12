@@ -3,7 +3,8 @@
 The household's libadwaita app on the built-in screen, written in GJS (no
 build step). Pages: **Assistant** (conversation, type to ask, Stop, mic
 switch, volume), **Lists**, **Timers** (timers & reminders), **Memory**, **Home**
-(services with live systemd state and an Open button). It talks to the
+(services with live systemd state and an Open button), and on a machine that
+names its people **People** (who of the household opens which service). It talks to the
 assistant daemon over the session bus (`org.balaur.Assistant`, see
 `../CONTRACT.md`); the assistant pages show "Assistant isn't running" while it
 is away, Home keeps working.
@@ -36,6 +37,10 @@ gdbus call --session -d org.balaur.Balaur -o /org/balaur/Balaur/SearchProvider \
   `url` answers, since its unit is out of reach.
 - `src/services.js`: reads `/etc/balaur/services.json` (`$BALAUR_SERVICES`
   overrides) and opens a service (its `desktopId` app, else its `url`).
+- `src/people.js`: reads `/etc/balaur/people.json` (`$BALAUR_PEOPLE` overrides);
+  `src/access.js`: who opens what, without GTK (tested headless). The People
+  page only shows it: the gate is Caddy's and the tailnet's (`modules/web.nix`).
+- `src/service-icon.js`: a service's picture, for Home and People.
 - `src/search.js`: what the overview's search finds, without GTK (tested
   headless); `src/search-provider.js` answers `org.gnome.Shell.SearchProvider2`
   with it. `data/org.balaur.Balaur.search-provider.ini` and
@@ -63,7 +68,8 @@ is one.
 ```sh
 nix build --impure --expr 'let p = (builtins.getFlake (toString ./.)).inputs.nixpkgs.legacyPackages.x86_64-linux; in p.callPackage ./pkgs/balaur-app.nix {}'
 gjs -m gnome/app/tools/mock-assistant.js &      # fake daemon; logs "CALL ..." per method
-BALAUR_SERVICES=gnome/app/tools/services.example.json ./result/bin/balaur-app
+BALAUR_SERVICES=gnome/app/tools/services.example.json \
+  BALAUR_PEOPLE=gnome/app/tools/people.example.json ./result/bin/balaur-app
 ```
 
 The app's actions are on the bus, so they can be poked without touching the

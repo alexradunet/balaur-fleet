@@ -73,6 +73,46 @@ in
           description = "Root for bulk data (synced files).";
         };
 
+        people = lib.mkOption {
+          default = [ ];
+          example = [
+            {
+              name = "Ana";
+              role = "owner";
+            }
+          ];
+          description = ''
+            The people of the household, on the machine they share: the Balaur app's
+            People page shows which of the services each of them can open (written to
+            /etc/balaur/people.json by the `fleet` aspect). It describes what the
+            `web` aspect and the tailnet policy enforce; it grants nothing itself.
+          '';
+          type = lib.types.listOf (
+            lib.types.submodule {
+              options = {
+                name = lib.mkOption {
+                  type = lib.types.str;
+                  description = "The name the page shows.";
+                };
+                role = lib.mkOption {
+                  type = lib.types.enum [
+                    "owner"
+                    "household"
+                    "screen"
+                  ];
+                  description = ''
+                    How this person comes in. `owner`: the admin, whose devices open
+                    everything. `household`: their own devices, through this machine
+                    shared with their Tailscale account, which open the `household`
+                    services. `screen`: the household account on the built-in screen,
+                    with no password, which opens whatever answers on this machine.
+                  '';
+                };
+              };
+            }
+          );
+        };
+
         services = lib.mkOption {
           default = [ ];
           description = ''
@@ -124,6 +164,11 @@ in
                     ];
                     default = "owner";
                     description = "Who the `web` aspect serves this web UI to: the owner's devices only, or also the devices of the people the machine is shared with. Household only for a service with accounts of its own, or one the whole household may run.";
+                  };
+                  login = lib.mkOption {
+                    type = lib.types.bool;
+                    default = false;
+                    description = "It asks for a login of its own (accounts, a password, a token): opening the page is not yet using it.";
                   };
                   unit = lib.mkOption {
                     type = lib.types.str;

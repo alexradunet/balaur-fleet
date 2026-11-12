@@ -134,6 +134,7 @@ in
               icon = "🎮";
               port = 47990;
               scheme = "https";
+              login = true; # the admin's name and the sops password
               unit = "user:sunshine.service";
               group = "Games";
             }
