@@ -68,6 +68,8 @@ in
           game-streaming
           # The fleet's local LLM on the 5060 Ti (stopped while a game runs).
           strata
+          # A folder of the old disk, for the players on the home network (below).
+          dlna
         ])
         # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
         # .agents/skills). It must be `git add`ed or flakes cannot see it.
@@ -113,6 +115,8 @@ in
       balaur = {
         # The existing login on this machine; its password is kept as is.
         user = "alex";
+        # A folder of the old disk, served to the home network (no login: dlna.nix).
+        dlna.dirs = [ "/mnt/old-ssd/True Strength" ];
         # It stays at home, wired or on the home Wi-Fi: SSH and the Syncthing UI on
         # the LAN as well, like the tablet.
       };

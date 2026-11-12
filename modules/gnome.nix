@@ -165,7 +165,7 @@ in
           gnome-remote-desktop.enable = false; # SSH and Tailscale; Moonlight for the pc
           gnome-user-share.enable = false; # files move through Syncthing (`files`)
           gnome-browser-connector.enable = false; # the extensions come from the flake
-          rygel.enable = false; # DLNA sharing to the LAN: nothing asked for it
+          rygel.enable = false; # DLNA sharing from the session: `dlna` serves it where wanted
         };
         services.dleyna.enable = false; # DLNA discovery, likewise
 

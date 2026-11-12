@@ -66,6 +66,7 @@ modules/
   assistant.nix           the voice assistant, a service of a GNOME session
   camera.nix              the Duet's front camera: patched kernel modules + RGB-IR relay, movement wakes the screen
   media.nix               Jellyfin: watches what `torrents` downloaded, /srv/media
+  dlna.nix                MiniDLNA: folders served as they are to the players on the home network (the pc)
   torrents.nix            qBittorrent + FileList search (aspect `torrents`, the tablet only), and
                           `balaur-torrent` + the magnet handler (aspect `torrents-client`, anywhere)
   adblock.nix             AdGuard Home: network-wide ad/tracker blocking on :53, UI on :3000
