@@ -8,7 +8,10 @@
 # DLNA has no login: whoever is on the home network can browse and play what is
 # listed in `balaur.dlna.dirs`. The machine with this aspect stays at home.
 #
-# http://<host>:8200 is its status page (how many files, which players).
+# Its status page (how many files, which players) answers on the same port, but
+# only to a numeric address: http://127.0.0.1:8200 on the machine itself. MiniDLNA
+# refuses a request made by name (its guard against DNS rebinding), so there is no
+# link from the other machines' home pages, which dial `http://<host>:<port>`.
 {
   flake.modules.nixos.dlna =
     { config, lib, ... }:
@@ -33,7 +36,7 @@
         port = lib.mkOption {
           type = lib.types.port;
           default = 8200;
-          description = "The port the players fetch from, and the status page.";
+          description = "The port the players fetch from.";
         };
       };
 
@@ -59,12 +62,12 @@
           dir: ''"${lib.removePrefix "A," (lib.removePrefix "V," (lib.removePrefix "P," dir))}"''
         ) cfg.dirs;
 
+        # On this machine's Home page with its live state; no `port`, so no link (above).
         balaur.services = [
           {
             name = "DLNA";
             description = "Folders for the TV and other players";
             icon = "📺";
-            port = cfg.port;
             unit = "minidlna.service";
             group = "Media & files";
           }
