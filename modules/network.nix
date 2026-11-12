@@ -59,7 +59,9 @@
         # Stays active after setting, so a change to the flags re-runs it on a switch
         # instead of only at the next boot.
         systemd.services.tailscaled-set.serviceConfig.RemainAfterExit = true;
-        # Reach the admin UIs over the tailnet as well as the LAN.
+        # Reach the admin UIs over the tailnet as well as the LAN. tailscaled accepts
+        # tailscale0 itself, before this firewall: what a device of another person's
+        # may reach on a shared machine is the tailnet policy's to say (modules/web.nix).
         networking.firewall.trustedInterfaces = [ "tailscale0" ];
 
         balaur.services = [

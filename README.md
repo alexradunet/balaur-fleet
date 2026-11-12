@@ -71,7 +71,7 @@ modules/
                           `balaur-torrent` + the magnet handler (aspect `torrents-client`, anywhere)
   adblock.nix             AdGuard Home: network-wide ad/tracker blocking on :53, UI on :3000
   home-assistant.nix      Home Assistant: devices and automations, https://home.<domain> and :8123
-  web.nix                 https://<domain>: the home page of every machine's web UIs, tailnet only (Caddy, DNS-challenge cert)
+  web.nix                 https://<domain>: the home page of every machine's web UIs, tailnet only (Caddy, DNS-challenge cert); the owner's devices get all of it, the household's the `household` services
   files.nix               Syncthing: a 200 GiB volume of its own at /srv/files, paired from the registry
   agent.nix               pi, the OS agent on every machine: the fleet's models, machines and services; `balaur-ask`; roles (`pi-aminte`)
   dev.nix                 Claude Code + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep; `dev` opens the sessions

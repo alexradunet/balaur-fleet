@@ -82,6 +82,10 @@ instructions, and, with `subdomain`, behind `https://<subdomain>.balaur.space`.
 and say why in a comment. The services here have no logins: nothing is ever exposed
 to the internet.
 
+**Audience:** the tablet is shared with a second person, whose devices Caddy serves
+only the `household` entries (`modules/web.nix`). Leave a new service the owner's
+unless it has accounts of its own or the whole household is meant to run it.
+
 ## Turn it on
 
 Add the name to the host's list in `modules/hosts/<host>.nix`, with a comment when the

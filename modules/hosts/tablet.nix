@@ -130,6 +130,10 @@ in
         domain = "balaur.space";
         dnsProvider = "gandiv5";
         dnsCredentialsFile = config.sops.templates."gandi.env".path;
+        # The phone. With the fleet's machines, the devices that open everything; the
+        # tablet is shared with a second person, whose devices get the household's
+        # services only (modules/web.nix).
+        ownerAddresses = [ "100.79.180.82" ];
       };
 
       # aminte's bearer token: the browser's login at https://aminte.balaur.space, and
