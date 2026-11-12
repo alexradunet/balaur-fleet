@@ -178,9 +178,18 @@
         hardware.sensor.iio.enable = true;
 
         # ---- the household account ----
+        assertions = [
+          {
+            # One name, two accounts: NixOS would merge the open screen into the admin.
+            assertion = user != cfg.user;
+            message = "balaur.tablet.user (the household account) and balaur.user (the admin) are both `${user}`";
+          }
+        ];
+
         users.users.${user} = {
           isNormalUser = true;
-          description = "Home";
+          # The account's name, capitalised: "Home", "Balaur".
+          description = lib.toUpper (lib.substring 0 1 user) + lib.substring 1 (-1) user;
           extraGroups = [
             "video"
             "audio"

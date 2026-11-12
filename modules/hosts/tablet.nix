@@ -78,6 +78,10 @@ in
         # create a new user and drop yours, so set it before the first rebuild.
         user = "alex";
 
+        # The household account on the built-in screen. It was `home` until
+        # 2026-11-12; the rename is carried over below.
+        tablet.user = "balaur";
+
         # Who uses this machine, for the Balaur app's People page. It only describes:
         # the `web` aspect and the tailnet policy are what let each of them in.
         people = [
@@ -118,6 +122,29 @@ in
 
         # camera.tuning.cfa ="GIGI/BGRG/GIGI/RGBG"; # only if red and blue come out swapped (default: GIGI/RGBG/GIGI/BGRG)
       };
+
+      # `home` became `balaur`: the same account under a new name. It keeps its number,
+      # so every file it owns stays its own, and its directory moves with it before
+      # NixOS would make an empty one (hence before `users`). The session that is
+      # open during the switch still has HOME=/home/home, and so may paths saved in
+      # the account's own files: the old path stays, as a link. GDM logs in under
+      # the new name from the next start. Once /home/home is a link here, the
+      # script has done its work and can go; the uid and the link stay.
+      users.users.balaur.uid = 1002;
+      system.activationScripts.renameHouseholdAccount.text = ''
+        if [ -d /home/home ] && [ ! -L /home/home ]; then
+          # An empty new directory (an activation that got ahead of this) is in the way, no more.
+          if [ -d /home/balaur ] && [ -z "$(ls -A /home/balaur)" ]; then rmdir /home/balaur; fi
+          if [ ! -e /home/balaur ]; then
+            mv /home/home /home/balaur
+            ln -s balaur /home/home
+            echo "the household account's directory is now /home/balaur (/home/home links to it)"
+          else
+            echo "warning: /home/home and /home/balaur both hold files; the household account's state was not moved" >&2
+          fi
+        fi
+      '';
+      system.activationScripts.users.deps = [ "renameHouseholdAccount" ];
 
       # FileList's username and passkey are two entries in this machine's own sops
       # file (secrets/hosts/tablet.yaml); the search plugin wants them as one JSON

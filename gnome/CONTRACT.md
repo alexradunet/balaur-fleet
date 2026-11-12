@@ -254,7 +254,7 @@ Timers and reminders going off are GNOME notifications from
   people are named, and the page hides. Also written by the `fleet` aspect.
 - Testing on this box: the assistant is live; a second copy run by hand would
   also answer "Hey Jarvis", so keep such runs short. You may run your piece by hand as the household user, e.g.
-  `sudo -u home env XDG_RUNTIME_DIR=/run/user/1002 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus <cmd>`
+  `sudo -u balaur env XDG_RUNTIME_DIR=/run/user/1002 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus <cmd>`
   (`sudo` asks for the admin's password, which an agent does not have: this is a
   step for the user). Tools: `nix shell nixpkgs#gjs nixpkgs#libadwaita ...`.
 - Packaging: the packages are the flake's (`modules/flake/packages.nix`; they need

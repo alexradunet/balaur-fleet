@@ -42,7 +42,7 @@ The installed assistant is live; while this runs, both answer "Hey Jarvis",
 so keep it short. As the household user, on a copy of the state:
 
 ```sh
-sudo -u home env XDG_RUNTIME_DIR=/run/user/1002 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus \
+sudo -u balaur env XDG_RUNTIME_DIR=/run/user/1002 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1002/bus \
   STATE_DIRECTORY=/tmp/copy-of-state CREDENTIALS_DIRECTORY=/tmp/dir-with-llm-key \
   BALAUR_ASSISTANT_CONFIG=/nix/store/...-balaur-assistant.json TZ=Europe/Bucharest \
   ./result/bin/balaur-assistant
