@@ -478,15 +478,58 @@ reminders and memory.
 
 ### Custom wake word
 
-Train one with the openWakeWord synthetic-data notebook (Google Colab, about an hour, no recordings needed;
-search for "openWakeWord automatic model training"). Copy the resulting `hei_balaur.tflite` to
-`/var/lib/balaur-wakewords/`, set `balaur.assistant.wakeWord = "hei_balaur";`, rebuild.
+The built-in wake words are English and trained on synthetic voices. `sudo balaur-wake-word` trains one of the
+household's own, from recordings of the people who will say it, on the microphone that will hear it (so: on each
+machine that should answer to it). Nothing but the download of openWakeWord's public features leaves the machine.
+
+1. **Each person says it**, once per prompt, in a quiet room. Several short rounds beat one long one: next to the
+   machine, across the room, from the doorway, quietly, quickly. 60 takes each is a start, 100 is better.
+
+   ```sh
+   sudo balaur-wake-word record alex        # 25 takes; `record alex 40` for more
+   sudo balaur-wake-word record <her name>
+   ```
+
+2. **What must not wake it.** Each person talks for a minute and a half without the word (the tool lists words that
+   sound like it, to work in), and the room is recorded as it usually is, TV on:
+
+   ```sh
+   sudo balaur-wake-word speech alex
+   sudo balaur-wake-word room 10            # minutes
+   ```
+
+   Without the first it learns the voices instead of the word; without the second, the TV wakes it.
+
+3. **Train**, on that machine. On the Duet about 25 minutes the first time, at low priority, plus a 2.8 GB download
+   of openWakeWord's features; later runs only work on what was recorded since:
+
+   ```sh
+   sudo balaur-wake-word train
+   ```
+
+   It prints, for takes it kept out of training, how many it catches at each threshold, and how many false wakes an
+   hour that costs on 11 hours of other people's speech and on your own negatives. It writes
+   `/var/lib/balaur-wakewords/balaur.tflite` and suggests a threshold. The model wants three windows on end (a
+   quarter of a second) to agree before it wakes, which is what keeps a stray sound from doing it.
+
+4. **Try it** before switching: `sudo balaur-wake-test --word balaur` records 15 s and prints the score each time
+   you say it. Too many misses or false wakes: record more of what it gets wrong (takes from where it missed you,
+   `room` with what woke it) and train again; everything recorded so far is used.
+
+5. **Switch** that machine over, in its host file: `balaur.assistant.wakeWord = "balaur";`, `wakeThreshold` as
+   suggested, and `name` if the assistant should call itself that too. Only on a machine that has the model:
+   openWakeWord silently listens for "Okay Nabu" when it cannot find the one it is asked for.
+
+`--word hei_balaur` (before the command) trains another word next to it. `sudo balaur-wake-word status` shows what
+has been recorded. The recordings stay in `/var/lib/balaur-wake-training`, readable by root only, so that a later
+round can add to them; `sudo rm -r /var/lib/balaur-wake-training` once the model is good enough.
 
 ### Where things are kept
 
 `~home/.local/state/balaur-assistant/` holds `house.json` (lists), `reminders.json` and `memory.json`, as plain
 JSON; `timers.json` (running timers, which a restart keeps) and `mute.json` (the microphone switch). Keys are in the GNOME Keyring (and the fallback is the sops secret
-`assistant-llm-key`, or on a machine without `secrets` `/var/lib/secrets/balaur-assistant-llm-key`). No audio is stored on the Duet.
+`assistant-llm-key`, or on a machine without `secrets` `/var/lib/secrets/balaur-assistant-llm-key`). No audio is stored on the Duet, except what you record yourself to
+train a wake word (above).
 
 ## Stage 12: The ambient screen
 

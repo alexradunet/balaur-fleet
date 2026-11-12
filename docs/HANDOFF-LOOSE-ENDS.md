@@ -162,6 +162,30 @@ working tree (one commit; `git log` says which). Once they are deployed:
   interface: `sunshine --creds`, in `sunshine.service`'s `ExecStartPre`), so it is briefly
   visible in `/proc` on the pc.
 
+### 10. The household's own wake word, "Balaur" (2026-11-11, needs the user)
+
+On the tablet "Hey Jarvis" both misses the household and wakes by itself several times a day
+(the journal: `wake word: hey_jarvis` followed by an empty `heard`), so no threshold
+fixes it. `sudo balaur-wake-word` (assistant.nix, `modules/assistant/wake-word.py`;
+docs/SETUP.md, "Custom wake word") records the word in the household's voices and trains
+an openWakeWord model on the machine. It was exercised end to end with synthetic voices
+(espeak-ng) only: the recorder against a fake microphone, the training, the model in
+openWakeWord's runtime. Left, on the tablet:
+
+- **Record** (both people of the household): `record <who>` in several rounds, `speech <who>`,
+  `room 10`. This is the first run on the real microphone: if the recorder refuses
+  good takes ("nothing heard", "more than one sound"), `find_word`'s levels in
+  wake-word.py want tuning for the array.
+- **Train**, read the table (held-out takes caught, false wakes an hour), try it with
+  `sudo balaur-wake-test --word balaur`.
+- **Switch the tablet**: `wakeWord = "balaur"`, the suggested `wakeThreshold`, and
+  `name = "Balaur"` in `modules/hosts/tablet.nix`; the comments and docs that say "Hey
+  Jarvis" (README, SETUP, tablet.nix). Then watch the journal for a few days: empty
+  `heard` lines are false wakes; record `room` with what caused them and train again.
+- **The pc and the laptop** have other microphones and no model: they stay on "Hey Jarvis"
+  until the word is recorded there too (item 3). Whether one machine's model serves another
+  (copy `/var/lib/balaur-wakewords/balaur.tflite`) is untested.
+
 ## Backlog from the review (decisions, not fixes)
 
 - **Disk encryption on the laptop** (a reinstall), and whether `~/.ssh/id_ed25519` has

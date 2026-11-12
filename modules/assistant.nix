@@ -159,6 +159,34 @@ in
         '';
       };
 
+      # openWakeWord's own library, to score and to train with; flatbuffers writes the
+      # trained model's file.
+      wakePython = pkgs.python3.withPackages (ps: [
+        ps.pyopen-wakeword
+        ps.flatbuffers
+      ]);
+      # The assistant's microphone as raw 16 kHz mono, read from root.
+      capture = "parec ${parecDevice}--raw --format=s16le --rate=16000 --channels=1";
+      # Muted, the assistant doesn't answer the wake words said for a recording;
+      # afterwards the microphone is as the household had left it.
+      muteWhileRecording = ''
+        getmute() {
+          ${inSession ''
+            gdbus call --session --dest org.balaur.Assistant --object-path /org/balaur/Assistant \
+                          --method org.freedesktop.DBus.Properties.Get org.balaur.Assistant1 Muted''} 2>/dev/null || true
+        }
+        setmute() {
+          ${inSession ''
+            gdbus call --session --dest org.balaur.Assistant --object-path /org/balaur/Assistant \
+                          --method org.freedesktop.DBus.Properties.Set org.balaur.Assistant1 Muted "<$1>"''} >/dev/null || true
+        }
+        # gdbus prints "(<true>,)"; no answer (the assistant is not running) counts as not muted.
+        was=$(getmute)
+        case "$was" in *true*) was=true ;; *) was=false ;; esac
+        trap 'setmute "$was"' EXIT
+        setmute true
+      '';
+
       # `sudo balaur-wake-test`: say the wake word a few times; prints its score each
       # time, to tune balaur.assistant.wakeThreshold and audio.micGain with real voices.
       wakeTest = pkgs.writeShellApplication {
@@ -168,49 +196,78 @@ in
           pkgs.util-linux
           pkgs.glib.bin
           pkgs.pulseaudio
+          pkgs.jq
         ];
         text = ''
           if [ "$(id -u)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
-          py=${pkgs.python3.withPackages (ps: [ ps.pyopen-wakeword ])}/bin/python3
+          py=${wakePython}/bin/python3
           # The recording is kept (root only) for a second look:
           #   sudo balaur-wake-test [seconds]           say the wake word a few times
           #   sudo balaur-wake-test all [seconds]       compare every built-in wake word
           #   sudo balaur-wake-test score [gain] [all]  rescore the last recording, optionally amplified
+          # `--word NAME` first: another model than the one in use, e.g. one just
+          # trained (balaur-wake-word), at the threshold its training suggested.
           rec=/var/tmp/balaur-wake-test.raw
-          if [ "''${1:-}" = score ]; then
-            exec "$py" ${./assistant/wake-test.py} "''${3:-${as.wakeWord}}" "$rec" ${toString as.wakeThreshold} "''${2:-1}"
+          word=${as.wakeWord}
+          threshold=${toString as.wakeThreshold}
+          if [ "''${1:-}" = --word ]; then
+            word=$2; shift 2
+            report=${trainingDir}/$word/report.json
+            if [ -e "$report" ]; then threshold=$(jq -r .threshold "$report"); fi
           fi
-          model=${as.wakeWord}
-          prompt="say \"${
-            lib.replaceStrings [ "_" ] [ " " ] as.wakeWord
-          }\" a few times, as you normally would"
+          if [ "''${1:-}" = score ]; then
+            exec "$py" ${./assistant/wake-test.py} "''${3:-$word}" "$rec" "$threshold" "''${2:-1}"
+          fi
+          model=$word
+          prompt="say \"''${word//_/ }\" a few times, as you normally would"
           if [ "''${1:-}" = all ]; then
             model=all; shift
             prompt="say each twice, a few seconds apart: \"Hey Jarvis\", \"Alexa\", \"Hey Mycroft\", \"Okay Nabu\", \"Hey Rhasspy\""
           fi
-          secs="''${1:-$( [ $model = all ] && echo 40 || echo 15 )}"
-          # Muted, the assistant doesn't answer the wake words said for the test;
-          # afterwards the microphone is as the household had left it.
-          getmute() {
-            ${inSession ''
-              gdbus call --session --dest org.balaur.Assistant --object-path /org/balaur/Assistant \
-                            --method org.freedesktop.DBus.Properties.Get org.balaur.Assistant1 Muted''} 2>/dev/null || true
-          }
-          setmute() {
-            ${inSession ''
-              gdbus call --session --dest org.balaur.Assistant --object-path /org/balaur/Assistant \
-                            --method org.freedesktop.DBus.Properties.Set org.balaur.Assistant1 Muted "<$1>"''} >/dev/null || true
-          }
-          # gdbus prints "(<true>,)"; no answer (the assistant is not running) counts as not muted.
-          was=$(getmute)
-          case "$was" in *true*) was=true ;; *) was=false ;; esac
-          trap 'setmute "$was"' EXIT
-          setmute true
+          secs="''${1:-$( [ "$model" = all ] && echo 40 || echo 15 )}"
+          ${muteWhileRecording}
           echo "Recording $secs s: $prompt."
           install -m 600 /dev/null "$rec"
           # From the same PipeWire source the assistant uses.
-          ${inSession ''timeout "$secs" parec ${parecDevice}--raw --format=s16le --rate=16000 --channels=1''} > "$rec" || true
-          "$py" ${./assistant/wake-test.py} "$model" "$rec" ${toString as.wakeThreshold}
+          ${inSession ''timeout "$secs" ${capture}''} > "$rec" || true
+          "$py" ${./assistant/wake-test.py} "$model" "$rec" "$threshold"
+        '';
+      };
+
+      # `sudo balaur-wake-word`: a wake word of the household's own. Record it in each
+      # voice on this machine's microphone, then train the model here
+      # (assistant/wake-word.py says how; docs/SETUP.md, "Custom wake word").
+      trainingDir = "/var/lib/balaur-wake-training";
+      wakeWordTool = pkgs.writeShellApplication {
+        name = "balaur-wake-word";
+        runtimeInputs = [
+          pkgs.coreutils
+          pkgs.util-linux
+          pkgs.glib.bin
+          pkgs.pulseaudio
+          pkgs.systemd
+        ];
+        text = ''
+          tool=(${wakePython}/bin/python3 ${./assistant/wake-word.py})
+          case "''${1:-}" in "" | -h | --help) exec "''${tool[@]}" --help ;; esac
+          if [ "$(id -u)" != 0 ]; then echo "run with sudo" >&2; exit 1; fi
+          # The recordings are root's alone; the model is made readable when written.
+          umask 077
+          export BALAUR_WAKE_DATA=${trainingDir} BALAUR_WAKE_MODELS=${wakewordDir}
+          BALAUR_WAKE_CAPTURE="runuser -u ${user} -- env XDG_RUNTIME_DIR=/run/user/$(id -u ${user}) ${capture}"
+          export BALAUR_WAKE_CAPTURE
+          cmd=
+          for a in "$@"; do
+            case "$a" in record | speech | room | train) cmd=$a; break ;; esac
+          done
+          if [ -n "$cmd" ] && [ "$cmd" != train ]; then
+            ${muteWhileRecording}
+          fi
+          "''${tool[@]}" "$@"
+          if [ "$cmd" = train ]; then
+            # The server reads its models when it starts; the assistant reconnects by itself.
+            systemctl try-restart wyoming-openwakeword.service
+          fi
         '';
       };
     in
@@ -248,8 +305,10 @@ in
             default = "hey_jarvis";
             description = ''
               openWakeWord model to listen for. Built in: hey_jarvis, alexa, hey_mycroft,
-              hey_rhasspy, okay_nabu. A custom one: put `<name>.tflite` in
-              /var/lib/balaur-wakewords and set its name here (docs/SETUP.md, "Custom wake word").
+              hey_rhasspy, okay_nabu. One of the household's own: train it with
+              `sudo balaur-wake-word` (it writes /var/lib/balaur-wakewords/<name>.tflite) and
+              set its name here (docs/SETUP.md, "Custom wake word"). Only on a machine that
+              has that file: without it openWakeWord listens for "Okay Nabu" instead.
             '';
           };
 
@@ -447,6 +506,7 @@ in
             package
             login
             wakeTest
+            wakeWordTool
           ];
           services.desktopManager.gnome.sessionPath = [ package ];
 

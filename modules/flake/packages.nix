@@ -60,6 +60,22 @@ in
           balaur-app
           balaur-shell-extension
           ;
+        # balaur-wake-word writes its model file by hand (assistant/wake-word.py): the
+        # file still loads in openWakeWord's runtime and gives the trainer's scores.
+        wake-word =
+          pkgs.runCommand "balaur-wake-word-selftest"
+            {
+              nativeBuildInputs = [
+                (pkgs.python3.withPackages (ps: [
+                  ps.pyopen-wakeword
+                  ps.flatbuffers
+                ]))
+              ];
+            }
+            ''
+              mkdir $out
+              python3 ${../assistant/wake-word.py} selftest $out
+            '';
         # `nix fmt` leaves nothing to change. hosts/ is machine-generated: left as written.
         formatting = pkgs.runCommand "balaur-formatting" { nativeBuildInputs = [ pkgs.nixfmt ]; } ''
           cd ${../..}
