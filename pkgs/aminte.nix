@@ -48,7 +48,7 @@ let
     (part {
       name = "aminte-web";
       modRoot = "extensions/web";
-      vendorHash = "sha256-CrQJE2wTcQMUVmNgZql2Qw4hTIX70+IvqDwM31ui4PU=";
+      vendorHash = "sha256-k8ZYMWYTUYYrsGM6fWi2J6vuLD+1eg0yN8ER7L0JYOQ=";
     })
     (part {
       name = "aminte-mcp";
