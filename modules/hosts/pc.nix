@@ -99,12 +99,11 @@ in
       balaur.gameStreaming.lanClients = [ "192.168.50.106" ];
 
       # The second NVMe: the old Windows disk, kept for the personal media on it.
-      # Read-only until its future is decided; nofail, so the machine boots without it.
+      # Writable, to tidy it from here; nofail, so the machine boots without it.
       fileSystems."/mnt/old-ssd" = {
         device = "/dev/disk/by-uuid/1C6CA5E96CA5BE40";
         fsType = "ntfs3";
         options = [
-          "ro"
           "nofail"
           "uid=1000"
           "gid=100"
