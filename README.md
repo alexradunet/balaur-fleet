@@ -88,6 +88,7 @@ gnome/                    everything GNOME-facing, in GJS
   app/                    "Balaur", a libadwaita app: the home's services and its people
   shell-extension/        the Scenes menu in Quick Settings (Home Assistant), the ambient screen (photos, machines, services)
 camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 frames -> webcam
+lifelog/                  the life log as markdown + CSV, synced by Syncthing, checked into git (design only; replaces aminte)
 ```
 
 ## What you get
