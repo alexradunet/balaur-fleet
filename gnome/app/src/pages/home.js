@@ -1,6 +1,5 @@
 // Home page: the household's services (from services.json), each with its
 // live systemd state and an Open button (its GNOME app, or its web page).
-// Doesn't need the assistant, so it works when the assistant is down.
 
 import GObject from 'gi://GObject';
 import GLib from 'gi://GLib';
@@ -10,7 +9,7 @@ import Adw from 'gi://Adw?version=1';
 import {UnitWatcher} from '../systemd.js';
 import {ReachWatcher} from '../reach.js';
 import {serviceIcon} from '../service-icon.js';
-import {escape} from '../util.js';
+import {escape} from '../format.js';
 
 const KIND_CLASS = {ok: 'success', busy: 'warning', bad: 'error', off: 'dim-label', unknown: 'dim-label'};
 

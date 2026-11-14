@@ -48,8 +48,6 @@ password, an agent has none. Say what you could not read rather than guessing.
 - **Syncthing.** `systemctl status syncthing balaur-files-volume srv-files.mount`; the
   volume must be mounted before Syncthing starts. Replaced or deleted files are kept in
   `/srv/files/shared/.stversions` for 30 days.
-- **The voice assistant** is a user unit of the household session on the tablet
-  (`systemctl --user -M home@ status balaur-assistant` as root).
 
 ## Report
 

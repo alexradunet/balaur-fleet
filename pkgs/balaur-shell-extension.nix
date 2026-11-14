@@ -6,29 +6,28 @@
   tzdata,
 }:
 
-# GNOME Shell extension balaur@balaur.local (gnome/shell-extension/): the voice
-# assistant's orb overlay, the Quick Settings microphone toggle and Home
-# Assistant scenes, and the ambient screen. Plain GJS and CSS, no settings schema
-# (they read /etc/balaur/ambient.json and house.json), so installing is just
-# copying the files.
+# GNOME Shell extension balaur@balaur.local (gnome/shell-extension/): Home
+# Assistant scenes in Quick Settings, and the ambient screen. Plain GJS and
+# CSS, no settings schema (they read /etc/balaur/ambient.json and house.json),
+# so installing is just copying the files.
 let
   dir = ../gnome/shell-extension;
 in
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "gnome-shell-extension-balaur";
-  version = "2";
+  version = "3";
 
-  # What GNOME Shell loads, plus the tests; tools/ and the README stay in the repo.
+  # What GNOME Shell loads, plus the tests; the README stays in the repo.
   src = lib.fileset.toSource {
     root = dir;
     fileset = lib.fileset.unions [
       (dir + "/metadata.json")
       (dir + "/stylesheet.css")
-      (lib.fileset.difference (lib.fileset.fileFilter (f: f.hasExt "js") dir) (dir + "/tools"))
+      (lib.fileset.fileFilter (f: f.hasExt "js") dir)
     ];
   };
 
-  # The Shell-free parts (ambient-data.js, and ambient-status.js's helpers): config, weather, photos, times, machines, services.
+  # The Shell-free parts (ambient-data.js, ambient-status.js's helpers, house.js): config, weather, photos, clock, machines, services, scenes.
   doCheck = true;
   nativeCheckInputs = [ gjs ];
   checkPhase = ''
@@ -51,7 +50,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   };
 
   meta = {
-    description = "Balaur household screen in GNOME Shell: assistant orb overlay, microphone toggle, Home Assistant scenes, ambient screen";
+    description = "Balaur household screen in GNOME Shell: Home Assistant scenes, ambient screen";
     platforms = lib.platforms.linux;
   };
 })

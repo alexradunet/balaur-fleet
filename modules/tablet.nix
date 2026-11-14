@@ -7,9 +7,7 @@
 #   - Screen off/on: GNOME blanks it after balaur.camera.screenTimeout idle and
 #     never locks; movement in front of the camera counts as activity
 #     (duet-presence, camera.nix), so it stays on while someone is there.
-#   - Sound: the `gnome` aspect's PipeWire, shared by the apps and the voice
-#     assistant (a user service of this session, assistant.nix), which also adds
-#     the microphone array's 16 kHz device as the default source.
+#   - Sound: the `gnome` aspect's PipeWire.
 #
 # Needs the `gnome` aspect alongside it: that one has GDM, the GNOME session,
 # PipeWire and the Firefox policies.

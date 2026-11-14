@@ -38,11 +38,11 @@
     "group": "Network"
   },
   {
-    "name": "Assistant",
-    "description": "Voice assistant: say “Hey Jarvis”",
-    "icon": "🎙",
+    "name": "Sound",
+    "description": "The session's audio server",
+    "icon": "audio-speakers-symbolic",
     "url": null,
-    "unit": "user:balaur-assistant.service",
+    "unit": "user:pipewire.service",
     "desktopId": null,
     "group": "Home"
   },

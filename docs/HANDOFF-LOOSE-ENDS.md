@@ -34,8 +34,8 @@ Finland) fits: put the tablet's SSH host key (`fleet.tablet.sshHostKey`) in its
 
 It was asleep for the whole session: `balaur-fleet-status` should show it on main,
 with no failed units, and `pi` there should list the seven skills. (Strata's sandbox
-is proven: it loaded and answered through the entryway on 2026-11-10.) Its assistant
-should have house devices: `~/.local/state/balaur-assistant/pi/mcp.json` exists.
+is proven: it loaded and answered through the entryway on 2026-11-10.) The Scenes menu
+in Quick Settings lists Home Assistant's scenes (`/etc/balaur/house.json` exists).
 
 Also from the ambient-screen session (item 8): `systemctl show syncthing -p UMask`
 says `0002` there, and `ls -ld <synced folder>/photos` is group-writable (`drwxrwsr-x`).
@@ -47,22 +47,11 @@ And from the session that made the machines alike: `locale` shows `LC_TIME=ro_RO
 it was set by hand before), `lpstat -r` says the scheduler runs, and
 `aminte-prod aminte --help` still reads the token (the secret is now declared by `aminte-dev`).
 
-### 3. Retune the wake word on the laptop and the pc
-
-`wakeThreshold = 0.35` on the laptop was copied from the tablet's microphone array; the pc
-uses the default. `sudo balaur-wake-test` on each, with real voices.
-
 ### 4. Keep an eye on the tablet's disk
 
 64% used at the last look (275 of 459 GB, 2026-11-10); the Syncthing volume reserves 200 GiB up front and now
 also keeps 30 days of replaced and deleted files inside that cap. qBittorrent
 downloads into what is left.
-
-### 5. The assistant's state migration
-
-`balaur-assistant-migrate-state` (assistant.nix) carries state over from the old
-`duet-assistant` name. Delete it once every machine has started the assistant since
-2026-11-08 (the tablet's household account could not be checked without root).
 
 ### 6. The development sessions on the tablet (`dev-host`, 2026-11-10)
 
@@ -77,20 +66,20 @@ Claude Code and pi integrations are installed there. Left:
   the integrations). The old workspace `yoga-duet-7-home-server` points at a directory
   that is gone and can be closed.
 
-### 7. The voice assistant on pi, and its house devices (2026-11-10)
+### 7. Home Assistant and the TV (2026-11-10)
 
-House devices are done (`7400f7b`, `5175363`; `gnome/CONTRACT.md`, "The agent"):
-on the pc (then zmeu) a typed question listed the devices exposed to Assist and "turn on the
-Samsung" reached Home Assistant without error. Left:
+The voice assistant that switched the house's devices was removed on 2026-11-14. Left:
 
 - **The Samsung does not wake from off** (needs the user): Home Assistant accepts
   `turn_on` but the TV ignores it. On the TV, Power On with Mobile (Expert
-  Settings); in Home Assistant, the Samsung device needs its MAC. Then ask again
-  and check the logbook names the assistant's user, not the admin.
+  Settings); in Home Assistant, the Samsung device needs its MAC.
 - **Android TV Remote** fails to set up (`No module named 'androidtvremote2'`):
   `androidtv_remote` in `extraComponents` if the user wants it.
-- **The tablet** has not been asked a real question since it moved to pi (it
-  started cleanly).
+- **The "Model Context Protocol Server" integration** in Home Assistant's UI served only
+  the assistant. `mcp_server` stays installed so it does not fail; delete the integration
+  in the UI (and then `mcp_server` from home-assistant.nix) if no agent will use it.
+- **The assistant's Home Assistant user** (non-admin) is now the screens' Scenes user: its
+  token is still `home-assistant-agent-token`. Unexpose from Assist what only the voice needed.
 
 ### 8. The ambient screen: photos and the fleet's status (2026-11-10, on the tablet)
 
@@ -142,8 +131,6 @@ working tree (one commit; `git log` says which). Once they are deployed:
     now deletes scans older than 90 days.
   - AdGuard: the Samsung rules are a filter list from a file now, and a custom rule made
     in its UI survives `sudo systemctl restart adguardhome`.
-  - The voice assistant: mute, restart it, still muted; a timer survives a restart; a
-    search followed by "remind me" in the same conversation is refused, by design.
 - **Seen working after the deploy** (2026-11-11, `67fb27d` and `086a1b1`):
   `https://torrents.<domain>` answers; the relay idles at about 2% of a core (3 frames
   a second sampled, 3.6 ms each); on the pc a deploy during a game skipped Strata, and
@@ -161,30 +148,6 @@ working tree (one commit; `git log` says which). Once they are deployed:
 - **The Sunshine password is passed on the command line** at each session start (its only
   interface: `sunshine --creds`, in `sunshine.service`'s `ExecStartPre`), so it is briefly
   visible in `/proc` on the pc.
-
-### 10. The household's own wake word, "Balaur" (2026-11-11, needs the user)
-
-On the tablet "Hey Jarvis" both misses the household and wakes by itself several times a day
-(the journal: `wake word: hey_jarvis` followed by an empty `heard`), so no threshold
-fixes it. `sudo balaur-wake-word` (assistant.nix, `modules/assistant/wake-word.py`;
-docs/SETUP.md, "Custom wake word") records the word in the household's voices and trains
-an openWakeWord model on the machine. It was exercised end to end with synthetic voices
-(espeak-ng) only: the recorder against a fake microphone, the training, the model in
-openWakeWord's runtime. Left, on the tablet:
-
-- **Record** (both people of the household): `record <who>` in several rounds, `speech <who>`,
-  `room 10`. This is the first run on the real microphone: if the recorder refuses
-  good takes ("nothing heard", "more than one sound"), `find_word`'s levels in
-  wake-word.py want tuning for the array.
-- **Train**, read the table (held-out takes caught, false wakes an hour), try it with
-  `sudo balaur-wake-test --word balaur`.
-- **Switch the tablet**: `wakeWord = "balaur"`, the suggested `wakeThreshold`, and
-  `name = "Balaur"` in `modules/hosts/tablet.nix`; the comments and docs that say "Hey
-  Jarvis" (README, SETUP, tablet.nix). Then watch the journal for a few days: empty
-  `heard` lines are false wakes; record `room` with what caused them and train again.
-- **The pc and the laptop** have other microphones and no model: they stay on "Hey Jarvis"
-  until the word is recorded there too (item 3). Whether one machine's model serves another
-  (copy `/var/lib/balaur-wakewords/balaur.tflite`) is untested.
 
 ## Backlog from the review (decisions, not fixes)
 

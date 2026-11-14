@@ -1,6 +1,6 @@
 #!/usr/bin/env -S gjs -m
 // Development aid: starts the app, shows each page in landscape and portrait
-// sizes and saves PNGs of the window (and of the settings dialog) into the directory given as argument,
+// sizes and saves PNGs of the window into the directory given as argument,
 // then quits. Pair it with GDK_BACKEND=broadway (gtk4-broadwayd) to render
 // without touching the real screen:
 //
@@ -18,7 +18,7 @@ import {BalaurApplication} from '../src/application.js';
 const outDir = programArgs[0] ?? '.';
 GLib.mkdir_with_parents(outDir, 0o755);
 // `people` only shows with a people file ($BALAUR_PEOPLE, tools/people.example.json).
-const PAGES = ['assistant', 'lists', 'timers', 'memory', 'home', 'people'];
+const PAGES = ['home', 'people'];
 const SIZES = {landscape: [1080, 675], portrait: [675, 1080]};
 // Optional style: BALAUR_SHOT_STYLE=dark
 const style = GLib.getenv('BALAUR_SHOT_STYLE');
@@ -71,12 +71,6 @@ app.connect_after('activate', async () => {
                 await wait(700);
                 await capture(win, `${outDir}/${orientation}-${page}${style ? `-${style}` : ''}.png`);
             }
-            // The settings dialog, over the last page.
-            app.activate_action('assistant-settings', null);
-            await wait(900);
-            await capture(app._settingsDialog ?? win, `${outDir}/${orientation}-settings${style ? `-${style}` : ''}.png`);
-            app._settingsDialog?.close();
-            await wait(400);
         }
     } catch (e) {
         logError(e);

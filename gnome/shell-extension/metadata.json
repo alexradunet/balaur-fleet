@@ -1,8 +1,8 @@
 {
   "uuid": "balaur@balaur.local",
-  "name": "Balaur Assistant",
-  "description": "Shows the voice assistant over every app while it listens, thinks, speaks or rings (tap to stop), adds a microphone toggle and Home Assistant scenes to Quick Settings, and shows an ambient screen (photos, clock, weather, fleet status) when nobody has touched the screen for a while.",
+  "name": "Balaur",
+  "description": "Adds Home Assistant scenes to Quick Settings, and shows an ambient screen (photos, clock, weather, fleet status) when nobody has touched the screen for a while.",
   "shell-version": ["50"],
   "url": "https://github.com/alexradunet/balaur-fleet",
-  "version": 1
+  "version": 2
 }

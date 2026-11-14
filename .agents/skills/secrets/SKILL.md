@@ -33,7 +33,7 @@ sops.secrets."<name>" = {
 ```
 
 Prefer `LoadCredential` in our own units, so the file's owner does not matter. An
-aspect that works without sops checks `options ? sops` (`assistant.nix`).
+aspect that works without sops checks `options ? sops` (`gnome.nix`, `ai.nix`).
 
 ## Add or change a value
 

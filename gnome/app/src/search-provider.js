@@ -43,7 +43,7 @@ const IFACE_XML = `
 </node>`;
 
 export class SearchProvider {
-    /** @param app the BalaurApplication: its assistant, services and activateResult() */
+    /** @param app the BalaurApplication: its services, activateResult() and launchSearch() */
     constructor(app) {
         this._app = app;
         this._items = new Map();
@@ -70,9 +70,9 @@ export class SearchProvider {
 
     _search(terms) {
         return this._busy(() => {
-            const items = searchItems(this._app.assistant.snapshot, this._app.services.list);
+            const items = searchItems(this._app.services.list);
             this._items = new Map(items.map(i => [i.id, i]));
-            return resultIds(items, terms, this._app.assistant.available);
+            return resultIds(items, terms);
         });
     }
 
@@ -91,15 +91,6 @@ export class SearchProvider {
 
     _meta(id) {
         const v = s => new GLib.Variant('s', s);
-        if (id.startsWith('ask:')) {
-            const question = id.slice(4);
-            return {
-                id: v(id),
-                name: v(`Ask ${this._app.assistant.name}`),
-                description: v(question),
-                gicon: v('audio-input-microphone-symbolic'),
-            };
-        }
         const item = this._items.get(id);
         if (!item)
             return null;

@@ -9,7 +9,7 @@ import Adw from 'gi://Adw?version=1';
 
 import {ROLE_TEXT, canOpen, countFor, faceText, loginText, openable} from '../access.js';
 import {serviceIcon} from '../service-icon.js';
-import {escape} from '../util.js';
+import {escape} from '../format.js';
 
 export const PeoplePage = GObject.registerClass(
 class PeoplePage extends Adw.Bin {

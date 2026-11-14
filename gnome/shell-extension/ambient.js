@@ -1,8 +1,8 @@
 // The ambient screen: when nobody has touched the Duet for a while, a
-// full-screen view that is readable across the room. It shows a big clock and
-// the date, the weather, the running timers and the next reminder, over a
-// slow slideshow (a synced folder, or Jellyfin), and on the side how the
-// fleet's machines and the home's services are doing (ambient-status.js).
+// full-screen view that is readable across the room. It shows a big clock,
+// the date and the weather over a slow slideshow (a synced folder, or
+// Jellyfin), and on the side how the fleet's machines and the home's services
+// are doing (ambient-status.js).
 //
 // - Shown by Mutter's idle monitor (real input only), after `idleSeconds`.
 //   Movement in front of the camera does not end it: it keeps the screen
@@ -14,7 +14,7 @@
 //   an idle inhibitor (a video call, a player), and taken down when one
 //   starts while it is up. duet-presence's own inhibitor doesn't count: the
 //   idle watch ignores inhibitors, and _heldBack() decides.
-// - Lean: no timers, downloads or decoding while it is hidden. Photos are
+// - Lean: no ticking, downloads or decoding while it is hidden. Photos are
 //   decoded at about the screen's size (scaled by Jellyfin, or while decoding
 //   a file), off the main thread.
 //   Each one fades in with a Clutter transition.
@@ -31,8 +31,8 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {
-    FolderPhotos, Http, JellyfinPhotos, clockText, decodeSize, countdown, coverRect, loadConfig,
-    nextReminder, parseWeather, refreshDue, timersOf, weatherLine, weatherUrl, whenText,
+    FolderPhotos, Http, JellyfinPhotos, clockText, decodeSize, coverRect, loadConfig,
+    parseWeather, refreshDue, weatherLine, weatherUrl,
 } from './ambient-data.js';
 import {FleetStatus} from './ambient-status.js';
 
@@ -59,8 +59,6 @@ export class AmbientScreen {
         this._cancellable = new Gio.Cancellable();
 
         this._shown = false;
-        this._snapshotJson = '';
-        this._snapshot = null;
         this._weather = null;
         this._weatherAt = 0; // monotonic µs of the last attempt
         this._weatherOkAt = 0; // ... and of the last success
@@ -104,21 +102,6 @@ export class AmbientScreen {
         Main.layoutManager.disconnect(this._monitorsId);
         this._root?.destroy();
         this._root = null;
-    }
-
-    /** The assistant's state, from AssistantClient (timers, reminders). */
-    sync(status) {
-        const json = status.running ? status.snapshot : '';
-        if (json === this._snapshotJson)
-            return;
-        this._snapshotJson = json;
-        try {
-            this._snapshot = json ? JSON.parse(json) : null;
-        } catch {
-            this._snapshot = null;
-        }
-        if (this._shown)
-            this._tick();
     }
 
     // ---- building ------------------------------------------------------------
@@ -168,8 +151,7 @@ export class AmbientScreen {
         this._weatherRow.add_child(this._weatherText);
         left.add_child(this._weatherRow);
 
-        // Right: the machines and services, then timers (live countdowns) and
-        // the next reminder.
+        // Right: the machines and services.
         this._side = new St.BoxLayout({
             style_class: 'balaur-ambient-side',
             orientation: Clutter.Orientation.VERTICAL,
@@ -177,17 +159,9 @@ export class AmbientScreen {
         });
         front.add_child(this._side);
         this._buildStatus();
-        this._timerRows = new Map(); // id -> {box, label, time}
-        this._reminder = new St.BoxLayout({style_class: 'balaur-ambient-card', orientation: Clutter.Orientation.VERTICAL, visible: false});
-        this._reminderWhen = new St.Label({style_class: 'balaur-ambient-card-label'});
-        this._reminderText = new St.Label({style_class: 'balaur-ambient-card-text'});
-        this._reminderText.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-        this._reminder.add_child(this._reminderWhen);
-        this._reminder.add_child(this._reminderText);
-        this._side.add_child(this._reminder);
 
         // Above the windows and the top bar, below the notification banners
-        // (a timer going off still shows) and the assistant's orb (top chrome).
+        // (so they still show).
         Main.layoutManager.addChrome(this._root, {trackFullscreen: false});
         Main.layoutManager.uiGroup.set_child_below_sibling(this._root, Main.messageTray);
 
@@ -227,14 +201,13 @@ export class AmbientScreen {
             return;
         this._root.set_position(m.x, m.y);
         this._root.set_size(m.width, m.height);
-        // Landscape: the clock on the left, the cards on the right. Portrait
-        // (the tablet turned) has no room for both side by side: the cards go
+        // Landscape: the clock on the left, the status card on the right. Portrait
+        // (the tablet turned) has no room for both side by side: the card goes
         // above the clock, at the full width.
         const portrait = m.height > m.width;
         this._front.orientation = portrait ? Clutter.Orientation.VERTICAL : Clutter.Orientation.HORIZONTAL;
         this._front.set_child_at_index(this._side, portrait ? 0 : 1);
         this._side.x_align = portrait ? Clutter.ActorAlign.FILL : Clutter.ActorAlign.END;
-        this._reminder.style = `max-width: ${Math.round(m.width * (portrait ? 0.9 : 0.4))}px;`;
         this._statusCard.style = `max-width: ${Math.round(m.width * (portrait ? 0.9 : 0.45))}px;`;
         if (this._photo)
             this._fit(this._photo);
@@ -404,48 +377,11 @@ export class AmbientScreen {
         const format24 = this._iface.get_string('clock-format') !== '12h';
         setText(this._clock, clockText(now, format24));
         setText(this._date, now.format('%A, %-d %B'));
-        this._syncTimers(now.to_unix() * 1000 + now.get_microsecond() / 1000);
-        this._syncReminder(now, format24);
         this._maybeWeather();
         this._maybePhoto();
         this._maybeStatus();
         if (refreshDue(this._heldAt, GLib.get_monotonic_time(), true, STATUS_S, STATUS_S))
             this._checkHeld();
-    }
-
-    _syncTimers(nowMs) {
-        const timers = timersOf(this._snapshot).filter(t => t.endsMs > nowMs - 1000);
-        const seen = new Set();
-        for (const [i, t] of timers.entries()) {
-            seen.add(t.id);
-            let row = this._timerRows.get(t.id);
-            if (!row) {
-                row = {box: new St.BoxLayout({style_class: 'balaur-ambient-card', orientation: Clutter.Orientation.VERTICAL})};
-                row.label = new St.Label({style_class: 'balaur-ambient-card-label'});
-                row.time = new St.Label({style_class: 'balaur-ambient-timer'});
-                row.box.add_child(row.label);
-                row.box.add_child(row.time);
-                this._timerRows.set(t.id, row);
-                this._side.insert_child_at_index(row.box, i);
-            }
-            setText(row.label, t.label);
-            setText(row.time, countdown((t.endsMs - nowMs) / 1000));
-        }
-        for (const [id, row] of this._timerRows) {
-            if (!seen.has(id)) {
-                row.box.destroy();
-                this._timerRows.delete(id);
-            }
-        }
-    }
-
-    _syncReminder(now, format24) {
-        const r = nextReminder(this._snapshot, now.to_unix() * 1000);
-        this._reminder.visible = !!r;
-        if (r) {
-            setText(this._reminderWhen, whenText(r.atMs, now, format24));
-            setText(this._reminderText, r.text);
-        }
     }
 
     async _maybeWeather() {

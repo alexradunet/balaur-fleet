@@ -48,7 +48,6 @@ in
           # torrents (the qBittorrent server) stays on the tablet; this is just the
           # client, so a magnet clicked here can be sent there.
           torrents-client
-          assistant
           auto-deploy
           # The fleet's AI entryway on the tablet: the pc's GPU first, Mistral second.
           ai
@@ -80,13 +79,6 @@ in
         # over the tailnet (tailscale0 is trusted), never on whatever Wi-Fi this is.
         ssh.lan = false;
         files.guiOnLan = false;
-
-        assistant = {
-          # Mistral, the voices and the sops key are the aspect's defaults, and the
-          # default source is this machine's ordinary microphone (audio.input = null).
-          # Retune for this machine's microphone with `sudo balaur-wake-test`.
-          wakeThreshold = 0.35;
-        };
       };
 
       # No FileList credentials here: searching happens in qBittorrent, which

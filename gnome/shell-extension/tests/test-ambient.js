@@ -1,15 +1,14 @@
-// Tests for ambient-data.js, ambient-status.js's helpers, house.js and assistant.js's text helpers (no Shell, no network): `gjs -m tests/test-ambient.js`.
+// Tests for ambient-data.js, ambient-status.js's helpers and house.js (no Shell, no network): `gjs -m tests/test-ambient.js`.
 // Run by the package build (pkgs/balaur-shell-extension.nix).
 
 import GLib from 'gi://GLib';
 import System from 'system';
 
 import {
-    JellyfinPhotos, clockText, countdown, coverRect, decodeSize, describeWeather, isPhotoName,
-    listPhotos, loadConfig, nextReminder, parseWeather, readSecret, refreshDue, shuffled, timersOf,
-    weatherLine, weatherUrl, whenText,
+    JellyfinPhotos, clockText, coverRect, decodeSize, describeWeather, isPhotoName,
+    listPhotos, loadConfig, parseWeather, readSecret, refreshDue, shuffled,
+    weatherLine, weatherUrl,
 } from '../ambient-data.js';
-import {wakePhrase} from '../assistant.js';
 import {machinesOf, seenText, servicesOf, systemText, unitKind} from '../ambient-status.js';
 import {actionsOf, callOf, iconOf, loadHouse} from '../house.js';
 
@@ -66,48 +65,11 @@ eq(refreshDue(1e6, 61e6, false, 30, 60), true, 'refresh: no value, retry time ov
 eq(refreshDue(1e6, 29e6, true, 30, 60), false, 'refresh: value, interval not over');
 eq(refreshDue(1e6, 31e6, true, 30, 60), true, 'refresh: value, interval over');
 
-// wake word (the daemon publishes a comma-separated list, with model versions)
-eq(wakePhrase({wakeWord: 'hey_jarvis', name: 'Jarvis'}), 'Hey Jarvis', 'wake phrase');
-eq(wakePhrase({wakeWord: 'hey_jarvis_v0.1', name: 'Jarvis'}), 'Hey Jarvis', 'wake phrase: version dropped');
-eq(wakePhrase({wakeWord: 'hey_jarvis_v0.1, alexa', name: 'Jarvis'}), 'Hey Jarvis', 'wake phrase: first of a list');
-eq(wakePhrase({wakeWord: '', name: 'Jarvis'}), 'Hey Jarvis', 'wake phrase: from the name');
-eq(wakePhrase({wakeWord: '', name: ''}), 'the wake word', 'wake phrase: nothing known');
-
-// timers and reminders
-eq(countdown(0), '0:00', 'countdown zero');
-eq(countdown(-5), '0:00', 'countdown negative');
-eq(countdown(245.2), '4:06', 'countdown rounds up');
-eq(countdown(3723), '1:02:03', 'countdown hours');
-const snap = {
-    timers: [
-        {id: 't2', label: 'oven', ends: '2026-11-04T16:40:00+02:00'},
-        {id: 't1', label: '', ends: '2026-11-04T16:30:00+02:00'},
-        {id: 't3', label: 'bad', ends: 'nope'},
-    ],
-    reminders: [
-        {id: 'r1', text: 'past', at: '2026-11-04T10:00:00+02:00'},
-        {id: 'r3', text: 'later', at: '2026-11-06T09:00:00+02:00'},
-        {id: 'r2', text: 'call mom', at: '2026-11-04T18:00:00+02:00'},
-    ],
-};
-eq(timersOf(snap).map(t => [t.id, t.label]), [['t1', 'Timer'], ['t2', 'oven']], 'timers sorted, unnamed, bad dropped');
-eq(timersOf(null), [], 'no snapshot, no timers');
-const nowMs = Date.parse('2026-11-04T16:00:00+02:00');
-eq(nextReminder(snap, nowMs)?.text, 'call mom', 'next reminder');
-eq(nextReminder({reminders: [{text: 'x', at: '2026-11-04T10:00:00+02:00'}]}, nowMs), null, 'only past reminders');
-
 // clock text (in a fixed zone, so the test doesn't depend on the machine's)
 const tz = GLib.TimeZone.new_identifier('Europe/Bucharest');
 const at = GLib.DateTime.new(tz, 2026, 11, 4, 14, 5, 0);
 eq(clockText(at, true), '14:05', '24h clock');
 eq(clockText(at, false).replace(/\s+/g, ' ').trim(), '2:05 PM', '12h clock');
-GLib.setenv('TZ', 'Europe/Bucharest', true);
-const now = GLib.DateTime.new_local(2026, 11, 4, 16, 0, 0);
-const ms = (d, h) => GLib.DateTime.new_local(2026, 11, d, h, 0, 0).to_unix() * 1000;
-eq(whenText(ms(4, 18), now, true), '18:00', 'today');
-eq(whenText(ms(5, 9), now, true), 'Tomorrow 09:00', 'tomorrow');
-eq(whenText(ms(20, 9), now, true).endsWith('Nov 09:00'), true, 'far away');
-
 
 // photos from a folder
 eq(['a.JPG', 'b.jpeg', 'c.png', 'd.webp', 'e.heic', '.f.jpg', 'notes.txt'].filter(isPhotoName),
@@ -162,12 +124,12 @@ eq(systemText('running', 0), {kind: 'ok', text: 'all running'}, 'system running'
 eq(systemText('degraded', 2), {kind: 'bad', text: '2 failed'}, 'system degraded');
 eq(servicesOf([
     {name: 'Jellyfin', unit: 'jellyfin.service', url: 'http://127.0.0.1:8096', host: null},
-    {name: 'Assistant', unit: 'user:balaur-assistant.service', url: null, host: null},
+    {name: 'Presence', unit: 'user:duet-presence.service', url: null, host: null},
     {name: 'Syncthing', unit: '', url: 'http://pc:8384', host: 'pc'},
     {name: 'Nothing', unit: '', url: null, host: null},
 ]), [
     {label: 'Jellyfin', unit: 'jellyfin.service', user: false, url: 'http://127.0.0.1:8096', host: null},
-    {label: 'Assistant', unit: 'balaur-assistant.service', user: true, url: null, host: null},
+    {label: 'Presence', unit: 'duet-presence.service', user: true, url: null, host: null},
     {label: 'Syncthing · pc', unit: '', user: false, url: 'http://pc:8384', host: 'pc'},
 ], 'services: units, user units, other machines, nothing to show dropped');
 eq(servicesOf(null), [], 'services: no file');

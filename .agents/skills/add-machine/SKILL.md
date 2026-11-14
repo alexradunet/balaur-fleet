@@ -40,7 +40,7 @@ choice that is theirs (name, aspects, account).
      for Intel, `yoga-pro-7.nix` and `gmktec-evo-x1.nix` for AMD, `nvidia-egpu.nix`).
 
 5. **Its aspects,** with the user. Every machine: `base fleet home network auto-deploy
-   ai agent`, usually `dev files torrents-client assistant`, and `secrets` once step 7
+   ai agent`, usually `dev files torrents-client`, and `secrets` once step 7
    is done.
    - `never-sleep` on a machine the others depend on (a server, a builder, a streaming
      host); `always-on` as well on a laptop serving as one (lid, power key, battery).
@@ -53,9 +53,6 @@ choice that is theirs (name, aspects, account).
      `camera` (the Duet's sensor).
    - Services, normally on one machine only: `media`, `adblock`, `home-assistant`,
      `aminte` (`aminte-dev` is its other side), `web`, `torrents`, `backup`.
-   - `assistant` runs in the session of `balaur.assistant.user` (the household account
-     with `tablet`, the admin otherwise). Set `balaur.assistant.audio.input` only where
-     the default microphone is too quiet; retune `wakeThreshold` with `sudo balaur-wake-test`.
 
 6. **Switch at boot.** `nixos-rebuild build --flake .#<hostname>`, then
    `sudo nixos-rebuild boot --flake .#<hostname>` and reboot: the first switch to a new

@@ -49,8 +49,8 @@
           "ipp" # printers
           "esphome"
           "mqtt"
-          # The voice assistant's house devices: an MCP server at /api/mcp, set up in
-          # the UI ("Model Context Protocol Server"), offering what is exposed to Assist.
+          # An MCP server at /api/mcp for agents, set up in the UI ("Model Context
+          # Protocol Server"), offering what is exposed to Assist.
           "mcp_server"
         ];
         config = {

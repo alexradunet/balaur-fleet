@@ -10,7 +10,7 @@ the built-in touchscreen is a household tablet running stock GNOME, everything o
 GNOME-native, and the battery is the UPS.
 
 The second is **laptop**, a **Lenovo Yoga Pro 7 14APH8**: the personal machine. It shares
-the base, the admin's environment and the voice assistant, and runs none of the house
+the base and the admin's environment, and runs none of the house
 services.
 
 The third is **pc**, a **GMKtec NucBox EVO-X1** with an RTX 5060 Ti on OCuLink: a gaming
@@ -63,7 +63,6 @@ modules/
   gnome.nix               GNOME itself: GDM, the session, PipeWire, the canonical apps (Firefox + its add-ons, Ghostty), the Balaur app + Shell extension, one look and keyboards (US + RO), the ambient screen's settings
   tablet.nix              GNOME as a household tablet: auto-login, OSK, rotation, apps, web apps, ambient screen
   desktop.nix             GNOME as a personal desktop: a normal login, the GNOME apps it drops
-  assistant.nix           the voice assistant, a service of a GNOME session
   camera.nix              the Duet's front camera: patched kernel modules + RGB-IR relay, movement wakes the screen
   media.nix               Jellyfin: watches what `torrents` downloaded, /srv/media
   dlna.nix                MiniDLNA: folders served as they are to the players on the home network (the pc)
@@ -86,11 +85,9 @@ modules/
   memos.nix               Memos: the household's notes and lists, an account each, https://memos.<domain> (the tablet)
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
-gnome/                    everything GNOME-facing, in GJS; gnome/CONTRACT.md is how the pieces talk
-  assistant/              the assistant daemon: PipeWire audio, wake word, Voxtral speech, D-Bus org.balaur.Assistant
-  home-agent/             its brain: the fleet's pi in its home role (a launcher and one extension), with the household's tools only
-  app/                    "Balaur", a libadwaita app: assistant, lists, timers, memory, home services
-  shell-extension/        the assistant's orb over every app, the mic toggle in Quick Settings, the ambient screen (photos, machines, services)
+gnome/                    everything GNOME-facing, in GJS
+  app/                    "Balaur", a libadwaita app: the home's services and its people
+  shell-extension/        the Scenes menu in Quick Settings (Home Assistant), the ambient screen (photos, machines, services)
 camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 frames -> webcam
 ```
 
@@ -101,8 +98,7 @@ camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 fram
 | Built-in screen | GNOME, logged in by itself as a household account (`balaur.tablet.user`, `balaur` on the tablet) that never locks. Apps run full screen; swipe up for the app switcher. The on-screen keyboard pops up on touch (English and Romanian), and the screen follows rotation. Dock: **Balaur**, **Firefox** (uBlock Origin), **Jellyfin**, **Gelly** (Jellyfin music). **AdGuard Home** and **qBittorrent** (and **Syncthing** with the `files` aspect) are installed as GNOME web apps. **Snapshot** shows the front camera. Admin tools sit in an **Admin** folder, with a **Developer terminal** that asks for the admin password. |
 | Screen on/off | GNOME blanks the screen after `balaur.camera.screenTimeout` (2 minutes by default, 15 on the tablet) idle, and never locks. Movement in front of the camera counts as activity: it keeps the screen on and wakes it (`0` = always on). The relay looks at 3 frames a second for this, and runs its full image pipeline only while an app uses the webcam (`balaur.camera.tuning.idleFps`). |
 | AI (aspects `ai-gateway`, `ai`, `strata`) | One entryway for every model call in the fleet: `http://tablet:4000/v1` (OpenAI-compatible; `OPENAI_BASE_URL` points there on every machine), with a page at **https://ai.balaur.space** to see the tiers and the last requests and to change the route and the remote model. Model `balaur` answers from the pc's RTX 5060 Ti (Strata, Qwen3.8-Flash-Next) when it is on, loaded and free, else from Mistral; `balaur-local` and `balaur-remote` pick one. Strata stops while a game runs on the pc. |
-| Voice (aspect `assistant`) | Say **“Hey Jarvis”**, then speak Romanian or English. Only the wake word runs on this machine; after it, Mistral (EU) transcribes what you said (Voxtral) and speaks the answer (Voxtral TTS), and the fleet's pi, in its home role, decides what to do: timers and reminders (GNOME notifications with a Stop button), the house **shopping** and **tasks** lists, memory, weather, news and web search, and the house's devices (lights, TV, speakers) through Home Assistant. Its orb and captions show over every app; tap it to stop. The mic toggle is in Quick Settings. |
-| The Balaur app | **Assistant** (the conversation, type to ask, mic, volume, and **Assistant settings**: the model (one of the AI entryway's) and the Mistral key, kept in GNOME settings and the GNOME Keyring), **Lists**, **Timers & reminders**, **Memory**, and **Home**: every service with its live state and a button that opens its app. |
+| The Balaur app | **Home**: every service with its live state and a button that opens its app, and **People**: who of the household opens which service. GNOME's overview search finds the services too. Quick Settings has a **Scenes** menu with Home Assistant's scenes and scripts. |
 | Ad blocking (aspect `adblock`) | AdGuard Home as the LAN DNS server, with European upstreams (Quad9, DNS4EU) and Samsung TV ad/ACR-tracking rules. Set it as the router's DNS 1 (keep a public DNS 2 so the network survives the box being off). |
 
 Adding a service = an aspect that appends to `balaur.services`: it shows on the Balaur app's Home
@@ -125,21 +121,17 @@ The config imports `hosts/tablet/hardware-configuration.nix` (your installer-gen
 - **Battery as UPS**: at 7% the machine powers off cleanly; charge is capped at 80% where firmware allows (`balaur.power.chargeLimit`, `null` to disable).
 - **Never sleeps**; lid ignored; power button needs a long press.
 - **An open household screen**: quiet boot with Plymouth, straight into the household desktop, no password, no lock screen. The admin account is only reachable over SSH or the Developer terminal (password).
-- **The assistant's brain has only its own tools**: pi is started without its built-in tools (shell, files), its extension refuses to run when the model is offered any other, and a call to one is blocked, so nothing it reads on the web can make it run commands. Its own tools are the household's (timers, lists, memory, weather, news, web search), plus Home Assistant's for the devices exposed to Assist, when house devices are configured.
 
 ## Developing
 
 ```bash
 nix develop                                   # Go, GJS, Node 22, libadwaita
 cd camera && go test ./...                    # the RGB-IR pipeline (Go standard library only)
-nix build .#balaur-home-agent                 # the assistant's agent: the real pi with its extension, against a scripted model
-nix build .#balaur-assistant && ./result/libexec/balaur-assistant-tests
-nix build .#balaur-app && ./result/bin/balaur-app # the app; see gnome/app/README.md for a mock assistant
+nix build .#balaur-app && ./result/bin/balaur-app # the app (gnome/app/README.md)
 ```
-How the GNOME pieces talk to each other is in [gnome/CONTRACT.md](gnome/CONTRACT.md); each
-directory under `gnome/` has a short README (`gnome/home-agent/README.md` too).
+Each directory under `gnome/` has a short README.
 
 ## Status
 
-Running on the Duet: GNOME, the assistant (wake word, Voxtral, the pi agent), the Balaur app
+Running on the Duet: GNOME, the Balaur app
 and Shell extension, camera wake, AdGuard Home and the media services. Next steps: [docs/ROADMAP.md](docs/ROADMAP.md).

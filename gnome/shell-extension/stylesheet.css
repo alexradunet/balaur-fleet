@@ -1,96 +1,5 @@
-/* Balaur assistant overlay. Sizes are in St px (scaled with the monitor), and
-   big enough to read across a room on the 13" screen at 150-200%.
-   Colours follow the old web dashboard (accent #7aa2ff, ok #4ade80,
-   warn #fbbf24, thinking violet #c084fc). */
-
-.balaur-overlay {
-  background-color: rgba(5, 7, 12, 0.6);
-}
-
-.balaur-card {
-  padding: 36px 48px 28px;
-  border-radius: 36px;
-  background-color: rgba(18, 22, 32, 0.92);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
-}
-.balaur-card:hover { background-color: rgba(24, 29, 42, 0.94); }
-.balaur-card:active { background-color: rgba(32, 38, 54, 0.96); }
-
-.balaur-card-box { spacing: 18px; }
-
-/* Room for the halo to swell (1.6 x 176px) without being clipped. */
-.balaur-orb-stage { width: 290px; height: 290px; }
-
-.balaur-orb {
-  width: 160px;
-  height: 160px;
-  border-radius: 80px;
-  background-gradient-direction: radial;
-  background-gradient-start: #b9ccff;
-  background-gradient-end: #3b4f8f;
-  box-shadow: 0 0 48px 6px rgba(122, 162, 255, 0.55);
-}
-.balaur-orb.thinking {
-  background-gradient-start: #e2c6ff;
-  background-gradient-end: #5b3f9a;
-  box-shadow: 0 0 48px 6px rgba(192, 132, 252, 0.55);
-}
-.balaur-orb.speaking {
-  background-gradient-start: #c8f9da;
-  background-gradient-end: #1f7a45;
-  box-shadow: 0 0 56px 8px rgba(74, 222, 128, 0.55);
-}
-.balaur-orb.ringing {
-  background-gradient-start: #ffe9b8;
-  background-gradient-end: #a8670a;
-  box-shadow: 0 0 64px 10px rgba(251, 191, 36, 0.7);
-}
-
-.balaur-orb-halo {
-  width: 176px;
-  height: 176px;
-  border-radius: 88px;
-  border: 4px solid rgba(122, 162, 255, 0.9);
-}
-.balaur-orb-halo.speaking { border-color: rgba(74, 222, 128, 0.9); }
-.balaur-orb-halo.ringing { border-color: rgba(251, 191, 36, 1); border-width: 6px; }
-
-/* Thinking: two dots circling just outside the orb. */
-.balaur-orb-spinner { width: 212px; height: 212px; }
-.balaur-dot {
-  width: 22px;
-  height: 22px;
-  border-radius: 11px;
-  background-color: #c084fc;
-  box-shadow: 0 0 12px rgba(192, 132, 252, 0.8);
-}
-.balaur-dot.small {
-  width: 14px;
-  height: 14px;
-  border-radius: 7px;
-  background-color: #7aa2ff;
-}
-
-.balaur-title {
-  font-size: 30pt;
-  font-weight: 700;
-  color: #e6eaf2;
-}
-
-.balaur-caption {
-  font-size: 24pt;
-  color: #e6eaf2;
-  text-align: center;
-}
-.balaur-caption.long { font-size: 18pt; }
-
-.balaur-hint {
-  font-size: 13pt;
-  color: rgba(230, 234, 242, 0.55);
-}
-
-/* ---- Ambient screen (ambient.js): read from across the room ---- */
+/* The ambient screen (ambient.js), read from across the room. Sizes are in St px
+   (scaled with the monitor), big enough for the 13" screen at 150-200%. */
 
 .balaur-ambient {
   background-color: #0b0e14; /* until the first photo arrives, and with none */
@@ -152,16 +61,6 @@
 .balaur-ambient-card-label {
   font-size: 14pt;
   color: rgba(230, 234, 242, 0.7);
-}
-.balaur-ambient-card-text {
-  font-size: 20pt;
-  color: #e6eaf2;
-}
-.balaur-ambient-timer {
-  font-size: 36pt;
-  font-weight: 700;
-  font-feature-settings: "tnum";
-  color: #fbbf24;
 }
 
 /* The machines and services (ambient-status.js): small, since it is a glance, not the point. */

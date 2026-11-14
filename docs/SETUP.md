@@ -387,149 +387,24 @@ Lenovo's Windows camera driver for the 13ITL6 contains the sensor's tuning file 
 measured in a lab. Once the layout above is right, those numbers can be extracted into `ccm`
 for colour as close to Windows as this pipeline gets. That's a separate step.
 
-## Stage 11: The voice assistant
+## Stage 11: Home Assistant scenes on the screens
 
-The `assistant` aspect (in the list in `modules/hosts/tablet.nix`) adds a voice assistant to the household's
-GNOME session. Only the wake word runs on the Duet; speech goes to Mistral (EU), and the fleet's pi, in its
-home role, does the thinking:
-
-| Piece | Where | Does |
-|---|---|---|
-| openWakeWord | on the Duet, 127.0.0.1:10400 | listens for "Hey Jarvis"; nothing leaves the house before it fires |
-| balaur-assistant (`gnome/assistant/`) | on the Duet, a service of the GNOME session | microphone and speaker (PipeWire), timers, reminders, lists, memory, notifications; D-Bus `org.balaur.Assistant` |
-| balaur-home-agent (`gnome/home-agent/`) | on the Duet, its child | pi in its home role: the model, the household's tools and Home Assistant's (house devices, below), and nothing else (no shell, no files) |
-| Voxtral transcription (`voxtral-mini-transcribe-3-0`) | Mistral | what you said, Romanian or English |
-| Chat model (`balaur`) | the fleet's AI entryway: the pc's GPU first, Mistral second | what to do: answers and calls the tools |
-| Voxtral TTS (`voxtral-mini-tts-3-0`) | Mistral | the voice |
-| `web_search` tool (`mistral-medium-latest`) | Mistral | current facts |
-
-Only the sentence after the wake word is sent (as audio for transcription), plus the text of the conversation.
-Weather comes from Open-Meteo and news from RSS feeds, directly. No port is opened.
-
-### Turn it on
-
-Make a key at console.mistral.ai, then either:
-
-- on the Duet: **Balaur** app → Assistant → ⚙ **Assistant settings** → Mistral API key → Apply. The key goes to
-  the GNOME Keyring; the first time, GNOME asks for a keyring password: **leave it empty** (the household account
-  has no password to unlock it with). The same dialog sets the model and the voices, and has a
-  **Test** button.
-- or from a terminal: `sudo balaur-assistant-login` (paste the key, hidden; it is checked against the API and
-  the voices are listed). On a machine without the `secrets` aspect it also saves the key to /var/lib/secrets
-  as the fallback and restarts the assistant. With `secrets` (every machine of the fleet today) the fallback is
-  the sops secret `assistant-llm-key` in `secrets/balaur.yaml` (skill `secrets`): the command then saves
-  nothing, restarts nothing and says so; a new key there reaches the machines with the next push.
-
-The defaults for model, voices and servers come from `balaur.assistant.*`; what you change in the app wins.
-
-### House devices (Home Assistant)
-
-The assistant switches the house's lights, the TV, speakers and scenes through the fleet's Home Assistant
-(the `home-assistant` aspect, on the tablet): the agent connects to its MCP server at `/api/mcp` as a user of
-its own. Without the steps below it works as before, with no house devices. In Home Assistant's UI
-(https://home.<domain>, or `http://tablet:8123`):
+Quick Settings on every GNOME machine has a **Scenes** menu: Home Assistant's scenes, then its scripts, fetched
+each time it opens; a tap runs one. It talks to the fleet's Home Assistant (the `home-assistant` aspect, on the
+tablet) as a user of its own, not an administrator. In Home Assistant's UI (https://home.<domain>, or
+`http://tablet:8123`):
 
 1. **Onboarding**: the first visit creates the owner, an administrator. Integrations, scenes and automations
    are set in the UI and kept in `/var/lib/hass`.
-2. **Add the "Model Context Protocol Server" integration** (Settings → Devices & services → Add integration).
-   Nix has installed it (`mcp_server` in `extraComponents`); it offers what is exposed to Assist.
-3. **A user for the assistant that is not an administrator** (Settings → People → Users). Log in as it and
+2. **A user for the screens that is not an administrator** (Settings → People → Users). Log in as it and
    create a long-lived access token (its profile, Security tab).
-4. **Put the token into `secrets/balaur.yaml` as `home-assistant-agent-token`** (skill `secrets`) and push. The
-   file is the shared one, so the assistant of every machine with the `secrets` aspect finds it
-   (`balaur.assistant.homeAssistant.tokenFile`), and talks to the machine that runs Home Assistant.
-5. **Choose what the assistant can switch**: Settings → Voice assistants → Expose. It can switch exactly what is
-   exposed there, nothing else.
+3. **Put the token into `secrets/balaur.yaml` as `home-assistant-agent-token`** (skill `secrets`) and push. The
+   file is the shared one, so every GNOME machine with the `secrets` aspect finds it (`balaur.scenes.tokenFile`,
+   readable by the group `balaur-house`, which the session's account is in) and writes
+   `/etc/balaur/house.json`, pointing at the machine that runs Home Assistant (`balaur.scenes.host`).
+4. **Make the scenes and scripts** in Home Assistant's UI; the menu shows them as they are.
 
-**Never expose locks, garage doors or alarms to Assist.** The voice assistant acts on what it hears and reads
-(a TV in the next room, a web page, a news item): anything exposed can be switched by a sentence nobody meant.
-
-Check: ask "what can you switch in the house?" in the Balaur app (typed); `~home/.local/state/balaur-assistant/pi/mcp.json`
-exists once the agent has the token (it logs "no readable Home Assistant token" otherwise), and Home Assistant's
-logbook names the assistant's user, not the owner, for what it switched.
-
-### Use it
-
-Say **"Hey Jarvis"**, wait for the rising beep, speak. Examples:
-
-- "Pune lapte și ouă pe lista de cumpărături." / "Ce am pe listă?"
-- "Adaugă la treburi: dus gunoiul, Alex, până vineri."
-- "Pune un timer de 10 minute pentru paste." / "Set a timer for 5 minutes."
-- "Amintește-mi mâine la 8 să sun la medic." / "Remind me every Monday at 7 to take out the recycling."
-- "Ține minte că Ana e alergică la nuci." (it also saves lasting facts on its own)
-- "Cum e vremea mâine?" / "Ce știri sunt azi?" / "Who won the match last night?"
-- "Mai încet." / "Stop." / "Gata."
-
-Saying "Hey Jarvis" again interrupts it (speech, a slow answer, or a ringing timer). When it ends with a question,
-it keeps listening for the answer without the wake word. While it listens or speaks, its orb and captions show
-over every app; tap the orb to stop it. Timers and reminders also arrive as GNOME notifications with a **Stop**
-button. The mic toggle is in Quick Settings ("Assistant"; off closes the microphone, and GNOME's mic indicator
-goes away). The **Balaur** app shows the conversation (and you can type to it there), the lists, timers,
-reminders and memory.
-
-### Tuning
-
-- Doesn't hear you from across the room: `balaur.assistant.audio.micGain` (default 65; 50 = 0 dB, max 70 = +20 dB).
-- Wakes by itself: raise `balaur.assistant.wakeThreshold`. Misses you: lower it. `sudo balaur-wake-test` records a few
-  tries and prints each one's score (`sudo balaur-wake-test all` compares the built-in wake words).
-- What it heard, every tool call and the time to the reply:
-  `journalctl _SYSTEMD_USER_UNIT=balaur-assistant.service -f` (or, as the household user, `journalctl --user -u balaur-assistant -f`).
-- Location for the weather: `balaur.location` (also used by the ambient screen). News sources: `balaur.assistant.newsFeeds`.
-
-### Custom wake word
-
-The built-in wake words are English and trained on synthetic voices. `sudo balaur-wake-word` trains one of the
-household's own, from recordings of the people who will say it, on the microphone that will hear it (so: on each
-machine that should answer to it). Nothing but the download of openWakeWord's public features leaves the machine.
-
-1. **Each person says it**, once per prompt, in a quiet room. Several short rounds beat one long one: next to the
-   machine, across the room, from the doorway, quietly, quickly. 60 takes each is a start, 100 is better.
-
-   ```sh
-   sudo balaur-wake-word record alex        # 25 takes; `record alex 40` for more
-   sudo balaur-wake-word record <her name>
-   ```
-
-2. **What must not wake it.** Each person talks for a minute and a half without the word (the tool lists words that
-   sound like it, to work in), and the room is recorded as it usually is, TV on:
-
-   ```sh
-   sudo balaur-wake-word speech alex
-   sudo balaur-wake-word room 10            # minutes
-   ```
-
-   Without the first it learns the voices instead of the word; without the second, the TV wakes it.
-
-3. **Train**, on that machine. On the Duet about 25 minutes the first time, at low priority, plus a 2.8 GB download
-   of openWakeWord's features; later runs only work on what was recorded since:
-
-   ```sh
-   sudo balaur-wake-word train
-   ```
-
-   It prints, for takes it kept out of training, how many it catches at each threshold, and how many false wakes an
-   hour that costs on 11 hours of other people's speech and on your own negatives. It writes
-   `/var/lib/balaur-wakewords/balaur.tflite` and suggests a threshold. The model wants three windows on end (a
-   quarter of a second) to agree before it wakes, which is what keeps a stray sound from doing it.
-
-4. **Try it** before switching: `sudo balaur-wake-test --word balaur` records 15 s and prints the score each time
-   you say it. Too many misses or false wakes: record more of what it gets wrong (takes from where it missed you,
-   `room` with what woke it) and train again; everything recorded so far is used.
-
-5. **Switch** that machine over, in its host file: `balaur.assistant.wakeWord = "balaur";`, `wakeThreshold` as
-   suggested, and `name` if the assistant should call itself that too. Only on a machine that has the model:
-   openWakeWord silently listens for "Okay Nabu" when it cannot find the one it is asked for.
-
-`--word hei_balaur` (before the command) trains another word next to it. `sudo balaur-wake-word status` shows what
-has been recorded. The recordings stay in `/var/lib/balaur-wake-training`, readable by root only, so that a later
-round can add to them; `sudo rm -r /var/lib/balaur-wake-training` once the model is good enough.
-
-### Where things are kept
-
-`~home/.local/state/balaur-assistant/` holds `house.json` (lists), `reminders.json` and `memory.json`, as plain
-JSON; `timers.json` (running timers, which a restart keeps) and `mute.json` (the microphone switch). Keys are in the GNOME Keyring (and the fallback is the sops secret
-`assistant-llm-key`, or on a machine without `secrets` `/var/lib/secrets/balaur-assistant-llm-key`). No audio is stored on the Duet, except what you record yourself to
-train a wake word (above).
+Check: the menu lists them, and Home Assistant's logbook names the screens' user, not the owner, for what it ran.
 
 ## Stage 12: The ambient screen
 
@@ -539,7 +414,6 @@ read across the room. It shows:
 - the weather for `balaur.location` (Open-Meteo);
 - on the side, the fleet's machines (from Tailscale: online, or when last seen; this one's failed units) and
   the home's services (green running, grey stopped or not answering, red failed);
-- the assistant's running timers, counting down, and the next reminder;
 - a slow slideshow of the photos in the synced folder.
 
 On the side in landscape; above the clock when the tablet is turned to portrait. The pc and the laptop show

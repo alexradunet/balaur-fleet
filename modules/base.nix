@@ -50,7 +50,7 @@ in
           '';
         };
 
-        # Where the home is: the weather (the assistant's tool, the ambient screen).
+        # Where the home is: the weather on the ambient screen.
         location = {
           name = lib.mkOption {
             type = lib.types.str;
@@ -173,7 +173,7 @@ in
                   unit = lib.mkOption {
                     type = lib.types.str;
                     default = "";
-                    description = "systemd unit whose state the app shows; `user:<unit>` for a unit of the household session (the voice assistant).";
+                    description = "systemd unit whose state the app shows; `user:<unit>` for a unit of the household session.";
                   };
                   group = lib.mkOption {
                     type = lib.types.str;

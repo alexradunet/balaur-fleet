@@ -1,6 +1,6 @@
 # tablet: the Lenovo Yoga Duet 7 in the living room. A home server whose built-in
 # screen is the household tablet. The aspects it runs are listed below; its own
-# choices (account, assistant voices, ...) are the settings after them.
+# choices (account, people, ...) are the settings after them.
 # Machine-generated files (hardware-configuration.nix) live in hosts/tablet/.
 { inputs, config, ... }:
 let
@@ -40,7 +40,6 @@ in
           dev
           files
           torrents-client
-          assistant
           auto-deploy
           ai
           # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
@@ -102,18 +101,6 @@ in
 
         # The living-room Samsung (UE65AU7172, Tizen 6) is at 192.168.50.106, this machine at
         # 192.168.50.233 (both reserved in the router); AdGuard (the adblock aspect) blocks its ads.
-
-        # Voice assistant: "Hey Jarvis", Romanian + English; Mistral for speech, pi (RPC mode, gnome/home-agent) for the rest.
-        # Mistral, the voices and the sops key are the aspect's defaults (assistant.nix).
-        assistant = {
-          # This machine's microphone array at 16 kHz (`arecord -l`: DMIC16kHz). Without
-          # it PipeWire picks the 48 kHz DMIC, whose processing leaves a voice far too
-          # quiet for the wake word. A laptop with an ordinary mic leaves this null.
-          audio.input = "plughw:0,7";
-          # "Hey Jarvis" in our voices scores 0.2-0.9 (`sudo balaur-wake-test`); room noise
-          # never passed 0.05. 0.35 catches most attempts; raise it if the TV wakes it.
-          wakeThreshold = 0.35;
-        };
 
         # The colour-filter layout was measured on this laptop (docs/SETUP.md, Stage 10).
         # The screen goes off after 15 minutes with nobody there, so the photos

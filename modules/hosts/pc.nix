@@ -46,9 +46,6 @@ in
           dev
           files
           torrents-client
-          # Runs as alex (no `tablet` here), on PipeWire's default microphone.
-          # Retune wakeThreshold for that microphone with `sudo balaur-wake-test`.
-          assistant
           auto-deploy
           # The fleet's AI entryway (on the tablet), as a client.
           ai

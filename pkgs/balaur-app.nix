@@ -1,4 +1,5 @@
-# Balaur: the household's GJS/libadwaita app (gnome/app/). No build step: the
+# Balaur: the household's GJS/libadwaita app (gnome/app/): the home's services
+# and its people, and their overview search. No build step: the
 # ES modules are copied as they are and bin/balaur-app runs them with gjs;
 # wrapGAppsHook4 wraps that launcher so the GTK 4 / libadwaita typelibs (and
 # their data) resolve regardless of the session's environment.
@@ -42,7 +43,7 @@ stdenv.mkDerivation {
 
   dontBuild = true;
 
-  # The helpers without GTK (gnome/app/src/format.js) and the daemon client's pure parts.
+  # The parts without GTK: format.js, the overview search and who opens what.
   doCheck = true;
   nativeCheckInputs = [ gjs ];
   checkPhase = ''
@@ -80,7 +81,7 @@ stdenv.mkDerivation {
   '';
 
   meta = {
-    description = "The Balaur home server's household app: assistant, lists, timers, memory, services, and their overview search";
+    description = "The Balaur home server's household app: the home's services and its people, and their overview search";
     mainProgram = "balaur-app";
     platforms = lib.platforms.linux;
   };

@@ -1,10 +1,9 @@
 // org.balaur.Balaur: the household's companion app for the Balaur home server.
 //
-// Every user action goes through an application action (app.list-add,
-// app.stop, ...). Buttons bind to them directly, they are disabled while the
-// assistant is away, failures become toasts in one place, and since GApplication
-// exports its actions on the session bus they can be exercised from a shell
-// too (see README.md).
+// Every user action goes through an application action (app.open-service,
+// app.quit). Buttons bind to them directly, failures become toasts in one
+// place, and since GApplication exports its actions on the session bus they
+// can be exercised from a shell too (see README.md).
 
 import GObject from 'gi://GObject';
 import Gio from 'gi://Gio';
@@ -13,13 +12,11 @@ import Gtk from 'gi://Gtk?version=4.0';
 import Gdk from 'gi://Gdk?version=4.0';
 import Adw from 'gi://Adw?version=1';
 
-import {Assistant} from './assistant.js';
 import {Services} from './services.js';
 import {People} from './people.js';
 import {BalaurWindow} from './window.js';
-import {AssistantSettingsDialog} from './settings-dialog.js';
 import {SearchProvider} from './search-provider.js';
-import {PAGE_OF, parseId} from './search.js';
+import {parseId} from './search.js';
 
 export const BalaurApplication = GObject.registerClass(
 class BalaurApplication extends Adw.Application {
@@ -58,7 +55,6 @@ class BalaurApplication extends Adw.Application {
         Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), css,
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION);
 
-        this.assistant = new Assistant();
         this.services = new Services();
         this.people = new People();
         this._addActions();
@@ -76,25 +72,18 @@ class BalaurApplication extends Adw.Application {
         win.present();
     }
 
-    // A search result chosen in the overview: a service opens itself (no
-    // Balaur window); anything else opens the app on its page.
-    activateResult(id, terms) {
+    // A search result chosen in the overview: the service opens itself (no
+    // Balaur window).
+    activateResult(id, _terms) {
         const {kind, key} = parseId(id);
-        if (kind === 'service') {
+        if (kind === 'service')
             this._openService(key);
-            return;
-        }
-        this.activate();
-        this.active_window?.showPage(PAGE_OF[kind] ?? 'assistant');
-        if (kind === 'ask')
-            this.ask(key || terms.join(' '));
     }
 
-    // The provider's own row in the overview: the app, with the terms ready to ask.
-    launchSearch(terms) {
+    // The provider's own row in the overview: the app, on Home.
+    launchSearch(_terms) {
         this.activate();
-        this.active_window?.showPage('assistant');
-        this.active_window?.prefillAsk(terms.join(' '));
+        this.active_window?.showPage('home');
     }
 
     // Show a failure where the user is looking.
@@ -114,91 +103,18 @@ class BalaurApplication extends Adw.Application {
         }
     }
 
-    // Typed question. The answer arrives in the conversation log (Snapshot),
-    // and is spoken too, as if asked aloud.
-    ask(text) {
-        return this._try(this.assistant.ask(text, true));
-    }
-
-    // Resolves to whether the daemon took it, so the list can undo its checkbox.
-    listSetDone(list, id, done) {
-        return this._try(this.assistant.listSetDone(list, id, done));
-    }
-
     _addActions() {
-        const a = this.assistant;
-        const assistantActions = [];
-        const add = (name, type, handler, needsAssistant = true) => {
+        const add = (name, type, handler) => {
             const action = new Gio.SimpleAction({
                 name,
                 parameter_type: type ? new GLib.VariantType(type) : null,
             });
             action.connect('activate', (_action, param) => handler(param?.deepUnpack()));
             this.add_action(action);
-            if (needsAssistant)
-                assistantActions.push(action);
         };
 
-        add('quit', null, () => this.quit(), false);
-        add('ask', 's', text => this.ask(text));
-        add('stop', null, () => this._try(a.stop()));
-        add('list-add', '(ss)', ([list, text]) => this._try(a.listAdd(list, text)));
-        add('list-set-done', '(ssb)', ([list, id, done]) => this.listSetDone(list, id, done));
-        add('list-remove', '(ss)', ([list, id]) => this._try(a.listRemove(list, id)));
-        add('list-clear-done', 's', list => this._try(a.listClearDone(list)));
-        add('memory-add', 's', fact => this._try(a.memoryAdd(fact)));
-        add('memory-remove', 's', id => this._try(a.memoryRemove(id)));
-        add('timer-cancel', 's', id => this._try(a.timerCancel(id)));
-        add('reminder-cancel', 's', id => this._try(a.reminderCancel(id)));
-        add('open-service', 's', name => this._openService(name), false);
-        add('assistant-settings', null, () => this._showSettings(), false);
-
-        // Microphone on/off for the page's switch: state = mic on (= !Muted).
-        const mic = new Gio.SimpleAction({name: 'microphone', state: new GLib.Variant('b', !a.muted)});
-        mic.connect('change-state', (action, value) => {
-            const on = value.unpack();
-            action.set_state(value); // optimistic; the daemon's echo confirms
-            this._try(a.setMuted(!on)).then(ok => {
-                if (!ok)
-                    action.set_state(new GLib.Variant('b', !a.muted));
-            });
-        });
-        this.add_action(mic);
-        assistantActions.push(mic);
-
-        // Speaker volume 0-100, for the page's slider.
-        const volume = new Gio.SimpleAction({name: 'volume', state: new GLib.Variant('u', a.volume),
-            parameter_type: new GLib.VariantType('u')});
-        volume.connect('change-state', (action, value) => {
-            const v = Math.max(0, Math.min(100, value.unpack()));
-            action.set_state(new GLib.Variant('u', v));
-            this._try(a.setVolume(v));
-        });
-        volume.connect('activate', (action, value) => action.change_state(value));
-        this.add_action(volume);
-        assistantActions.push(volume);
-
-        const sync = () => {
-            for (const action of assistantActions)
-                action.enabled = a.available;
-            if (mic.state.unpack() !== !a.muted)
-                mic.set_state(new GLib.Variant('b', !a.muted));
-            if (volume.state.unpack() !== a.volume)
-                volume.set_state(new GLib.Variant('u', a.volume));
-        };
-        a.connect('changed', sync);
-        sync();
-    }
-
-    // One settings dialog at a time, over the current window.
-    _showSettings() {
-        if (this._settingsDialog)
-            return;
-        this._settingsDialog = new AssistantSettingsDialog(this.assistant);
-        this._settingsDialog.connect('closed', () => {
-            this._settingsDialog = null;
-        });
-        this._settingsDialog.present(this.active_window);
+        add('quit', null, () => this.quit());
+        add('open-service', 's', name => this._openService(name));
     }
 
     async _openService(name) {

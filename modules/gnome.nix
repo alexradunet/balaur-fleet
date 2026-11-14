@@ -9,19 +9,17 @@
 # Give a host `gnome` plus exactly one of those. (Aspects never import each
 # other: flake.modules has no dedup key, so the host lists both.)
 #
-# Both get the fleet's own front end from here: the Balaur app (the conversation,
-# lists, timers, memory, every service in `balaur.services` with its live state;
-# gnome/app) and the Shell extension (the assistant's orb and captions over every
-# app, the mic toggle; gnome/shell-extension). The `assistant` aspect has no UI
-# without them. So the ambient screen's settings are here too: after a minute
-# untouched, a full-screen clock, date, weather, the assistant's timers and
-# reminders, the fleet's machines and services, over the photos in the synced
-# folder (gnome/shell-extension/ambient.js).
+# Both get the fleet's own front end from here: the Balaur app (every service in
+# `balaur.services` with its live state, and the people; gnome/app) and the Shell
+# extension (gnome/shell-extension). So the ambient screen's settings are here
+# too: after a minute untouched, a full-screen clock, date, weather, the fleet's
+# machines and services, over the photos in the synced folder
+# (gnome/shell-extension/ambient.js).
 #
-# GNOME's own search finds Balaur's things too (the app is a search provider:
-# services, list items, memories, timers, reminders, and "Ask" for a question),
-# and Quick Settings has a "Scenes" menu with Home Assistant's scenes and scripts
-# wherever the assistant has house devices (/etc/balaur/house.json, below).
+# GNOME's own search finds the home's services too (the app is a search
+# provider), and Quick Settings has a "Scenes" menu with Home Assistant's scenes
+# and scripts wherever the fleet runs Home Assistant (balaur.scenes,
+# /etc/balaur/house.json, below).
 { config, ... }:
 let
   nixosConfigs = config.flake.nixosConfigurations;
@@ -31,6 +29,7 @@ in
   flake.modules.nixos.gnome =
     {
       config,
+      options,
       lib,
       pkgs,
       ...
@@ -40,17 +39,24 @@ in
       cfg = config.balaur;
       ambient = cfg.ambient;
       me = config.networking.hostName;
+      useSops = options ? sops;
 
-      # The Scenes menu reaches Home Assistant the way the assistant does: its
-      # machine and its non-admin user's token (`assistant` aspect,
-      # balaur.assistant.homeAssistant). The token is readable by the group
-      # balaur-assistant, which the session's account is in wherever the assistant
-      # runs in it (the household account on the tablet, the admin's on a desktop).
-      hass = cfg.assistant.homeAssistant or null;
+      # The Scenes menu reaches Home Assistant on its machine, as Home Assistant's
+      # non-admin user for the screens (balaur.scenes). The token is readable by the
+      # group balaur-house, which the session's account is in (the household account
+      # on the tablet, the admin's on a desktop).
+      hass = cfg.scenes;
+      houseToken = "home-assistant-agent-token";
+      sessionUser = cfg.tablet.user or cfg.user;
+      # The machines that run Home Assistant (home-assistant.nix).
+      hostConfig = h: if h == me then config else nixosConfigs.${h}.config;
+      hassHosts = lib.filter (
+        h: (h == me || nixosConfigs ? ${h}) && (hostConfig h).services.home-assistant.enable
+      ) (lib.attrNames fleet);
       houseJson =
-        if hass != null && hass.host != null && hass.tokenFile != null then
+        if hass.host != null && hass.tokenFile != null then
           let
-            hassConfig = if hass.host == me then config else nixosConfigs.${hass.host}.config;
+            hassConfig = hostConfig hass.host;
             address = if hass.host == me then "127.0.0.1" else fleet.${hass.host}.address;
           in
           builtins.toJSON {
@@ -147,106 +153,141 @@ in
         };
       };
 
-      config = {
-        environment.etc = {
-          "balaur/ambient.json".text = ambientJson;
-        }
-        // lib.optionalAttrs (houseJson != null) { "balaur/house.json".text = houseJson; };
-
-        services.displayManager.gdm.enable = true;
-        services.desktopManager.gnome.enable = true;
-
-        # GNOME's background services that no machine here uses: lean CPU, the same
-        # on every GNOME machine. File indexing (localsearch) stays where it is
-        # useful, the desktops; `tablet` turns that off as well.
-        services.gnome = {
-          gnome-initial-setup.enable = false; # every machine is set up by this flake
-          gnome-online-accounts.enable = false; # no online account is set up
-          gnome-remote-desktop.enable = false; # SSH and Tailscale; Moonlight for the pc
-          gnome-user-share.enable = false; # files move through Syncthing (`files`)
-          gnome-browser-connector.enable = false; # the extensions come from the flake
-          rygel.enable = false; # DLNA sharing from the session: `dlna` serves it where wanted
+      options.balaur.scenes = {
+        host = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = lib.findFirst (_: true) null hassHosts;
+          defaultText = lib.literalMD "the fleet machine that runs Home Assistant, if any";
+          description = "The fleet machine whose Home Assistant scenes and scripts the Scenes menu runs. null: no Scenes menu.";
         };
-        services.dleyna.enable = false; # DLNA discovery, likewise
-
-        # The look and the keyboards, the same on every GNOME machine. Defaults, not
-        # locks: a personal machine's own settings win (`tablet` locks what it must).
-        programs.dconf.profiles.user.databases = [
-          {
-            settings = {
-              "org/gnome/desktop/input-sources".sources = [
-                (mkTuple [
-                  "xkb"
-                  "us"
-                ])
-                (mkTuple [
-                  "xkb"
-                  "ro+std"
-                ])
-              ];
-              "org/gnome/desktop/interface" = {
-                color-scheme = "prefer-dark";
-                clock-show-weekday = true;
-                show-battery-percentage = true;
-                # The fleet's colour on buttons, switches and selections (GNOME 47+:
-                # blue, teal, green, yellow, orange, red, pink, purple, slate).
-                accent-color = "green";
-              };
-            };
-          }
-        ];
-
-        # Firefox is the browser on every GNOME machine here. The policies are the
-        # same everywhere: no telemetry, no first-run detours, and the add-ons above.
-        programs.firefox = {
-          enable = true;
-          policies = {
-            DisableTelemetry = true;
-            DisableFirefoxStudies = true;
-            DisablePocket = true;
-            DontCheckDefaultBrowser = true;
-            OverrideFirstRunPage = "";
-            OverridePostUpdatePage = "";
-            NoDefaultBookmarks = true;
-            ExtensionSettings = lib.mapAttrs (_: slug: {
-              installation_mode = "force_installed";
-              install_url = "https://addons.mozilla.org/firefox/downloads/latest/${slug}/latest.xpi";
-            }) addons;
-          };
+        tokenFile = lib.mkOption {
+          type = lib.types.nullOr lib.types.path;
+          default = if useSops then config.sops.secrets.${houseToken}.path else null;
+          defaultText = lib.literalMD "the shared `home-assistant-agent-token` sops secret with the `secrets` aspect, else null";
+          description = ''
+            File with a long-lived access token of Home Assistant's user for the
+            screens (not an administrator), readable by the group `balaur-house`.
+            null: no Scenes menu.
+          '';
         };
-        # Said outright (in /etc/xdg/mimeapps.list, under the user's own list), so
-        # GNOME Web on the tablet, or anything installed later, does not take over links.
-        xdg.mime.defaultApplications = lib.genAttrs [
-          "text/html"
-          "x-scheme-handler/http"
-          "x-scheme-handler/https"
-        ] (_: "firefox.desktop");
-
-        # The terminal is Ghostty everywhere (GTK4/libadwaita, GPU-rendered), so
-        # Console goes. It is also what "Open in Terminal" and Terminal=true apps
-        # launch, through xdg-terminal-exec.
-        environment.systemPackages = [
-          pkgs.ghostty
-          pkgs.balaur-app
-          pkgs.balaur-shell-extension
-        ];
-        environment.gnome.excludePackages = [ pkgs.gnome-console ];
-        xdg.terminal-exec = {
-          enable = true;
-          settings.default = [ "com.mitchellh.ghostty.desktop" ];
-        };
-
-        # Sound for the session, shared by the apps and (on the Duet) the voice
-        # assistant, which runs as a service of that same session.
-        services.pulseaudio.enable = false;
-        security.rtkit.enable = true;
-        services.pipewire = {
-          enable = true;
-          alsa.enable = true;
-          pulse.enable = true;
-        };
-
-        hardware.graphics.enable = true;
       };
+
+      config = lib.mkMerge [
+        {
+          environment.etc = {
+            "balaur/ambient.json".text = ambientJson;
+          }
+          // lib.optionalAttrs (houseJson != null) { "balaur/house.json".text = houseJson; };
+
+          users.groups.balaur-house = { };
+          users.users.${sessionUser}.extraGroups = [ "balaur-house" ];
+        }
+
+        # The token from the repo, the shared file: root's, readable by the session's account.
+        (lib.optionalAttrs useSops {
+          sops.secrets.${houseToken} = lib.mkIf (hass.host != null) {
+            owner = "root";
+            group = "balaur-house";
+            mode = "0640";
+          };
+        })
+
+        {
+
+          services.displayManager.gdm.enable = true;
+          services.desktopManager.gnome.enable = true;
+
+          # GNOME's background services that no machine here uses: lean CPU, the same
+          # on every GNOME machine. File indexing (localsearch) stays where it is
+          # useful, the desktops; `tablet` turns that off as well.
+          services.gnome = {
+            gnome-initial-setup.enable = false; # every machine is set up by this flake
+            gnome-online-accounts.enable = false; # no online account is set up
+            gnome-remote-desktop.enable = false; # SSH and Tailscale; Moonlight for the pc
+            gnome-user-share.enable = false; # files move through Syncthing (`files`)
+            gnome-browser-connector.enable = false; # the extensions come from the flake
+            rygel.enable = false; # DLNA sharing from the session: `dlna` serves it where wanted
+          };
+          services.dleyna.enable = false; # DLNA discovery, likewise
+
+          # The look and the keyboards, the same on every GNOME machine. Defaults, not
+          # locks: a personal machine's own settings win (`tablet` locks what it must).
+          programs.dconf.profiles.user.databases = [
+            {
+              settings = {
+                "org/gnome/desktop/input-sources".sources = [
+                  (mkTuple [
+                    "xkb"
+                    "us"
+                  ])
+                  (mkTuple [
+                    "xkb"
+                    "ro+std"
+                  ])
+                ];
+                "org/gnome/desktop/interface" = {
+                  color-scheme = "prefer-dark";
+                  clock-show-weekday = true;
+                  show-battery-percentage = true;
+                  # The fleet's colour on buttons, switches and selections (GNOME 47+:
+                  # blue, teal, green, yellow, orange, red, pink, purple, slate).
+                  accent-color = "green";
+                };
+              };
+            }
+          ];
+
+          # Firefox is the browser on every GNOME machine here. The policies are the
+          # same everywhere: no telemetry, no first-run detours, and the add-ons above.
+          programs.firefox = {
+            enable = true;
+            policies = {
+              DisableTelemetry = true;
+              DisableFirefoxStudies = true;
+              DisablePocket = true;
+              DontCheckDefaultBrowser = true;
+              OverrideFirstRunPage = "";
+              OverridePostUpdatePage = "";
+              NoDefaultBookmarks = true;
+              ExtensionSettings = lib.mapAttrs (_: slug: {
+                installation_mode = "force_installed";
+                install_url = "https://addons.mozilla.org/firefox/downloads/latest/${slug}/latest.xpi";
+              }) addons;
+            };
+          };
+          # Said outright (in /etc/xdg/mimeapps.list, under the user's own list), so
+          # GNOME Web on the tablet, or anything installed later, does not take over links.
+          xdg.mime.defaultApplications = lib.genAttrs [
+            "text/html"
+            "x-scheme-handler/http"
+            "x-scheme-handler/https"
+          ] (_: "firefox.desktop");
+
+          # The terminal is Ghostty everywhere (GTK4/libadwaita, GPU-rendered), so
+          # Console goes. It is also what "Open in Terminal" and Terminal=true apps
+          # launch, through xdg-terminal-exec.
+          environment.systemPackages = [
+            pkgs.ghostty
+            pkgs.balaur-app
+            pkgs.balaur-shell-extension
+          ];
+          environment.gnome.excludePackages = [ pkgs.gnome-console ];
+          xdg.terminal-exec = {
+            enable = true;
+            settings.default = [ "com.mitchellh.ghostty.desktop" ];
+          };
+
+          # Sound for the session.
+          services.pulseaudio.enable = false;
+          security.rtkit.enable = true;
+          services.pipewire = {
+            enable = true;
+            alsa.enable = true;
+            pulse.enable = true;
+          };
+
+          hardware.graphics.enable = true;
+        }
+      ];
     };
 }

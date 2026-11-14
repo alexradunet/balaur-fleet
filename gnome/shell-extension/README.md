@@ -1,57 +1,34 @@
 # balaur@balaur.local
 
-GNOME Shell 50 extension for the Duet's built-in screen. It follows the
-`org.balaur.Assistant` service on the session bus (API in `../CONTRACT.md`):
+GNOME Shell 50 extension for the Duet's built-in screen:
 
-- **Overlay**: while the assistant is listening, thinking, speaking or ringing,
-  a large animated orb (blue breathing, violet with orbiting dots, green, amber)
-  with the caption under it, centred over everything on the primary monitor.
-  Tap it to `Stop()`. The dimmed area around it lets taps through and nothing
-  takes keyboard focus. Hidden when idle or when the daemon is not running;
-  a muted microphone does not hide it (an alarm or a typed question still shows).
-- **Quick Settings toggle** "Assistant": on = microphone on (`Muted` false).
-  Subtitle "Listening for Hey Jarvis" / "Microphone off" / "Not running"
-  (greyed out). A crossed-out mic shows in the top bar while muted.
 - **Ambient screen**: after `idleSeconds` without input (Mutter's idle monitor), a full-screen
-  clock, date, weather, the fleet's machines and the home's services, the running timers and the next
-  reminder over a photo slideshow (a folder, the synced one on the tablet, or Jellyfin),
-  between the windows and the notification banners. Any input ends it. Held back while a window
-  is full screen or another app inhibits idle. Config: `/etc/balaur/ambient.json` (`modules/gnome.nix`, every GNOME machine;
+  clock, date, weather, the fleet's machines and the home's services over a photo slideshow
+  (a folder, the synced one on the tablet, or Jellyfin), between the windows and the
+  notification banners. Any input ends it. Held back while a window is full screen or another
+  app inhibits idle. Config: `/etc/balaur/ambient.json` (`modules/gnome.nix`, every GNOME machine;
   `BALAUR_AMBIENT_CONFIG` overrides the path for testing).
 - **Quick Settings "Scenes"**: a menu of Home Assistant's scenes, then its scripts,
   fetched each time it opens; a tap runs one (`turn_on`), a failure is a notification.
-  Only where `/etc/balaur/house.json` exists (`modules/gnome.nix`: the machines whose
-  assistant has house devices), with the assistant's non-admin token. Scenes are
-  made in Home Assistant's UI. `BALAUR_HOUSE_CONFIG` overrides the path for testing.
+  Only where `/etc/balaur/house.json` exists (`modules/gnome.nix`), with the household
+  screen's non-admin Home Assistant token. Scenes are made in Home Assistant's UI.
+  `BALAUR_HOUSE_CONFIG` overrides the path for testing.
 
 | File | What |
 |---|---|
-| `assistant.js` | D-Bus XML, `AssistantClient` (one `GDBusProxy` that also follows the name owner), text helpers. No Shell imports. |
-| `overlay.js`, `stylesheet.css` | The orb overlay (St widgets + Clutter transitions, no per-frame JS). |
-| `toggle.js` | Quick Settings toggle and top-bar indicator. |
 | `scenes.js` | The Quick Settings "Scenes" menu. |
 | `house.js` | Its Shell-free side: `/etc/balaur/house.json`, Home Assistant's states and service calls; tested with the ambient screen's helpers. |
-| `ambient.js` | The ambient screen: idle watch, full-screen clock, weather, machines and services, timers, reminders, photo crossfade; landscape and portrait layouts. |
+| `ambient.js`, `stylesheet.css` | The ambient screen: idle watch, full-screen clock, weather, machines and services, photo crossfade; landscape and portrait layouts. |
 | `ambient-status.js` | Machines (`tailscale status --json`) and services (`/etc/balaur/services.json`: systemd over D-Bus, a TCP probe for other machines), asked every 30 s while shown. |
-| `ambient-data.js`, `tests/test-ambient.js` | Its Shell-free side: `/etc/balaur/ambient.json`, Open-Meteo, photos (a folder or Jellyfin), time and layout helpers; tested in the package build, with `ambient-status.js`'s helpers. |
+| `ambient-data.js`, `tests/test-ambient.js` | Its Shell-free side: `/etc/balaur/ambient.json`, Open-Meteo, photos (a folder or Jellyfin), clock and layout helpers; tested in the package build, with `ambient-status.js`'s and `house.js`'s helpers. |
 | `extension.js` | Glue: `enable()` / `disable()`. |
-| `tools/mock-assistant.js` | Fake daemon: owns the name, cycles idle → listening → thinking → speaking → idle (an alarm every fourth round), honours `Muted`, `Stop`, `Ask`, lists, etc. Refuses to start if the name is taken. |
-| `tools/watch-assistant.js` | Prints what the extension would show, using `AssistantClient`. |
 
 Packaged by `pkgs/balaur-shell-extension.nix`. No GSettings.
 
 ## Try it
 
-```sh
-nix shell nixpkgs#gjs
-gjs -m tools/mock-assistant.js [--no-cycle] [--quit-after 60]   # fake daemon
-gjs -m tools/watch-assistant.js                                  # what the UI would show
-gdbus call --session -d org.balaur.Assistant -o /org/balaur/Assistant \
-  -m org.balaur.Assistant1.Ask "hello" true
-```
-
-Run the mock as the household user (see `../CONTRACT.md`) only briefly, and
-never while the real daemon is up: it refuses to start when the name is taken.
+The Shell-free helpers are tested by `nix build .#balaur-shell-extension`
+(`tests/test-ambient.js`).
 
 To see the extension itself without touching a live session, start a headless
 `gnome-shell --headless --wayland --no-x11 --virtual-monitor 2160x1350` in its

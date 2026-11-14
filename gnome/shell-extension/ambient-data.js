@@ -349,51 +349,8 @@ export function coverRect(imgW, imgH, boxW, boxH) {
     return {x: Math.floor((boxW - w) / 2), y: Math.floor((boxH - h) / 2), width: w, height: h};
 }
 
-/** Seconds -> "4:05" or "1:02:03"; never negative. */
-export function countdown(seconds) {
-    const s = Math.max(0, Math.ceil(seconds));
-    const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, r = s % 60;
-    const two = n => String(n).padStart(2, '0');
-    return h ? `${h}:${two(m)}:${two(r)}` : `${m}:${two(r)}`;
-}
-
-const parseTime = s => {
-    const dt = typeof s === 'string' ? GLib.DateTime.new_from_iso8601(s, null) : null;
-    return dt ? dt.to_unix() * 1000 : NaN;
-};
-
-/** Running timers from the assistant's Snapshot, soonest first, with end times in ms. */
-export function timersOf(snapshot) {
-    return (snapshot?.timers ?? [])
-        .map(t => ({id: t.id, label: t.label || 'Timer', endsMs: parseTime(t.ends)}))
-        .filter(t => Number.isFinite(t.endsMs))
-        .sort((a, b) => a.endsMs - b.endsMs);
-}
-
-/** The next reminder still to come, or null. */
-export function nextReminder(snapshot, nowMs) {
-    return (snapshot?.reminders ?? [])
-        .map(r => ({text: r.text, atMs: parseTime(r.at)}))
-        .filter(r => r.text && Number.isFinite(r.atMs) && r.atMs > nowMs)
-        .sort((a, b) => a.atMs - b.atMs)[0] ?? null;
-}
-
 /** "14:05" or "2:05 PM", per GNOME's clock-format. */
 export function clockText(dt, format24) {
     return format24 ? dt.format('%H:%M') : dt.format('%-l:%M %p');
 }
 
-/** When a reminder is due, relative to today: "18:00", "Tomorrow 09:00", "Fri 09:00", "12 Nov 09:00". */
-export function whenText(atMs, now, format24) {
-    const at = GLib.DateTime.new_from_unix_local(Math.floor(atMs / 1000));
-    const time = clockText(at, format24);
-    const dayIndex = d => Math.floor((d.to_unix() + d.get_utc_offset() / 1e6) / 86400);
-    const days = dayIndex(at) - dayIndex(now);
-    if (days <= 0)
-        return time;
-    if (days === 1)
-        return `Tomorrow ${time}`;
-    if (days < 7)
-        return `${at.format('%a')} ${time}`;
-    return `${at.format('%-d %b')} ${time}`;
-}

@@ -1,11 +1,10 @@
 // The house's scenes and scripts from Home Assistant, for the Quick Settings
 // tile (scenes.js), without any of the Shell so tests/test-ambient.js can run it.
 //
-// /etc/balaur/house.json (modules/gnome.nix, where the machine's assistant has
-// house devices) says where Home Assistant is and which file holds the token:
-// the assistant's own non-admin Home Assistant user, readable by the session's
-// account (group balaur-assistant). Scenes and scripts are made in Home
-// Assistant's UI; this only lists and runs them.
+// /etc/balaur/house.json (modules/gnome.nix) says where Home Assistant is and
+// which file holds the household screen's Home Assistant token (a non-admin
+// user), readable by the session's account. Scenes and scripts are made in
+// Home Assistant's UI; this only lists and runs them.
 
 import GLib from 'gi://GLib';
 

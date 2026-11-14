@@ -20,13 +20,11 @@
 #                The page's changes live in /var/lib/private/balaur-ai/settings.json,
 #                over the defaults below.
 #   ai           the clients, on every machine: finds the gateway in the registry
-#                (127.0.0.1 on the gateway itself) and points everything at it: the
-#                voice assistant's default model (assistant.nix), pi, the OS agent
-#                (agent.nix), and OPENAI_BASE_URL/OPENAI_API_KEY for CLI agents and SDKs.
+#                (127.0.0.1 on the gateway itself) and points everything at it: pi,
+#                the OS agent (agent.nix), and OPENAI_BASE_URL/OPENAI_API_KEY for CLI
+#                agents and SDKs.
 #                ANTHROPIC_BASE_URL is deliberately left alone: Claude Code stays on
 #                Anthropic.
-#
-# Speech (Voxtral) and web search stay on Mistral directly: Strata does neither.
 #
 #   curl -s tablet:4000/health | jq        which tiers are up, and why not
 #   journalctl -u balaur-ai                 (on the tablet) which tier answered what
@@ -82,7 +80,7 @@ in
       cfg = config.balaur.ai-gateway;
       me = config.networking.hostName;
       useSops = options ? sops;
-      keySecret = "assistant-llm-key"; # the fleet's Mistral key, shared with the assistant
+      keySecret = "assistant-llm-key"; # the fleet's Mistral key (named for the voice assistant it was first for)
       domain = config.balaur.web.domain or null;
 
       # The fleet's GPU machines. Reading another host's config is lazy and only
@@ -144,11 +142,8 @@ in
           apiKeyFile = lib.mkOption {
             type = lib.types.path;
             default =
-              if useSops then
-                config.sops.secrets.${keySecret}.path
-              else
-                "/var/lib/secrets/balaur-assistant-llm-key";
-            defaultText = lib.literalMD "the `assistant-llm-key` sops secret with the `secrets` aspect, else the assistant's own key file";
+              if useSops then config.sops.secrets.${keySecret}.path else "/var/lib/secrets/balaur-ai-key";
+            defaultText = lib.literalMD "the `assistant-llm-key` sops secret with the `secrets` aspect, else `/var/lib/secrets/balaur-ai-key`, put there by hand";
             description = "File with the remote API key. Read by systemd (LoadCredential), so its owner does not matter.";
           };
         };
@@ -171,7 +166,6 @@ in
               Restart = "always";
               RestartSec = 2;
               DynamicUser = true;
-              # It sits between the voice assistant and its answer.
               CPUWeight = 1000;
               MemoryMax = "256M";
               CapabilityBoundingSet = "";
@@ -206,8 +200,7 @@ in
             }
           ];
         }
-        # Declared here too so the gateway works without the assistant; sops-nix
-        # merges this with the assistant's own declaration of the same secret.
+        # The key from the repo; systemd reads it (LoadCredential), so it stays root's.
         (lib.optionalAttrs useSops { sops.secrets.${keySecret} = { }; })
       ];
     };

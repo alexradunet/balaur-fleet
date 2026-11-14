@@ -168,7 +168,7 @@ in
       );
       haveBuilders = builders != { };
 
-      # ---- the Balaur app's Home page (gnome/CONTRACT.md) ----
+      # ---- the Balaur app's Home page (gnome/app) ----
       # This machine's services, with their live systemd state, then the web UIs of
       # the other machines, each under "On <host>", reached at its `address` over
       # the tailnet (which `network` trusts). Their units live on another machine,

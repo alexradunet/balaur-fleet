@@ -39,7 +39,7 @@ Skill `check-change`. In short: `nix flake check --no-build` evaluates every hos
 refactor leaves every host's `drvPath` unchanged; build what you touched with
 `nixos-rebuild build --flake .#<host>` and read `nix store diff-closures`. A change to
 a shared aspect (base, fleet, home, secrets, network, gnome, dev, files,
-torrents-client, assistant, auto-deploy, ai, agent) affects every host: check them all. GitHub Actions runs the same evaluation on every
+torrents-client, auto-deploy, ai, agent) affects every host: check them all. GitHub Actions runs the same evaluation on every
 push (`.github/workflows/check.yml`); it reports, it does not stop a deploy.
 
 ## Deploying: push, and every machine follows
@@ -72,7 +72,7 @@ Skill `secrets`. They are sops files in `secrets/`, decrypted at activation into
 `/run/secrets` with each machine's SSH host key: `secrets/balaur.yaml` for what more
 than one machine needs, `secrets/hosts/<host>.yaml` (`balaur.secrets.hostFile`) for
 what one machine needs. A machine without the `secrets` aspect keeps its few keys in
-`/var/lib/secrets` (`balaur-assistant-login`, `balaur-photos-login`).
+`/var/lib/secrets` (`balaur-photos-login`).
 
 ## The user
 
