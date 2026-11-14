@@ -74,6 +74,10 @@ let
             path = folder;
             devices = lib.attrNames peers;
             type = "sendreceive";
+            # Permissions are each machine's own: the setgid folder, the group and
+            # the umask set them. Synced permission bits would make Syncthing chmod
+            # folders it does not own (the import made them the owner's).
+            ignorePerms = true;
             # A machine keeps the old version of a change it receives, so
             # every machine together holds every old version for 30 days
             # (plan 001, S4).
