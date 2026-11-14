@@ -91,6 +91,39 @@
         '';
       };
 
+      # The same movement as a motion sensor in Home Assistant, when this machine runs
+      # it (home-assistant.nix): binary_sensor.<host>_motion, on with movement and off
+      # after a quiet minute, for automations ("no one in the room: lights off").
+      # duet-motion-hass calls a webhook of the local Home Assistant at most every
+      # 20 s while there is movement; each call restarts the sensor's minute.
+      # The webhook only answers the home network, and its id is no secret (the repo
+      # is public): someone on the LAN could fake movement, not read anything.
+      hassMotion = rgbir && config.services.home-assistant.enable;
+      me = config.networking.hostName;
+      webhookId = "balaur-${me}-camera-motion";
+      hassPort = config.services.home-assistant.config.http.server_port or 8123;
+      motionHass = pkgs.writeShellApplication {
+        name = "duet-motion-hass";
+        runtimeInputs = [
+          pkgs.inotify-tools
+          pkgs.curl
+          pkgs.coreutils
+        ];
+        text = ''
+          while :; do
+            if [ ! -d "${runDir}" ]; then sleep 5; continue; fi
+            # One event per inotifywait: a replaced directory is watched anew.
+            # Exit 2 is the timeout, so a stale watch never lasts long.
+            name="$(inotifywait -q -t 600 -e close_write --format '%f' "${runDir}")" || continue
+            [ "$name" = "${baseNameOf motionFile}" ] || continue
+            curl -fsS -m 5 -X POST -H 'Content-Type: application/json' -d '{}' \
+              "http://127.0.0.1:${toString hassPort}/api/webhook/${webhookId}" \
+              || echo "Home Assistant did not take the movement" >&2
+            sleep 20
+          done
+        '';
+      };
+
       gstPlugins =
         (with pkgs.gst_all_1; [
           gst-plugins-bad
@@ -275,7 +308,7 @@
           environment = {
             V4L2_DEVICE_FILE = deviceFile;
           }
-          // lib.optionalAttrs motionWake {
+          // lib.optionalAttrs (motionWake || hassMotion) {
             DUET_MOTION_FILE = motionFile;
           }
           // lib.optionalAttrs (!rgbir) {
@@ -321,6 +354,46 @@
             RestartSec = 3;
           };
         };
+
+        systemd.services.duet-motion-hass = lib.mkIf hassMotion {
+          description = "Camera movement as a motion sensor in Home Assistant";
+          wantedBy = [ "multi-user.target" ];
+          after = [
+            "duet-camera-relay.service"
+            "home-assistant.service"
+          ];
+          serviceConfig = {
+            ExecStart = lib.getExe motionHass;
+            Restart = "always";
+            RestartSec = 5;
+            DynamicUser = true;
+            ProtectSystem = "strict";
+            ProtectHome = true;
+            PrivateTmp = true;
+          };
+        };
+
+        services.home-assistant.config.template = lib.mkIf hassMotion [
+          {
+            triggers = [
+              {
+                trigger = "webhook";
+                webhook_id = webhookId;
+                local_only = true;
+                allowed_methods = [ "POST" ];
+              }
+            ];
+            binary_sensor = [
+              {
+                name = "${me} motion";
+                unique_id = webhookId;
+                device_class = "motion";
+                state = "on";
+                auto_off = 60;
+              }
+            ];
+          }
+        ];
 
         # Your login can use the camera too (the household account already is in `video`).
         users.users.${cfg.user}.extraGroups = [ "video" ];
