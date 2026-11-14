@@ -68,24 +68,39 @@ flowchart LR
 
 - `pkgs/lifelog.nix` (`buildGoModule`, `CGO_ENABLED=0`, its tests in `doCheck`), in the overlay of
   `modules/flake/packages.nix`.
+- **Done (2026-11-14):** it builds, and its tests run in the build sandbox (`git` in `nativeCheckInputs`).
 
 ## P3 — the aspects
 
-- `lifelog` (tablet): the group, `/srv/life`, the Syncthing folder, `.stignore`, and the keeper: `lifelog-keep`, a
-  `writeShellApplication` with `git`, `coreutils`, `findutils` and `lifelog` as its `runtimeInputs`, run as a
-  oneshot service by a timer every minute (a system user in the group `lifelog`, the git dir in `StateDirectory`,
-  hardening).
-- `lifelog-client` (laptop, pc): the group with the owner in it, `/srv/life`, the Syncthing folder, the CLI,
-  `.stignore`.
-- Both read the registry for the peers, like `files.nix`, and work without the `files` aspect.
+- `lifelog` (tablet): the group, `/srv/life`, the Syncthing folder, and the keeper: `lifelog-keep`, a
+  `writeShellApplication` with `git`, `coreutils`, `findutils`, `gnugrep` and `lifelog` as its `runtimeInputs`, run
+  as a oneshot service by a timer every minute (a system user in the group `lifelog`, the git dir in
+  `StateDirectory`, hardening, no network).
+- `lifelog-client` (laptop, pc): the group with the owner in it, `/srv/life`, the Syncthing folder, the CLI.
+- Both read the registry for the peers, like `files.nix`, and work without the `files` aspect. The Syncthing
+  folder's ignore list is declared (`ignorePatterns`), so no `.stignore` is written by hand.
+- **Done (2026-11-14), not deployed:** `modules/lifelog.nix`; the tablet lists `lifelog`, the laptop and the pc
+  `lifelog-client`. All three hosts evaluate and build. The closure diffs hold only lifelog's parts (the keeper's
+  units on the tablet; Obsidian and Electron on the laptop and the pc; the mirror's units on the pc).
+- **The keeper, exercised:** the built `lifelog-keep`, with its two paths and its quiet time changed, ran through a
+  scenario on a synthetic folder (first run, an error, an acknowledgement that does not clear an error, a fix, a
+  loss, no new check without a change, the acknowledgement of a loss, a change inside the quiet window). Each step
+  moved the refs and wrote or removed `_check.md` as design §4 says. The first run found a bug that the build did
+  not: `git init --bare` refuses to run while `GIT_WORK_TREE` is set; the script now creates the git dir first.
+- **Not yet seen on the tablet:** the keeper under systemd (its user, its hardening, the group's permissions), and
+  the time of a check on the tablet's CPU.
 
 ## P4 — integrations
 
-- `balaur.services`: an entry for the keeper unit (no web UI).
+- `balaur.services`: an entry for the keeper's timer (no web UI).
 - `backup.nix`: `/var/lib/lifelog/life.git` when the machine has `lifelog`. The `backup` aspect itself waits for
   the owner's repository (handoff item 1).
-- Obsidian through home-manager on the laptop and the pc, with its vault on `/srv/life`.
-- The pc: a nightly `git fetch` of `life.git` from the tablet into a mirror clone.
+- Obsidian through home-manager on the laptop and the pc. The owner opens `/srv/life` as a vault once: Obsidian
+  rewrites its own list of vaults, so the aspect does not declare it.
+- The pc: `lifelog-mirror`, a nightly `git clone --mirror` / `remote update` of the history from the tablet over
+  SSH, as the owner, into `~/.local/share/lifelog/life.git`. It needs the owner's SSH key on the pc to reach the
+  tablet without a passphrase prompt; that is not checked yet.
+- **Done (2026-11-14), not deployed**, in the same change as P3.
 
 ## P5, P6 — import and switch
 

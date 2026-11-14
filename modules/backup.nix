@@ -8,6 +8,8 @@
 #
 #   home-assistant   /var/lib/hass, without the recorder's history database
 #   aminte           its nightly snapshots (consistent copies of life.db)
+#   lifelog          the keeper's git history of the life folder (the folder itself
+#                    is on every machine that has a lifelog aspect)
 #   adblock          AdGuard Home's settings and statistics
 #   media            Jellyfin's users, libraries and watch state (not its caches)
 #   torrents         qBittorrent's settings and the torrents it is seeding
@@ -33,6 +35,7 @@
       has = name: config.balaur ? ${name};
       found =
         lib.optionals (has "aminte") [ "/var/lib/aminte/snapshots" ]
+        ++ lib.optionals (has "lifelog") [ "/var/lib/lifelog/life.git" ]
         ++ lib.optionals config.services.home-assistant.enable [ config.services.home-assistant.configDir ]
         ++ lib.optionals config.services.adguardhome.enable [ "/var/lib/private/AdGuardHome" ]
         ++ lib.optionals config.services.jellyfin.enable [ config.services.jellyfin.dataDir ]

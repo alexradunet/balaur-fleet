@@ -57,6 +57,8 @@ in
           adblock
           web
           aminte
+          # The life log as files, beside aminte until it replaces it: the keeper (lifelog/).
+          lifelog
           home-assistant
           camera
         ])

@@ -8,9 +8,9 @@ the tablet, the laptop and the pc. A keeper on the tablet commits every settled 
 - [Plan 001](docs/plans/001-spikes.md): the spikes and their results.
 - [Plan 002](docs/plans/002-into-the-fleet.md): the way into the fleet.
 
-**Status:** `lifelog check` holds every rule of design §6: the rules of the tree, and with `-git-dir` the rules that
-compare the refs `seen` and `live`. The commands that write files, the package and the aspects follow
-([plan 002](docs/plans/002-into-the-fleet.md)).
+**Status:** the program (`check`, `add`, `merge`, `rename-links`, `restore`), its package (`pkgs/lifelog.nix`) and
+its aspects (`modules/lifelog.nix`: `lifelog` on the tablet, `lifelog-client` on the laptop and the pc) exist and
+build; not deployed yet. The importer from aminte follows ([plan 002](docs/plans/002-into-the-fleet.md)).
 
 ```sh
 nix develop                       # from the repo root: Go (the tests also need git)

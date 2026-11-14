@@ -58,6 +58,9 @@ in
           # aminte runs on the tablet; this is the dev side (aminte-prod, the binaries), and
           # what gives pi its aminte role here (pi-aminte, agent.nix).
           aminte-dev
+          # The life log as files: the folder, `lifelog`, Obsidian, and the nightly mirror of
+          # the keeper's history (balaur.lifelog-client.mirrorFrom below).
+          lifelog-client
           gaming
           # What to craft, buy and sell in WoW: Forever, from Auctionator's scans.
           wow-market
@@ -111,6 +114,8 @@ in
       balaur = {
         # The existing login on this machine; its password is kept as is.
         user = "alex";
+        # A second copy of the life log's history, fetched nightly from the keeper.
+        lifelog-client.mirrorFrom = "tablet";
         # A folder of the old disk, served to the home network (no login: dlna.nix).
         dlna.dirs = [ "/mnt/old-ssd/True Strength" ];
         # It stays at home, wired or on the home Wi-Fi: SSH and the Syncthing UI on

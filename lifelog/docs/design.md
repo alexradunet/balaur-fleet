@@ -83,9 +83,9 @@ stateDiagram-v2
 
 ## 4. The keeper (tablet)
 
-1. **Settled** means: no change for 60 seconds in the content folders. The keeper does not wait for machines; a
-   machine that is disconnected is named in the commit message. A writer slower than the window can give a half
-   state ([plan 001](plans/001-spikes.md), S1): `live` records it, and the checker reports what it sees.
+1. **Settled** means: no change for 60 seconds in the content folders. The keeper does not wait for machines. A
+   writer slower than the window can give a half state ([plan 001](plans/001-spikes.md), S1): `live` records it,
+   and the checker reports what it sees.
 2. Commit the settled state to `live`. The git dir's `info/exclude` holds `.stfolder`, `.stversions/`,
    `.syncthing.*.tmp`, `~syncthing~*`, `.stignore` and `.obsidian/`.
 3. Run the checker: errors on the tree; losses and warnings against `seen`.
@@ -183,3 +183,5 @@ Each rule applies only in the content folders.
 - A client app (Flutter); if it comes, it calls the Go checker through FFI.
 - Period pages, until they are used.
 - The counts of errors, losses and warnings on the Balaur app's Home page (a status file the keeper writes).
+- The machines that were disconnected, in each commit message: the keeper would need Syncthing's API key, which
+  only the `syncthing` user can read.

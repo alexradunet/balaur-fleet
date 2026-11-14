@@ -7,6 +7,8 @@
 let
   overlay = final: _prev: {
     duet-camera = final.callPackage ../../pkgs/duet-camera.nix { };
+    # lifelog, the life log as files (lifelog/, modules/lifelog.nix).
+    lifelog = final.callPackage ../../pkgs/lifelog.nix { };
     balaur-app = final.callPackage ../../pkgs/balaur-app.nix { };
     balaur-shell-extension = final.callPackage ../../pkgs/balaur-shell-extension.nix { };
     # aminte (github.com/alexradunet/aminte), served by modules/aminte.nix.
@@ -21,6 +23,7 @@ in
     let
       inherit (pkgs.extend overlay)
         duet-camera
+        lifelog
         balaur-app
         balaur-shell-extension
         aminte
@@ -30,6 +33,7 @@ in
       packages = {
         inherit
           duet-camera
+          lifelog
           balaur-app
           balaur-shell-extension
           aminte
@@ -41,10 +45,11 @@ in
         default = balaur-app;
       };
 
-      # duet-camera, the app and the Shell extension run their tests while building.
+      # duet-camera, lifelog, the app and the Shell extension run their tests while building.
       checks = {
         inherit
           duet-camera
+          lifelog
           balaur-app
           balaur-shell-extension
           ;

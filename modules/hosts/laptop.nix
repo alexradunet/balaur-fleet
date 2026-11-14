@@ -56,6 +56,8 @@ in
           # This machine's own.
           # aminte runs on the tablet; this is the dev side (aminte-prod, the binaries).
           aminte-dev
+          # The life log as files: the folder, `lifelog`, Obsidian (the keeper is on the tablet).
+          lifelog-client
           gaming
           # Moonlight, to play what the pc streams (Sunshine there).
           game-streaming-client
