@@ -1,0 +1,48 @@
+A small tree of every kind that breaks no rule.
+-- want --
+-- journal/2026-11-14.md --
+Morning walk with [[Ana Pop]] in [[Cluj]]. #walk
+-- people/Ana Pop.md --
+---
+aliases:
+  - Ana
+born: 1990-04-02
+part-of: "[[Friends]]"
+day:
+---
+A friend.
+-- pages/Friends.md --
+---
+aliases: []
+---
+People I know.
+-- pages/Health/Iron.md --
+A page in a subfolder of pages/.
+-- places/Cluj.md --
+---
+day: 2026-01-01
+---
+A city.
+-- metrics/weight.md --
+---
+unit: kg
+min: 20
+max: 300
+daily: true
+---
+Morning weight.
+-- metrics/weight/2026.laptop.csv --
+day,taken_at,value,source
+2026-11-14,2026-11-14T07:02:00+02:00,81.4,manual
+2026-11-15,,81.2,manual
+2026-11-16,2026-11-16T05:00:00Z,8.1e1,scale:withings
+-- files/2026/receipt.md --
+---
+sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+mime: image/jpeg
+---
+The text of a receipt.
+-- files/2026/receipt.jpg --
+not a real picture; the checker does not read pictures
+-- files/2026/.syncthing.receipt2.md.tmp --
+a file Syncthing is still writing is not read

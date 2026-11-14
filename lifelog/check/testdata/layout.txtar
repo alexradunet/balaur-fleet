@@ -1,0 +1,41 @@
+The layout of journal/, files/ and the page folders.
+-- want --
+error day-page "journal/2026-02-30.md"
+error day-page "journal/notes.md"
+error duplicate-file "files/2026/a.md"
+error duplicate-file "files/2026/b.md"
+error layout "files/2026/scan.pdf"
+error layout "files/notes.md"
+error layout "journal/2026"
+error layout "pages/photo.jpg"
+error part-of-day-page "journal/2026-11-14.md"
+error range "metrics/sleep.md"
+error sha256 "files/2026/c.md"
+-- journal/notes.md --
+-- journal/2026-02-30.md --
+-- journal/2026-11-14.md --
+---
+part-of: "[[Friends]]"
+---
+-- journal/2026/2026-01-01.md --
+-- pages/Friends.md --
+-- pages/photo.jpg --
+-- metrics/sleep.md --
+---
+min: 12
+max: 4
+---
+-- files/2026/a.md --
+---
+sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+---
+-- files/2026/b.md --
+---
+sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+---
+-- files/2026/scan.pdf --
+-- files/notes.md --
+-- files/2026/c.md --
+---
+sha256: xyz
+---

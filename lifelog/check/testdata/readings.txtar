@@ -1,0 +1,41 @@
+The rules of the readings.
+-- want --
+error conflict-copy "metrics/weight/2026.laptop.sync-conflict-20261114-141957-RNZH7UE.csv"
+error csv-fields "metrics/weight/2026.laptop.csv"
+error csv-header "metrics/weight/2025.laptop.csv"
+error layout "metrics/weight/notes.txt"
+error metric-page-missing "metrics/steps/2026.laptop.csv"
+error reading-day "metrics/weight/2026.laptop.csv"
+error reading-range "metrics/weight/2026.laptop.csv"
+error reading-source "metrics/weight/2026.laptop.csv"
+error reading-time "metrics/weight/2026.laptop.csv"
+error reading-value "metrics/weight/2026.laptop.csv"
+warning duplicate-reading "metrics/weight/2026.laptop.csv"
+warning duplicate-reading "metrics/weight/2026.pc.csv"
+-- metrics/weight.md --
+---
+unit: kg
+min: 20
+max: 300
+---
+-- metrics/weight/2025.laptop.csv --
+date,value
+2025-01-01,80
+-- metrics/weight/2026.laptop.csv --
+day,taken_at,value,source
+2026-11-14,,81,4,manual
+2026-11-14,,inf,manual
+2026-11-15,,400,manual
+2026-13-01,,80,manual
+2026-11-16,07:00,80,manual
+2026-11-16,,80,Manual
+2026-11-17,,80.5,manual
+-- metrics/weight/2026.pc.csv --
+day,taken_at,value,source
+2026-11-17,,80.5,manual
+-- metrics/steps/2026.laptop.csv --
+day,taken_at,value,source
+2026-11-14,,9000,manual
+-- metrics/weight/2026.laptop.sync-conflict-20261114-141957-RNZH7UE.csv --
+day,taken_at,value,source
+-- metrics/weight/notes.txt --

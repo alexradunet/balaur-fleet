@@ -1,0 +1,11 @@
+The path rules. A name in a section line may be a Go string, to hold any bytes.
+-- want --
+error path-character "pages/C#.md"
+error path-character "pages/Sub [draft]"
+error path-nfc "pages/Ros\u0326u.md"
+-- pages/C#.md --
+-- "pages/Ros\u0326u.md" --
+-- "pages/Ro\u0219u.md" --
+NFC: no problem.
+-- pages/Sub [draft]/inside.md --
+A folder that breaks a rule is not read further.

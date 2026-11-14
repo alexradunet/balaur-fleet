@@ -33,7 +33,7 @@ which every user and the builders can read.
 |---|---|---|
 | configuration | Nix (`modules/lifelog.nix`) | the group, `/srv/life`, `.stignore`, the Syncthing folder, the keeper's user, service and timer, the git dir, restic's paths, the `balaur.services` entry, Obsidian, the pc's mirror fetch |
 | the keeper | shell (`pkgs.writeShellApplication`), run by a systemd timer every minute | when no content file changed for 60 s: `git add -A`, `git commit` to `live`, `lifelog check`, move `checked` and `seen`, write or remove `_check.md` |
-| the checker and the commands that write files | Go (`lifelog/`, standard library first) | `check` (the rules of design §6, with its cache by blob hash), `add`, `merge`, `rename-links`, `restore`, `import` |
+| the checker and the commands that write files | Go (`lifelog/`, standard library first) | `check` (the rules of design §6; it reads the whole tree each run, as spike S5 allows), `add`, `merge`, `rename-links`, `restore`, `import` |
 
 ```mermaid
 flowchart LR

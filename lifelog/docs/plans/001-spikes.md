@@ -53,6 +53,19 @@ flowchart LR
   per year). Time a whole-tree check with a cold cache and with a warm cache (by blob hash).
 - Pass: the warm check takes seconds, so the keeper can run it after each settled state.
 
+### S5, run (2026-11-14)
+
+- Where: the pc (AMD Ryzen AI 9 HX 370), Go 1.26.10 from the fleet's dev shell, ext4. The test is
+  `lifelog/check/scale_test.go` (`LIFELOG_SCALE=1 go test ./check -run TestScale -v`), with a fixed seed.
+- Tree: 18 262 day pages, 5 000 pages with aliases and links, 50 metrics with one CSV per year for each of three
+  machines, 913 100 reading lines. Written in 0.8 s.
+- Result: a whole-tree check of the rules that need only the tree takes **1.2–1.3 s** (three runs), with 0
+  problems. The page cache was warm (the files were just written); that is also the keeper's normal case, since it
+  checks a folder that Syncthing has just written.
+- **Pass, and the cache by blob hash is not needed** for these rules: the keeper can read the whole tree each run.
+  The checker uses one core; the tablet's CPU is slower and is measured in plan 002, P3. The rules that read git
+  history (renames, the titles of deleted pages) are not in this measurement.
+
 ## Results (2026-11-14)
 
 Setup: one Linux machine (NixOS), Syncthing v2.1.7, three instances A and B (desktops) and S (server), each with its
@@ -87,7 +100,8 @@ flowchart LR
   changes. Trash-can versioning kept the old content only on the instances that *received* the change: A had P060
   only, B had P050 only, S had both. The writing device never keeps its own old version. So versioning on every
   device is necessary, and the server's copy is the complete one.
-- **S5: not run.** Go is not on the PATH of this machine; the generator and the checker need it.
+- **S5: not run on 2026-11-14 in the first lab.** Go was not on the PATH of that machine. It ran later the same day;
+  see "S5, run" below.
 
 ### What changes in the design
 

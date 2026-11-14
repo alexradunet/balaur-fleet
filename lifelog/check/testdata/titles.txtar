@@ -1,0 +1,15 @@
+Titles and aliases share one key space, compared after Unicode case folding.
+-- want --
+error duplicate-title "pages/Ana.md"
+error duplicate-title "pages/Iron.md"
+error duplicate-title "people/Ana Pop.md"
+error duplicate-title "places/iron.md"
+-- pages/Iron.md --
+-- places/iron.md --
+-- people/Ana Pop.md --
+---
+aliases:
+  - Ana
+  - ana pop
+---
+-- pages/Ana.md --

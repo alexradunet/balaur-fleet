@@ -1,0 +1,45 @@
+The frontmatter grammar and the key lists.
+-- want --
+error date "people/Dan.md"
+error frontmatter "pages/Indented.md"
+error frontmatter "pages/Open.md"
+error frontmatter "pages/Twice.md"
+error frontmatter "pages/Unquoted.md"
+error frontmatter "places/List.md"
+warning unknown-key "pages/Tagged.md"
+warning unresolved-part-of "pages/Lonely.md"
+-- pages/Unquoted.md --
+---
+part-of: [[Friends]]
+---
+-- pages/Tagged.md --
+---
+tags:
+  - health
+---
+-- pages/Twice.md --
+---
+day: 2026-01-01
+day: 2026-01-02
+---
+-- people/Dan.md --
+---
+born: 1990-13-01
+---
+-- pages/Open.md --
+---
+day: 2026-01-01
+-- pages/Indented.md --
+---
+ day: 2026-01-01
+---
+-- places/List.md --
+---
+day:
+  - 2026-01-01
+  - 2026-01-02
+---
+-- pages/Lonely.md --
+---
+part-of: "[[Nowhere]]"
+---
