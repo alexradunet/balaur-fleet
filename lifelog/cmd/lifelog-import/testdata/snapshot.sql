@@ -15,7 +15,7 @@ INSERT INTO entities VALUES
   (1, 'page',   '2026-11-14', NULL, 1, '2026-11-14T06:00:00.000Z', NULL, 'Walked with [[Ana]] in [[Cluj]]. Read about [[C#]].'),
   (2, 'person', 'ana pop',    NULL, 0, '2026-01-02T10:00:00.000Z', NULL, 'A friend.'),
   (3, 'page',   'cluj',       NULL, 0, '2025-05-01T09:00:00.000Z', NULL, 'A city.'),
-  (4, 'page',   'c#',         NULL, 0, '2025-06-01T09:00:00.000Z', NULL, 'A language.'),
+  (4, 'page',   'c#',         NULL, 0, '2025-06-01T09:00:00.000Z', NULL, 'A' || char(13) || char(10) || 'language.'),
   (5, 'metric', 'mood',       NULL, 0, '2024-01-01T08:00:00.000Z', NULL, 'Mood of the day.'),
   (6, 'file',   'receipt',    '2026-03-03', 0, '2026-03-04T12:00:00.000Z', NULL, 'The text of a receipt.'),
   (7, 'person', 'dan',        NULL, 0, '2020-01-01T08:00:00.000Z', '2021-01-01T08:00:00.000Z', 'Dan the barber.'),

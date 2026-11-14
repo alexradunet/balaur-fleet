@@ -60,7 +60,7 @@ func TestImport(t *testing.T) {
 		"journal/2026-11-14.md": "Walked with [[Ana]] in [[Cluj]]. Read about [[C#]].\n",
 		"people/Ana Pop.md":     "---\naliases:\n  - Ana\nborn: 1990-04-02\n---\nA friend.\n",
 		"pages/Cluj.md":         "---\npart-of: \"[[Places]]\"\n---\nA city.\n\nAlso filed in: [[Cities]]\n",
-		"pages/C＃.md":           "---\naliases:\n  - C#\n---\nA language.\n",
+		"pages/C＃.md":           "---\naliases:\n  - C#\n---\nA\nlanguage.\n",
 		"metrics/Mood.md":       "---\nunit: 1-5\nmin: 1\nmax: 5\ndaily: true\n---\nMood of the day.\n",
 		"files/2026/Receipt.md": "---\nday: 2026-03-03\nsha256: " + strings.Repeat("a", 64) + "\nmime: image/jpeg\n---\nThe text of a receipt.\n",
 		"pages/Cities.md":       "---\n---\n---\nnot frontmatter, a body that starts with a rule\n",
@@ -102,7 +102,7 @@ func TestImport(t *testing.T) {
 			t.Errorf("the imported folder: %s %s %s: %s", p.Class, p.Rule, p.Path, p.Message)
 		}
 	}
-	for _, want := range []string{`"C#" is now "C＃"`, "filed in 2 categories", "2 readings were earlier values", "1 were retractions"} {
+	for _, want := range []string{`"C#" is now "C＃"`, "filed in 2 categories", "1 pages had CRLF", "2 readings were earlier values", "1 were retractions"} {
 		if !strings.Contains(report.String(), want) {
 			t.Errorf("the report does not hold %q:\n%s", want, report.String())
 		}

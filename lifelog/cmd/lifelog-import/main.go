@@ -118,6 +118,20 @@ func importAll(dbPath, folder, gitDir string, report io.Writer) error {
 	}
 	var notes []string
 	note := func(format string, a ...any) { notes = append(notes, fmt.Sprintf(format, a...)) }
+	// A body with CRLF in it (pasted text) would mix line endings, which the
+	// checker calls damage: LF only.
+	crlf := 0
+	for _, e := range ents {
+		if strings.Contains(e.body, "\r\n") {
+			e.body = strings.ReplaceAll(e.body, "\r\n", "\n")
+			if !e.isDeleted {
+				crlf++
+			}
+		}
+	}
+	if crlf > 0 {
+		note("%d pages had CRLF line endings in their text; they have LF only now", crlf)
+	}
 	placeAll(ents, note)
 	for _, e := range ents {
 		frontmatter(e, byID, note)
