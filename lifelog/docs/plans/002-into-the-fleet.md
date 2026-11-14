@@ -23,6 +23,26 @@ flowchart TD
 - The first version integrates restic (through the `backup` aspect), the Balaur app (a `balaur.services` entry) and
   Obsidian (home-manager). There is no pi role in the first version.
 
+## Who does what (owner, 2026-11-14)
+
+Each part lives where the fleet already puts that kind of work. The Nix language evaluates once, at build time; it
+cannot run while the machine runs, and it must never read `/srv/life`: whatever Nix reads goes into `/nix/store`,
+which every user and the builders can read.
+
+| part | language | what it does |
+|---|---|---|
+| configuration | Nix (`modules/lifelog.nix`) | the group, `/srv/life`, `.stignore`, the Syncthing folder, the keeper's user, service and timer, the git dir, restic's paths, the `balaur.services` entry, Obsidian, the pc's mirror fetch |
+| the keeper | shell (`pkgs.writeShellApplication`), run by a systemd timer every minute | when no content file changed for 60 s: `git add -A`, `git commit` to `live`, `lifelog check`, move `checked` and `seen`, write or remove `_check.md` |
+| the checker and the commands that write files | Go (`lifelog/`, standard library first) | `check` (the rules of design §6, with its cache by blob hash), `add`, `merge`, `rename-links`, `restore`, `import` |
+
+```mermaid
+flowchart LR
+  T["systemd timer, every minute (Nix)"] --> K["lifelog-keep (shell)"]
+  K -->|"quiet for 60 s?"| G["git add, commit to live"]
+  G --> C["lifelog check (Go): errors, losses, warnings, the text of _check.md"]
+  C --> R["lifelog-keep: move checked and seen; write or remove _check.md"]
+```
+
 ## P0 — the design moves in
 
 - `lifelog/docs/design.md` (fitted to the fleet), `plans/001-spikes.md` (the spikes so far), this plan.
@@ -32,8 +52,13 @@ flowchart TD
 
 - `lifelog/go.mod`, Go from the fleet's dev shell (`nix develop`). Standard library first; a YAML parser is the one
   dependency that may earn its place (frontmatter), and it is argued in the commit that adds it.
-- Packages: the checker (rules of design §6, with test vectors as files under `testdata/`), the keeper loop, the
-  CLI (`add`, `merge`, `rename-links`, `restore`, `check`), the importer.
+- The checker: the rules of design §6, with test vectors as files under `testdata/`. `lifelog check` prints the
+  problems and the text of `_check.md`, and exits non-zero on an error or a loss; it never commits and never
+  writes into the folder.
+- The commands that write files: `add`, `merge`, `rename-links`, `restore`, `import`.
+- There is no keeper loop in Go: the keeper is the shell script of P3.
+- The importer is the only part that reads SQLite. Its dependency (`modernc.org/sqlite`, as aminte uses) stays out of
+  the main binary: a command of its own, or a module of its own.
 - Spike S5 (scale) runs here: a synthetic fifty-year tree and the time of a whole-tree check, cold and warm.
 
 ## P2 — the package
@@ -43,8 +68,10 @@ flowchart TD
 
 ## P3 — the aspects
 
-- `lifelog` (tablet): the group, `/srv/life`, the Syncthing folder, the keeper service (a system user, the git dir
-  in `StateDirectory`, hardening), `.stignore`.
+- `lifelog` (tablet): the group, `/srv/life`, the Syncthing folder, `.stignore`, and the keeper: `lifelog-keep`, a
+  `writeShellApplication` with `git`, `coreutils`, `findutils` and `lifelog` as its `runtimeInputs`, run as a
+  oneshot service by a timer every minute (a system user in the group `lifelog`, the git dir in `StateDirectory`,
+  hardening).
 - `lifelog-client` (laptop, pc): the group with the owner in it, `/srv/life`, the Syncthing folder, the CLI,
   `.stignore`.
 - Both read the registry for the peers, like `files.nix`, and work without the `files` aspect.
