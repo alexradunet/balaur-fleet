@@ -60,7 +60,10 @@ func TestCheckExitCodes(t *testing.T) {
 func keeperGit(t *testing.T, gitDir, folder string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"--git-dir", gitDir, "--work-tree", folder}, args...)...)
+	// No automatic maintenance: a detached git gc would still write into the
+	// temporary folder while the test removes it.
 	cmd.Env = append(os.Environ(), "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null",
+		"GIT_CONFIG_COUNT=2", "GIT_CONFIG_KEY_0=gc.auto", "GIT_CONFIG_VALUE_0=0", "GIT_CONFIG_KEY_1=maintenance.auto", "GIT_CONFIG_VALUE_1=false",
 		"GIT_AUTHOR_NAME=keeper", "GIT_AUTHOR_EMAIL=keeper@example.invalid",
 		"GIT_COMMITTER_NAME=keeper", "GIT_COMMITTER_EMAIL=keeper@example.invalid")
 	if out, err := cmd.CombinedOutput(); err != nil {

@@ -141,13 +141,16 @@ in
 
           # Before GIT_WORK_TREE is set: git init --bare refuses to run with it.
           if [ ! -f "$gitdir/HEAD" ]; then
-            # --shared=group: the owner (in the group) reads the history too.
-            git init -q --bare --shared=group "$gitdir"
+            # The owner (in the group) reads the history too: the unit's UMask 0007
+            # makes what git writes readable by the group.
+            git init -q --bare "$gitdir"
             git --git-dir "$gitdir" symbolic-ref HEAD refs/heads/live
           fi
 
           export GIT_DIR=$gitdir GIT_WORK_TREE=$folder
-          g() { git -c safe.directory="$gitdir" -c user.name="lifelog keeper" -c user.email=keeper@lifelog "$@"; }
+          # gc.autoDetach=false: when git tidies itself, it does so inside this run; a
+          # detached gc would be killed with the rest of the service when it ends.
+          g() { git -c safe.directory="$gitdir" -c gc.autoDetach=false -c user.name="lifelog keeper" -c user.email=keeper@lifelog "$@"; }
           g config diff.renameLimit 0
           mkdir -p "$gitdir/info"
           printf '%s\n' /.stfolder/ /.stversions/ /.stignore '.syncthing.*.tmp' '~syncthing~*.tmp' \

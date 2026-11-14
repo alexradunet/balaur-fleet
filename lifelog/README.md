@@ -10,7 +10,8 @@ the tablet, the laptop and the pc. A keeper on the tablet commits every settled 
 
 **Status:** the program (`check`, `add`, `merge`, `rename-links`, `restore`), its package (`pkgs/lifelog.nix`) and
 its aspects (`modules/lifelog.nix`: `lifelog` on the tablet, `lifelog-client` on the laptop and the pc) exist and
-build; not deployed yet. The importer from aminte follows ([plan 002](docs/plans/002-into-the-fleet.md)).
+build, with the importer from aminte (`lifelog-import`); not deployed yet. What waits for the owner is in
+[plan 002](docs/plans/002-into-the-fleet.md).
 
 ```sh
 nix develop                       # from the repo root: Go (the tests also need git)

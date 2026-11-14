@@ -106,3 +106,33 @@ flowchart LR
 
 - The importer reads the `life-latest.db` that the `aminte` aspect publishes. Both run side by side until the owner
   says lifelog works. Then aminte's aspects, package and flake input go in one commit.
+- **The importer, done (2026-11-14):** `lifelog-import`, a second binary of the package, so that its SQLite
+  dependency (`modernc.org/sqlite`, pure Go) stays out of `lifelog`. It opens the snapshot with `mode=ro` and
+  `immutable=1` (no lock, no `-wal`, no `-shm`), refuses a folder that is not empty or a git dir that exists, builds
+  `live` with `git fast-import` (design §8), checks it out into the folder, and prints a report of what it renamed
+  or left out. Tested on a synthetic snapshot (`cmd/lifelog-import/testdata/snapshot.sql`), and once by hand on a
+  synthetic database made with aminte's real `docs/schema/schema.sql` (its CHECKs and triggers accepted the rows;
+  aminte's seeded metric Mood came through; `lifelog check` found no problem in the result). It has not read the
+  owner's data.
+
+### P5, step by step (needs the owner's word: it reads the real snapshot)
+
+After the deploy, on the tablet, as the owner. The import goes to a private folder first, because what the
+importer writes has the owner's umask.
+
+```sh
+sudo systemctl stop lifelog-keeper.timer
+install -d -m 0700 ~/lifelog-import
+lifelog-import -db /srv/files/shared/aminte/life-latest.db \
+  -folder ~/lifelog-import/life -git-dir ~/lifelog-import/life.git > ~/lifelog-import/report.md
+lifelog check ~/lifelog-import/life          # read the report and the problems first
+sudo rm -rf /var/lib/lifelog/life.git /var/lib/lifelog/reported /var/lib/lifelog/last-run
+sudo cp -a ~/lifelog-import/life.git /var/lib/lifelog/life.git
+sudo chown -R lifelog:lifelog /var/lib/lifelog/life.git && sudo chmod -R g+rX,o-rwx /var/lib/lifelog/life.git
+cp -a ~/lifelog-import/life/. /srv/life/      # Syncthing brings it to the laptop and the pc
+sudo systemctl start lifelog-keeper.timer
+journalctl -u lifelog-keeper -f              # the first check; then rm -rf ~/lifelog-import
+```
+
+The keeper finds the folder equal to the tip of `live`, so it commits nothing new. Its first check has no `seen`;
+with no error and no loss it sets `seen` and `checked` to the imported state.

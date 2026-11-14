@@ -20,11 +20,13 @@ buildGoModule {
       (root + "/go.sum")
       (lib.fileset.fileFilter (file: file.hasExt "go") root)
       (root + "/check/testdata")
+      (root + "/cmd/lifelog-import/testdata")
     ];
   };
 
-  # golang.org/x/text (Unicode NFC and case folding).
-  vendorHash = "sha256-9gTjOPk7+631t3IVuX8HRSDqFwhqoLskv7adxKBIL6Q=";
+  # golang.org/x/text (Unicode NFC and case folding); modernc.org/sqlite, for
+  # lifelog-import only (a pure-Go SQLite: no cgo).
+  vendorHash = "sha256-R5TjpZRIf0vv5Elgru9YhlV0ri0Hcz51g2zdykVWQBE=";
   env.CGO_ENABLED = "0";
   ldflags = [
     "-s"

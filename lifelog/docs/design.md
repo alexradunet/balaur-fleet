@@ -143,6 +143,7 @@ Each rule applies only in the content folders.
 
 ## 8. The importer from aminte
 
+- `lifelog-import` does it, a binary of its own beside `lifelog` (its SQLite dependency stays out of `lifelog`).
 - It reads `life-latest.db`, the nightly snapshot that the `aminte` aspect publishes, never the live file.
 - It commits each page with its `created_at` as the git author date, so the creation times live in git.
 - It commits each tombstoned page and then deletes it, so the title-reuse warning knows the names that aminte held.
