@@ -123,7 +123,9 @@ Each rule applies only in the content folders.
   (`git diff -M`; the keeper sets `diff.renameLimit` high). When the old target was renamed, the warning names the
   new path, the pages that link to the old name, and the fix (`lifelog rename-links`, or an alias). A rename with a
   large rewrite (below git's 50 % similarity) looks like a delete and an add; the warning then names no new path.
-- The title-reuse warning reads the titles of deleted paths from `git log --diff-filter=D` on `live`, cached.
+- The title-reuse warning reads the titles of deleted paths from `git log -M --diff-filter=D` on `live`, at each run
+  that has a new page. A deleted page and a new page at the same path inside one window look like an edit to git,
+  so that case is not seen.
 - Two titles are one key when they are equal after Unicode case folding, so `Iron` and `iron` cannot both exist.
 - The key lists: all kinds `aliases`, `part-of`, `day` (a dated page that is not a day page); people `name`,
   `born`, `died`; files `sha256`, `mime`; metrics `unit`, `min`, `max`, `daily`. Tags live only as `#tag` in a body.

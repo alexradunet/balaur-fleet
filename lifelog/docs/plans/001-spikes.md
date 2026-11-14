@@ -63,8 +63,12 @@ flowchart LR
   problems. The page cache was warm (the files were just written); that is also the keeper's normal case, since it
   checks a folder that Syncthing has just written.
 - **Pass, and the cache by blob hash is not needed** for these rules: the keeper can read the whole tree each run.
-  The checker uses one core; the tablet's CPU is slower and is measured in plan 002, P3. The rules that read git
-  history (renames, the titles of deleted pages) are not in this measurement.
+  The checker uses one core; the tablet's CPU is slower and is measured in plan 002, P3.
+- The rules that compare `seen` with `live` (the same test, after the tree checks): the tree committed as `seen`
+  (0.6 s), five changes committed as `live`. `History` takes **0.2–0.8 s** and finds exactly the five: a CSV removed
+  and a page emptied (losses), a page shrunk, readings changed, and a deleted page that 4 pages still link to
+  (warnings). Limit: that history has two commits. The cost of `git log` over decades of keeper commits (the
+  title-reuse rule) is not measured.
 
 ## Results (2026-11-14)
 

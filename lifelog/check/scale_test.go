@@ -82,4 +82,29 @@ func TestScale(t *testing.T) {
 			t.Fatalf("the synthetic tree should be clean:\n%s", describe(problems[:min(len(problems), 5)]))
 		}
 	}
+
+	// The history rules: the tree in git as seen, five changes as live.
+	g := &gitRepo{t, root}
+	began = time.Now()
+	g.git("init", "-q", "-b", "live")
+	g.git("update-ref", "refs/heads/seen", g.commit(nil))
+	t.Logf("git: the first commit of the tree in %v", time.Since(began).Round(time.Millisecond))
+	g.commit(map[string]string{
+		"pages/Page 0001.md":               "",
+		"pages/Page 0002.md":               "<empty>",
+		"metrics/metric00/2000.pc.csv":     "",
+		"journal/2026-11-14.md":            "A new day.\n",
+		"metrics/metric01/2026.laptop.csv": csvHeader + "\n2026-11-14,,70,manual\n",
+	})
+	for run := 1; run <= 3; run++ {
+		began = time.Now()
+		problems, err := History(t.Context(), filepath.Join(root, ".git"), "seen", "live")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("history %d: %v, %d problems", run, time.Since(began).Round(time.Millisecond), len(problems))
+		if run == 1 {
+			t.Logf("%s", describe(problems[:min(len(problems), 8)]))
+		}
+	}
 }

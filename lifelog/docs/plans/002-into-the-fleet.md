@@ -50,8 +50,11 @@ flowchart LR
 
 ## P1 — the Go module
 
-- `lifelog/go.mod`, Go from the fleet's dev shell (`nix develop`). Standard library first; a YAML parser is the one
-  dependency that may earn its place (frontmatter), and it is argued in the commit that adds it.
+- `lifelog/go.mod`, Go from the fleet's dev shell (`nix develop`). Standard library first. The one dependency is
+  `golang.org/x/text` (Unicode NFC and case folding); the frontmatter has its own strict parser, not a YAML library.
+- **Done (2026-11-14):** `lifelog check`, with every rule of design §6: the tree rules (`check/check.go`) and the
+  rules that compare `seen` with `live` through git (`check/history.go`, with `-git-dir`). Spike S5 passed for both.
+  The tests need the `git` program.
 - The checker: the rules of design §6, with test vectors as files under `testdata/`. `lifelog check` prints the
   problems and the text of `_check.md`, and exits non-zero on an error or a loss; it never commits and never
   writes into the folder.

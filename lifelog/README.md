@@ -8,13 +8,15 @@ the tablet, the laptop and the pc. A keeper on the tablet commits every settled 
 - [Plan 001](docs/plans/001-spikes.md): the spikes and their results.
 - [Plan 002](docs/plans/002-into-the-fleet.md): the way into the fleet.
 
-**Status:** `lifelog check` holds the rules of design §6 that need only the tree. The rules that compare with git
-history, the commands that write files, the package and the aspects follow ([plan 002](docs/plans/002-into-the-fleet.md)).
+**Status:** `lifelog check` holds every rule of design §6: the rules of the tree, and with `-git-dir` the rules that
+compare the refs `seen` and `live`. The commands that write files, the package and the aspects follow
+([plan 002](docs/plans/002-into-the-fleet.md)).
 
 ```sh
-nix develop                       # from the repo root: Go
+nix develop                       # from the repo root: Go (the tests also need git)
 cd lifelog && go vet ./... && go test ./...
 go run . check /path/to/folder    # exit 0: clean or warnings only; 1: an error or a loss; 3: the run failed
+go run . check -report -git-dir /var/lib/lifelog/life.git /srv/life   # as the keeper runs it: the text of _check.md
 LIFELOG_SCALE=1 go test ./check -run TestScale -v   # spike S5: a fifty-year tree
 ```
 
