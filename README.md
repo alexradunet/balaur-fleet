@@ -82,7 +82,6 @@ modules/
   ai.nix                  the fleet's AI entryway on the tablet (`ai-gateway`: local GPU first, Mistral second) and its clients (`ai`)
   strata.nix              Strata: the local LLM on the pc's GPU, stopped while a game runs
   aminte.nix              aminte, the life log, served on the tablet (`aminte`), and its dev side (`aminte-dev`)
-  memos.nix               Memos: the household's notes and lists, an account each, https://memos.<domain> (the tablet)
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
 gnome/                    everything GNOME-facing, in GJS

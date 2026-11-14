@@ -11,7 +11,6 @@
 #   adblock          AdGuard Home's settings and statistics
 #   media            Jellyfin's users, libraries and watch state (not its caches)
 #   torrents         qBittorrent's settings and the torrents it is seeding
-#   memos            its nightly snapshots (consistent copies of its database)
 #
 # Off the machine, and in Europe: the repository is an off-site restic repository
 # (an SFTP server such as a Hetzner Storage Box, or an S3 bucket at a European
@@ -37,8 +36,7 @@
         ++ lib.optionals config.services.home-assistant.enable [ config.services.home-assistant.configDir ]
         ++ lib.optionals config.services.adguardhome.enable [ "/var/lib/private/AdGuardHome" ]
         ++ lib.optionals config.services.jellyfin.enable [ config.services.jellyfin.dataDir ]
-        ++ lib.optionals config.services.qbittorrent.enable [ "/var/lib/qBittorrent/qBittorrent" ]
-        ++ lib.optionals config.services.memos.enable [ "${config.services.memos.dataDir}/snapshots" ];
+        ++ lib.optionals config.services.qbittorrent.enable [ "/var/lib/qBittorrent/qBittorrent" ];
     in
     {
       options.balaur.backup = {
