@@ -65,7 +65,7 @@ var ContentFolders = []string{"journal", "pages", "people", "places", "metrics",
 
 const (
 	maxPathBytes = 200
-	csvHeader    = "day,taken_at,value,source"
+	CSVHeader    = "day,taken_at,value,source"
 	// The most problems of one rule that one CSV file reports line by line;
 	// beyond that, one more problem gives the count. A spreadsheet app that
 	// rewrites every line must not bury the other findings.
@@ -101,10 +101,6 @@ func set(keys ...string) map[string]bool {
 	return m
 }
 
-type metric struct {
-	min, max *float64
-}
-
 type readingKey struct{ day, takenAt, source string }
 
 type csvFile struct {
@@ -119,7 +115,7 @@ type checker struct {
 	titles   map[string][]string // title key -> the paths that hold it, as a title or an alias
 	partOf   [][2]string         // path, target title
 	shas     map[string][]string // sha256 -> paths
-	metrics  map[string]metric   // metric name -> its page's range
+	metrics  map[string]Range    // metric name -> its page's range
 	csvs     []csvFile
 }
 
@@ -130,7 +126,7 @@ func Tree(fsys fs.FS) ([]Problem, error) {
 		fold:    cases.Fold(),
 		titles:  map[string][]string{},
 		shas:    map[string][]string{},
-		metrics: map[string]metric{},
+		metrics: map[string]Range{},
 	}
 	for _, top := range ContentFolders {
 		if _, err := fs.Stat(fsys, top); errors.Is(err, fs.ErrNotExist) {
@@ -242,7 +238,7 @@ func (c *checker) file(top, p, name string, depth int) error {
 	switch top {
 	case "journal":
 		m := dayPageName.FindStringSubmatch(name)
-		if m == nil || !isDay(m[1]) {
+		if m == nil || !IsDay(m[1]) {
 			c.add(Error, "day-page", p, "rename it to YYYY-MM-DD.md, or move it to pages/",
 				"a file in journal/ must be named by a real day")
 			return nil
@@ -333,7 +329,7 @@ func (c *checker) page(top, p string) error {
 		c.add(Error, "frontmatter", p, ferr.fix, "%s", ferr.msg)
 		return nil
 	}
-	var m metric
+	var m Range
 	for _, key := range sortedKeys(fm) {
 		v := fm[key]
 		if top == "journal" && key == "part-of" {
@@ -368,7 +364,7 @@ func (c *checker) page(top, p string) error {
 			}
 			c.partOf = append(c.partOf, [2]string{p, t[1]})
 		case "day", "born", "died":
-			if !isDay(val) {
+			if !IsDay(val) {
 				c.add(Error, "date", p, "write a real day as YYYY-MM-DD", "%s is not a day: %q", key, val)
 			}
 		case "sha256":
@@ -382,15 +378,15 @@ func (c *checker) page(top, p string) error {
 				c.add(Error, "mime", p, "write a media type such as image/jpeg", "mime is not a media type: %q", val)
 			}
 		case "min", "max":
-			f, ok := parseNumber(val)
+			f, ok := ParseNumber(val)
 			if !ok {
 				c.add(Error, "range", p, "write a plain number, with a point for decimals", "%s is not a number: %q", key, val)
 				continue
 			}
 			if key == "min" {
-				m.min = &f
+				m.Min = &f
 			} else {
-				m.max = &f
+				m.Max = &f
 			}
 		case "daily":
 			if val != "true" && val != "false" {
@@ -399,7 +395,7 @@ func (c *checker) page(top, p string) error {
 		}
 	}
 	if top == "metrics" {
-		if m.min != nil && m.max != nil && *m.min > *m.max {
+		if m.Min != nil && m.Max != nil && *m.Min > *m.Max {
 			c.add(Error, "range", p, "make min at most max", "min is more than max")
 		}
 		c.metrics[strings.TrimSuffix(path.Base(p), ".md")] = m
@@ -466,7 +462,7 @@ func (c *checker) finish() {
 }
 
 // readings holds the rules of one CSV file of readings.
-func (c *checker) readings(f csvFile, m metric, byKey map[readingKey][]string) {
+func (c *checker) readings(f csvFile, m Range, byKey map[readingKey][]string) {
 	if f.text != "" && !strings.HasSuffix(f.text, "\n") {
 		c.add(Warning, "final-newline", f.path, "end the last line with a newline (`lifelog add` does this)",
 			"the file does not end with a newline; the next line added by hand joins the last one")
@@ -474,8 +470,8 @@ func (c *checker) readings(f csvFile, m metric, byKey map[readingKey][]string) {
 	r := csv.NewReader(strings.NewReader(f.text))
 	r.FieldsPerRecord = -1
 	header, err := r.Read()
-	if err != nil || strings.Join(header, ",") != csvHeader {
-		c.add(Error, "csv-header", f.path, "make the first line "+csvHeader, "the first line is not the header %s", csvHeader)
+	if err != nil || strings.Join(header, ",") != CSVHeader {
+		c.add(Error, "csv-header", f.path, "make the first line "+CSVHeader, "the first line is not the header %s", CSVHeader)
 		return
 	}
 	counts := map[string]int{}
@@ -501,15 +497,15 @@ func (c *checker) readings(f csvFile, m metric, byKey map[readingKey][]string) {
 			continue
 		}
 		day, takenAt, val, src := rec[0], rec[1], rec[2], rec[3]
-		if !isDay(day) {
+		if !IsDay(day) {
 			bad("reading-day", "write a real day as YYYY-MM-DD", line, "%q is not a day", day)
 		}
-		if takenAt != "" && !isInstant(takenAt) {
+		if takenAt != "" && !IsInstant(takenAt) {
 			bad("reading-time", "write an instant with its offset, such as 2026-11-14T07:02:00+02:00, or leave it empty", line, "%q is not an instant", takenAt)
 		}
-		if v, ok := parseNumber(val); !ok {
+		if v, ok := ParseNumber(val); !ok {
 			bad("reading-value", "write a plain number, with a point for decimals", line, "%q is not a number", val)
-		} else if (m.min != nil && v < *m.min) || (m.max != nil && v > *m.max) {
+		} else if !m.Holds(v) {
 			bad("reading-range", "correct the value, or the metric's min and max", line, "%s is outside the metric's range", val)
 		}
 		if !sourceText.MatchString(src) {
@@ -525,7 +521,8 @@ func (c *checker) readings(f csvFile, m metric, byKey map[readingKey][]string) {
 	}
 }
 
-func isDay(s string) bool {
+// IsDay reports whether s is a real day, written YYYY-MM-DD.
+func IsDay(s string) bool {
 	if len(s) != 10 {
 		return false
 	}
@@ -533,12 +530,15 @@ func isDay(s string) bool {
 	return err == nil
 }
 
-func isInstant(s string) bool {
+// IsInstant reports whether s is an instant with its offset (RFC 3339).
+func IsInstant(s string) bool {
 	_, err := time.Parse(time.RFC3339, s)
 	return err == nil
 }
 
-func parseNumber(s string) (float64, bool) {
+// ParseNumber reads a value of a reading: a plain, finite number with a point
+// for decimals (no inf, no comma).
+func ParseNumber(s string) (float64, bool) {
 	if !numberText.MatchString(s) {
 		return 0, false
 	}

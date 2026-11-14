@@ -47,7 +47,8 @@ type repo struct {
 }
 
 func (r repo) git(stdin io.Reader, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(r.ctx, "git", append([]string{"--git-dir", r.dir}, args...)...)
+	// safe.directory: the git dir belongs to the keeper's user; the owner reads it too.
+	cmd := exec.CommandContext(r.ctx, "git", append([]string{"--git-dir", r.dir, "-c", "safe.directory=" + r.dir}, args...)...)
 	// The owner's git settings must not change what the rules see: a
 	// different diff.renames or a pager would change the output.
 	cmd.Env = append(os.Environ(), "LC_ALL=C", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_PAGER=cat")

@@ -1,102 +1,88 @@
 // Command lifelog checks the life folder and holds the commands that write
-// into it (docs/design.md). This version has `check`; the others follow
-// (docs/plans/002-into-the-fleet.md).
+// into it (docs/design.md):
+//
+//	lifelog check         the rules of design §6; the keeper runs it
+//	lifelog add           append one reading to this machine's CSV of a metric
+//	lifelog merge         merge a Syncthing conflict copy of a CSV into its file
+//	lifelog rename-links  rewrite the links to a renamed page
+//	lifelog restore       write a file back from git (on the keeper's machine)
 package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io"
 	"os"
-	"time"
-
-	"lifelog/check"
+	"regexp"
+	"strings"
 )
 
-// The exit codes. The keeper reads them: 1 holds `checked` back.
+// The exit codes. The keeper reads them from `check`: 1 holds `checked` back.
 const (
-	exitOK      = 0 // no error and no loss; warnings may be printed
-	exitProblem = 1 // an error or a loss
+	exitOK      = 0 // done; for check: no error and no loss, warnings may be printed
+	exitProblem = 1 // check: an error or a loss; another command: it refused, and changed nothing
 	exitUsage   = 2
-	exitFailed  = 3 // the run did not finish: nothing is known about the folder
+	exitFailed  = 3 // the run did not finish
 )
 
-const usage = "usage: lifelog check [-report] [-git-dir DIR [-seen REF] [-live REF]] FOLDER"
+const usage = `usage:
+  lifelog check [-report] [-git-dir DIR [-seen REF] [-live REF]] [FOLDER]
+  lifelog add [-day DAY] [-at INSTANT] [-source SOURCE] [-machine NAME] METRIC VALUE
+  lifelog merge COPY
+  lifelog rename-links OLD NEW
+  lifelog restore [-git-dir DIR] PATH [REF]
+Each command except check takes -folder (default $LIFELOG_FOLDER, else /srv/life).`
 
 func main() {
-	os.Exit(run(context.Background(), os.Args[1:], os.Stdout, os.Stderr))
+	os.Exit(run(context.Background(), os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
 }
 
-func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
+func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprintln(stderr, usage)
 		return exitUsage
 	}
-	switch args[0] {
-	case "check":
-		return cmdCheck(ctx, args[1:], stdout, stderr)
-	default:
+	cmds := map[string]func() int{
+		"check":        func() int { return cmdCheck(ctx, args[1:], stdout, stderr) },
+		"add":          func() int { return cmdAdd(args[1:], stdout, stderr) },
+		"merge":        func() int { return cmdMerge(args[1:], stdin, stdout, stderr) },
+		"rename-links": func() int { return cmdRenameLinks(args[1:], stdout, stderr) },
+		"restore":      func() int { return cmdRestore(ctx, args[1:], stdout, stderr) },
+	}
+	cmd, ok := cmds[args[0]]
+	if !ok {
 		fmt.Fprintf(stderr, "lifelog: unknown command %q\n%s\n", args[0], usage)
 		return exitUsage
 	}
+	return cmd()
 }
 
-func cmdCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int {
-	fs := flag.NewFlagSet("check", flag.ContinueOnError)
-	fs.SetOutput(stderr)
-	report := fs.Bool("report", false, "print the text of _check.md")
-	gitDir := fs.String("git-dir", "", "the git dir of the folder's history; with it, the rules that compare -seen with -live run too")
-	seen := fs.String("seen", "seen", "the ref of the state the owner last acknowledged")
-	live := fs.String("live", "live", "the ref of the state just committed")
-	if err := fs.Parse(args); err != nil {
-		return exitUsage
+func defaultFolder() string {
+	if f := os.Getenv("LIFELOG_FOLDER"); f != "" {
+		return f
 	}
-	if fs.NArg() != 1 {
-		fmt.Fprintln(stderr, usage)
-		return exitUsage
+	return "/srv/life"
+}
+
+func defaultGitDir() string {
+	if d := os.Getenv("LIFELOG_GIT_DIR"); d != "" {
+		return d
 	}
-	folder := fs.Arg(0)
-	// A missing folder (a disk that did not mount) has no content folders, so
-	// the rules would find nothing; that is a run that did not finish.
-	if st, err := os.Stat(folder); err != nil || !st.IsDir() {
-		fmt.Fprintf(stderr, "lifelog check: the run did not finish: %s is not a folder\n", folder)
-		return exitFailed
-	}
-	problems, err := check.Tree(os.DirFS(folder))
+	return "/var/lib/lifelog/life.git"
+}
+
+var machineText = regexp.MustCompile(`^[a-z0-9-]{1,32}$`)
+
+// machineName is this machine's name in the name of its CSV files: its
+// hostname, in lowercase, up to the first dot.
+func machineName() (string, error) {
+	h, err := os.Hostname()
 	if err != nil {
-		fmt.Fprintf(stderr, "lifelog check: the run did not finish: %v\n", err)
-		return exitFailed
+		return "", err
 	}
-	header := "Run at " + time.Now().Format(time.RFC3339) + "."
-	if *gitDir != "" {
-		if !check.RefExists(ctx, *gitDir, *live) {
-			fmt.Fprintf(stderr, "lifelog check: the run did not finish: %s has no commit %q\n", *gitDir, *live)
-			return exitFailed
-		}
-		if check.RefExists(ctx, *gitDir, *seen) {
-			past, err := check.History(ctx, *gitDir, *seen, *live)
-			if err != nil {
-				fmt.Fprintf(stderr, "lifelog check: the run did not finish: %v\n", err)
-				return exitFailed
-			}
-			problems = append(problems, past...)
-		} else {
-			// The first run: nothing has been acknowledged, so there is no past to compare with.
-			header += " There is no acknowledged state yet, so the rules that compare with the past did not run."
-		}
+	h, _, _ = strings.Cut(strings.ToLower(h), ".")
+	if !machineText.MatchString(h) {
+		return "", fmt.Errorf("the hostname %q is not a machine name (a-z, 0-9, -); pass -machine", h)
 	}
-	if *report {
-		fmt.Fprint(stdout, check.Report(problems, header))
-	} else {
-		for _, p := range problems {
-			fmt.Fprintf(stdout, "%s\t%s\t%s\t%s (fix: %s)\n", p.Class, p.Rule, p.Path, p.Message, p.Fix)
-		}
-	}
-	for _, p := range problems {
-		if p.Class != check.Warning {
-			return exitProblem
-		}
-	}
-	return exitOK
+	return h, nil
 }

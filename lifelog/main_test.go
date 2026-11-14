@@ -40,13 +40,13 @@ func TestCheckExitCodes(t *testing.T) {
 		{"an error does", []string{"check", broken}, exitProblem, "frontmatter"},
 		{"the report", []string{"check", "-report", broken}, exitProblem, "## Errors (1)"},
 		{"a missing folder is a failed run, not a clean one", []string{"check", filepath.Join(clean, "missing")}, exitFailed, ""},
-		{"no folder", []string{"check"}, exitUsage, ""},
+		{"two folders", []string{"check", clean, clean}, exitUsage, ""},
 		{"an unknown command", []string{"keep"}, exitUsage, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var out, errOut strings.Builder
-			if code := run(t.Context(), tc.args, &out, &errOut); code != tc.code {
+			if code := run(t.Context(), tc.args, strings.NewReader(""), &out, &errOut); code != tc.code {
 				t.Fatalf("exit %d, want %d; stderr: %s", code, tc.code, errOut.String())
 			}
 			if !strings.Contains(out.String(), tc.out) {
@@ -81,7 +81,7 @@ func TestCheckWithHistory(t *testing.T) {
 	check := func(want int, wantOut string) {
 		t.Helper()
 		var out, errOut strings.Builder
-		if code := run(t.Context(), []string{"check", "-report", "-git-dir", gitDir, folder}, &out, &errOut); code != want {
+		if code := run(t.Context(), []string{"check", "-report", "-git-dir", gitDir, folder}, strings.NewReader(""), &out, &errOut); code != want {
 			t.Fatalf("exit %d, want %d; stderr: %s", code, want, errOut.String())
 		}
 		if !strings.Contains(out.String(), wantOut) {
@@ -98,7 +98,17 @@ func TestCheckWithHistory(t *testing.T) {
 	check(exitProblem, "page-emptied")
 
 	var out, errOut strings.Builder
-	if code := run(t.Context(), []string{"check", "-git-dir", filepath.Join(t.TempDir(), "none.git"), folder}, &out, &errOut); code != exitFailed {
+	if code := run(t.Context(), []string{"check", "-git-dir", filepath.Join(t.TempDir(), "none.git"), folder}, strings.NewReader(""), &out, &errOut); code != exitFailed {
 		t.Errorf("a git dir without live: exit %d, want %d", code, exitFailed)
+	}
+}
+
+func TestCheckTakesTheFolderFromTheEnvironment(t *testing.T) {
+	f := t.TempDir()
+	write(t, f, "pages/A.md", "---\npart-of: [[B]]\n---\n")
+	t.Setenv("LIFELOG_FOLDER", f)
+	var out, errOut strings.Builder
+	if code := run(t.Context(), []string{"check"}, strings.NewReader(""), &out, &errOut); code != exitProblem {
+		t.Fatalf("exit %d, want %d; stderr: %s", code, exitProblem, errOut.String())
 	}
 }

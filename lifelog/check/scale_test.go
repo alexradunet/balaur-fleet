@@ -59,7 +59,7 @@ func TestScale(t *testing.T) {
 			b := files[rel]
 			if b == nil {
 				b = &strings.Builder{}
-				b.WriteString(csvHeader + "\n")
+				b.WriteString(CSVHeader + "\n")
 				files[rel] = b
 			}
 			fmt.Fprintf(b, "%s,%s,%.1f,manual\n", d.Format("2006-01-02"), d.Add(7*time.Hour).Format(time.RFC3339), 50+rng.Float64()*50)
@@ -94,7 +94,7 @@ func TestScale(t *testing.T) {
 		"pages/Page 0002.md":               "<empty>",
 		"metrics/metric00/2000.pc.csv":     "",
 		"journal/2026-11-14.md":            "A new day.\n",
-		"metrics/metric01/2026.laptop.csv": csvHeader + "\n2026-11-14,,70,manual\n",
+		"metrics/metric01/2026.laptop.csv": CSVHeader + "\n2026-11-14,,70,manual\n",
 	})
 	for run := 1; run <= 3; run++ {
 		began = time.Now()
