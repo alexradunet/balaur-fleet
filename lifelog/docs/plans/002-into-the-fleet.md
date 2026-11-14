@@ -115,6 +115,18 @@ flowchart LR
   aminte's seeded metric Mood came through; `lifelog check` found no problem in the result). It has not read the
   owner's data.
 
+### The deploy (2026-11-14, commit f122baa)
+
+- The tablet and the pc run it, with no failed unit; the laptop was asleep and follows when it wakes.
+- Tablet: `lifelog-keeper.timer` runs every minute and each run finishes; the first run created the git dir and
+  the first state, with `live`, `checked` and `seen` on it. `/srv/life` is `syncthing:lifelog`, 2770. The owner
+  reads the keeper's history (`git log` works through the system's `safe.directory`).
+- Syncthing: the pc and the tablet added the folder `balaur-life` and exchanged indexes.
+- pc: `lifelog`, `lifelog-import` and Obsidian are installed; `lifelog check /srv/life` passes in a session that
+  has the group `lifelog` (a session that started before the deploy has the old groups: log in again). The mirror,
+  run once by hand, cloned the tablet's history over SSH with no prompt; its timer runs at 04:07.
+- Not yet seen: the laptop; the time of a check on the tablet's CPU at a real size (after P5).
+
 ### P5, step by step (needs the owner's word: it reads the real snapshot)
 
 After the deploy, on the tablet, as the owner. The import goes to a private folder first, because what the
