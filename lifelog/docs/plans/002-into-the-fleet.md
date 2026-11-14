@@ -141,10 +141,28 @@ lifelog check ~/lifelog-import/life          # read the report and the problems 
 sudo rm -rf /var/lib/lifelog/life.git /var/lib/lifelog/reported /var/lib/lifelog/last-run
 sudo cp -a ~/lifelog-import/life.git /var/lib/lifelog/life.git
 sudo chown -R lifelog:lifelog /var/lib/lifelog/life.git && sudo chmod -R g+rX,o-rwx /var/lib/lifelog/life.git
-cp -a ~/lifelog-import/life/. /srv/life/      # Syncthing brings it to the laptop and the pc
+# -R, not -a: -a copies the owner, group and mode too, of the folder itself as well,
+# and locks the keeper and Syncthing (both in the group lifelog) out of /srv/life.
+cp -R ~/lifelog-import/life/. /srv/life/      # Syncthing brings it to the laptop and the pc
+find /srv/life -user "$USER" -type f -exec chmod 0660 {} +
 sudo systemctl start lifelog-keeper.timer
 journalctl -u lifelog-keeper -f              # the first check; then rm -rf ~/lifelog-import
 ```
 
-The keeper finds the folder equal to the tip of `live`, so it commits nothing new. Its first check has no `seen`;
-with no error and no loss it sets `seen` and `checked` to the imported state.
+The keeper finds the folder equal to the tip of `live`, so it commits nothing new. Its first check has no `seen`:
+with no error and no loss it moves `checked` to the imported state; it sets `seen` too when there is nothing to
+report, and otherwise when the owner deletes `_check.md`.
+
+### P5, the run (2026-11-14)
+
+- The import of the snapshot of 2026-11-14 03:17 took 1.05 s on the tablet; the snapshot got no `-wal` or `-shm`.
+  1 894 pages, 271 tombstoned pages, 336 files of readings, 2 437 commits.
+- The first `lifelog check` of the import found 40 line-endings errors (pages with CRLF in part of their text);
+  the importer now writes LF only (44 pages changed). The second import checked with exit 0 and 8 warnings: Mood
+  readings with several values on one day from one source and with no time.
+- The install step `cp -a` (as this plan first said) made `/srv/life` and its files `alex:users`, mode 0750; the
+  keeper and Syncthing stopped on their own safety checks, and nothing synced or was committed. Fixed by hand
+  (group `lifelog`, 2770 and 0660), and the step above is corrected. Syncthing on the tablet stayed in its error
+  state until a restart.
+- After the fix: the keeper committed nothing new, moved `checked` to the import, and wrote `_check.md` with the
+  8 warnings. A keeper run took 176 ms.
