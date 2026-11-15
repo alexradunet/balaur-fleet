@@ -121,5 +121,14 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") flush();
 });
 
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+if ("serviceWorker" in navigator) {
+  // A new version of the app takes over (sw.js: skipWaiting, then claim). This page was drawn with the static files
+  // of the old one, so it loads again, once: but not while a field holds text, which a reload would lose.
+  const update = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    const typing = [...document.querySelectorAll("textarea, input:not([type=hidden])")].some((f) => f.value !== f.defaultValue);
+    if (update && !typing) location.reload();
+  });
+  navigator.serviceWorker.register("/sw.js").catch(() => {});
+}
 if ("indexedDB" in window) flush();

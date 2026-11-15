@@ -11,8 +11,7 @@
 .rail{--text:var(--rail-ink); --text-strong:var(--rail-accent); --text-muted:var(--rail-ink); --text-link:var(--rail-accent); --rule:var(--outline);
   color:var(--text); background-color:var(--rail); background-image:url(/static/pictures/wood.png),var(--rail-shade),var(--rail-foot-shade),var(--grain-ground);
   background-size:252px 480px,auto,auto,4px 4px; background-repeat:repeat,no-repeat,no-repeat,repeat; image-rendering:pixelated}
-.sheet,.alert,.toast,.reading-tile,.margin ul.plain,.margin .props,
-ul.hits,ul.kinds,ul.metrics,table.readings,.editor-sheet{--text:var(--ink); --text-strong:var(--ink); --text-muted:var(--muted); --text-link:var(--link); --rule:var(--edge);
+.sheet,.alert,.toast,.reading-tile,.margin ul.plain,.margin .props,.scroll{--text:var(--ink); --text-strong:var(--ink); --text-muted:var(--muted); --text-link:var(--link); --rule:var(--edge);
   color:var(--text); background-color:var(--surface); background-image:var(--grain-ink); background-size:4px 4px; border:2px solid var(--edge)}
 
 /* The shell: the rail, then the column of the page, in a frame that is centred on a wide screen. Under 900 px the
@@ -59,7 +58,6 @@ span.icon{display:inline-block; flex:none; inline-size:20px; block-size:20px; ba
 /* The offline queue (app.js): what waits to be sent, and what the tablet refused. */
 .queue{display:flex; flex-wrap:wrap; gap:6px; margin:0; padding:var(--space-2); font:400 12px/16px var(--mono); color:var(--rail-accent);
   background:var(--rail-deep); border:1px solid var(--outline); box-shadow:var(--bevel-in);
-  &[hidden]{display:none}
   & button{block-size:auto; min-block-size:var(--control-small); padding:var(--space-1) var(--space-2); font-size:12px; white-space:normal; text-align:start}}
 
 /* The phone: the head of the rail is a top bar (the brand, the date, Search, New), its sections a bottom bar. */
@@ -179,7 +177,7 @@ form[method=dialog]{display:block}
 
 /* The note of a day: a dashed box, solid while it is written in. */
 .capture{
-  & form{flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:flex-end;
+  & .note-form{flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:flex-end;
     &>label{flex:1 1 100%}}
   & textarea{min-block-size:calc(3 * 26px + 2 * 10px + 2 * 2px); border-style:dashed; background:var(--surface);
     &:focus-visible{border-style:solid; border-color:var(--accent-ink); outline:0}}}
@@ -230,34 +228,55 @@ form[method=dialog]{display:block}
 @container column (max-width:607px){.button.step{inline-size:var(--control); padding:0} .button.step .step-day{display:none}}
 
 /* A series, drawn by the server as an inline svg. */
-svg.chart{inline-size:100%; block-size:auto; padding:var(--space-2); color:var(--link); background-color:var(--surface); background-image:var(--grain-ink); background-size:4px 4px;
+svg.chart{inline-size:100%; max-inline-size:800px; block-size:auto; padding:var(--space-2); color:var(--link); background-color:var(--surface); background-image:var(--grain-ink); background-size:4px 4px;
   border:2px solid var(--edge); box-shadow:var(--parch-bevel);
   & text{fill:var(--muted); font:400 12px var(--mono)}
   & .axis{stroke:var(--edge)}
   & .line{fill:none; stroke:currentColor; stroke-width:2; stroke-linejoin:round; stroke-linecap:round}
   & .dots circle{fill:var(--accent-ink)}}
 
-/* The views that step A3 restyles: browse, search, metrics, the editor, capture (plan 004). */
-h1 small{font:400 13px/19px var(--mono); color:var(--text-muted)}
-.crumb{font-size:13px}
-.ok{color:var(--done)}
-.warn{color:var(--warn)}
-.problems{padding:var(--space-3) var(--space-4); border:2px solid var(--warn); background:var(--surface); color:var(--ink);
-  & pre{max-block-size:40vh; overflow:auto}}
-form.reading{flex-direction:row}
-form.editor{align-items:stretch;
-  & textarea{min-block-size:60vh; font:400 15px/24px var(--mono)}}
-ul.hits,ul.kinds,ul.metrics{list-style:none; padding:var(--space-1) var(--space-4);
-  & li{padding:var(--space-2) 0; margin:0; border-block-end:1px solid var(--line-soft)}}
-:is(ul.kinds,ul.metrics) li{display:flex; gap:var(--space-3); align-items:baseline;
-  & a{flex:1}}
-.snippet{font-size:13px; color:var(--muted); overflow-wrap:anywhere}
-ul.days{list-style:none; padding:0; display:flex; flex-wrap:wrap; gap:6px;
+/* A list on a sheet (browse, a kind, search): rows, the whole row the link. */
+.sheet.list{padding:var(--space-2) clamp(16px, 2px + 3.75cqi, 24px); gap:0}
+.entry{display:grid; grid-template-columns:minmax(0,1fr) auto; gap:var(--space-3); align-items:baseline; padding:10px var(--space-1); color:var(--text);
+  &:hover{background:var(--surface-deep); color:var(--text); text-decoration:none}
+  & .first{min-inline-size:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-link)}
+  & .meta{font:400 13px/18px var(--mono); font-variant-numeric:tabular-nums; color:var(--text-muted)}}
+ul.rows>li:has(>a.entry){padding:0}
+/* A hit of the search: its title, its kind, the words around the match. */
+li.hit{display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--space-1) var(--space-2);
+  & .snippet{flex:1 1 100%}}
+.snippet{font-size:14px; line-height:20px; color:var(--muted); overflow-wrap:anywhere}
+form.search{align-items:stretch}
+
+/* The days of a month in the journal: small parchment leaves, the day's number in mono. */
+ul.days{list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(44px,1fr)); gap:6px;
   & li{margin:0}
-  & a{display:inline-block; min-inline-size:2.4em; text-align:center; padding:var(--space-1); font-family:var(--mono);
-    background:var(--surface); color:var(--link); border:2px solid var(--edge)}}
-.spans{display:flex; gap:var(--space-4)}
-table.readings td:first-child{font-family:var(--mono)}
+  & a{display:grid; place-items:center; block-size:var(--control); font:500 15px/1 var(--mono); font-variant-numeric:tabular-nums;
+    color:var(--ink); background:var(--surface); border:2px solid var(--edge); box-shadow:var(--drop-hard);
+    &:hover{border-color:var(--accent-ink); text-decoration:none}}}
+
+/* A reading to add, on the metrics and a metric: a small group. */
+.record>h2{font:700 12px/16px var(--sans); letter-spacing:.12em; text-transform:uppercase; color:var(--text-muted); margin-block-end:var(--space-2)}
+/* The metrics: a tile each, the whole tile the link. */
+a.reading-tile{text-decoration:none;
+  &:hover{border-color:var(--accent-ink); text-decoration:none}}
+.metric-tiles{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+/* The span of a chart: three tabs; the current one is gold on a carved well. */
+nav.spans{display:flex; gap:2px; align-self:flex-start; padding:3px; background:var(--surface-deep); border:2px solid var(--edge); box-shadow:var(--well);
+  & :is(a,span){padding:6px var(--space-3); font:400 13px/18px var(--mono); color:var(--link)}
+  & a:hover{background:var(--surface); text-decoration:none}
+  & [aria-current]{background:var(--accent-soft); color:var(--accent-ink); font-weight:500}}
+.sub .unit{font-size:13px}
+/* The readings of a metric: a table on parchment that scrolls in its own box. */
+.scroll{overflow-x:auto; padding:var(--space-2) var(--space-3); box-shadow:var(--parch-bevel)}
+table.series{& .date a{color:var(--link)} & td.value{font-family:var(--mono)}}
+
+/* The editor and a new page: the fields, the text, then Save and Cancel. */
+form.editor{align-items:stretch;
+  & .fields{display:flex; flex-wrap:wrap; gap:var(--space-3); & label{flex:1 1 200px}}
+  & textarea{min-block-size:calc(14 * 26px + 2 * 10px + 2 * 2px); font:400 15px/26px var(--mono)}}
+.actions{display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2)}
+.alert pre.theirs{max-block-size:40vh; overflow:auto}
 
 /* The motions, each only when the system does not ask for less: a toast that opens drops 3 px and settles; the
    phone's top bar takes its drop once the page has scrolled under it. */
@@ -290,6 +309,6 @@ table.readings td:first-child{font-family:var(--mono)}
 }
 
 @layer utilities{
-.dim{color:var(--text-muted)}
-.center{text-align:center}
+/* hidden hides, also where a component sets display (the offline queue, app.js). */
+[hidden]{display:none!important}
 }

@@ -167,6 +167,25 @@ test("the service worker carries the version of the static files", async () => {
   assert.equal((await get("/static/htmx.min.js")).status, 200);
 });
 
+test("each screen has one loud button at most, and the shell", async () => {
+  // The Almanac look: ember is the one loud button of a screen (plan 004).
+  for (const url of ["/day/2026-11-15", "/p/pages/Iron.md", "/browse", "/browse/journal", "/search?q=iron", "/metrics", "/metrics/weight", "/capture", "/new", "/edit/pages/Iron.md"]) {
+    const r = await get(url);
+    assert.equal(r.status, 200, url);
+    assert.ok((r.body.match(/class="(button )?primary"/g) ?? []).length <= 1, `${url} has more than one loud button`);
+    assert.match(r.body, /<header class="rail">[\s\S]*<nav aria-label="Sections">/, url);
+    assert.doesNotMatch(r.body, /style=|<style/, `${url} has an inline style, which the CSP refuses`);
+  }
+  assert.match((await get("/metrics")).body, /<a href="\/metrics" aria-current="page">/);
+});
+
+test("a save is a toast that Close shuts, with no script", async () => {
+  const r = await get("/p/pages/Iron.md?saved");
+  assert.match(r.body, /<dialog open closedby="closerequest" class="toast" aria-label="Result"><h2>Saved\.<\/h2>/);
+  assert.match(r.body, /<form method="dialog"><button class="small close">Close<\/button><\/form>/);
+  assert.doesNotMatch((await get("/p/pages/Iron.md")).body, /class="toast"/);
+});
+
 test("every static file is served, in the cache's hash and in the shell", async () => {
   // Walked here on its own, not by the server's list: a file the server forgets fails.
   const pub = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public");

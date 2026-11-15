@@ -156,7 +156,7 @@ export function noteForm(day, { primary = true } = {}) {
 </form>`;
 }
 
-export function readingForm(metrics, chosen = "", day = "") {
+export function readingForm(metrics, chosen = "", day = "", { primary = false } = {}) {
   return html`<form class="inline reading-form" method="post" action="/api/capture" data-capture="reading">
 <input type="hidden" name="type" value="reading">
 ${day ? html`<input type="hidden" name="day" value="${day}">` : ""}
@@ -165,7 +165,7 @@ ${chosen ? "" : html`<option value="">Choose</option>`}
 ${metrics.map((m) => html`<option value="${m.name}" ${m.name === chosen ? raw("selected") : ""}>${m.name}${m.unit ? ` (${m.unit})` : ""}</option>`)}
 </select></label>
 <label><span>Value</span><input name="value" inputmode="decimal" required autocomplete="off"></label>
-<button>Add</button>
+<button${primary ? raw(' class="primary"') : ""}>Add</button>
 </form>`;
 }
 
@@ -245,18 +245,31 @@ ${backlinksBox(backlinks)}
   });
 }
 
+// pageHead is the head of a view that is not a day or a page: what it is in, its title, and its tools.
+function pageHead({ kind = "", title, sub = "", tools = "" }) {
+  return html`<header class="page-head">
+<div class="what">${kind ? html`<p class="kind">${kind}</p>` : ""}<h1>${title}</h1>${sub ? html`<p class="sub">${sub}</p>` : ""}</div>
+${tools ? html`<div class="tools">${tools}</div>` : ""}
+</header>`;
+}
+
+const backTo = (rel) => (rel.startsWith("journal/") ? `/day/${rel.slice(8, 18)}` : `/p/${encPath(rel)}`);
+
+// The editor: a plain text area on the sheet. A save that would overwrite a change it did not see is refused, and
+// the alert shows the text that is saved now.
 export function editView({ rel, title, text, sha, conflict }) {
   return layout({
     title: `Edit ${title}`,
-    body: html`<h1>${title}</h1>
-${conflict ? html`<section class="problems"><h2>The page changed since you opened it</h2>
-<p>Another editor (Obsidian, or Syncthing from another machine) saved it. Your text is in the editor; the text that is saved now is below. Merge what you want to keep, then save again.</p>
-<pre class="theirs">${conflict.text}</pre></section>` : ""}
+    body: html`${pageHead({ kind: "Editing", title })}
+${conflict ? html`<div class="alert danger" role="alert"><p><strong>The page changed since you opened it.</strong> Another editor (Obsidian, or Syncthing from another machine) saved it. Your text is in the editor; the text that is saved now is below. Merge what you want to keep, then save again.</p>
+<pre class="theirs">${conflict.text}</pre></div>` : ""}
+<div class="sheet">
 <form method="post" action="/edit/${encPath(rel)}" class="editor">
 <input type="hidden" name="sha" value="${sha}">
-<textarea name="text" spellcheck="true" autofocus>${text}</textarea>
-<div class="actions"><button>Save</button> <a href="${rel.startsWith("journal/") ? `/day/${rel.slice(8, 18)}` : `/p/${encPath(rel)}`}">Cancel</a></div>
-</form>`,
+<label><span>Text</span><textarea name="text" spellcheck="true" autofocus>${text}</textarea></label>
+<div class="actions"><button class="primary">Save</button><a class="button" href="${backTo(rel)}">Cancel</a></div>
+</form>
+</div>`,
   });
 }
 
@@ -264,24 +277,29 @@ export function newView({ title = "", kind = "pages", text = "", refused = "" })
   const kinds = KINDS.filter(([k]) => k !== "journal" && k !== "files");
   return layout({
     title: "New page",
-    body: html`<h1>New page</h1>
-${refused ? html`<p class="warn">${refused}</p>` : ""}
+    body: html`${pageHead({ title: "New page" })}
+${refused ? html`<div class="alert danger" role="alert"><p><strong>The page is not made.</strong> ${refused}</p></div>` : ""}
+<div class="sheet">
 <form method="post" action="/new" class="editor">
-<label>Title <input name="title" value="${title}" required autocomplete="off"></label>
-<label>Kind <select name="kind">${kinds.map(([k, n]) => html`<option value="${k}" ${k === kind ? raw("selected") : ""}>${n}</option>`)}</select></label>
-<textarea name="text" placeholder="Text">${text}</textarea>
-<div class="actions"><button>Create</button></div>
-</form>`,
+<div class="fields"><label><span>Title</span><input name="title" value="${title}" required autocomplete="off"${refused ? raw(' aria-invalid="true"') : ""}></label>
+<label><span>Kind</span><select name="kind">${kinds.map(([k, n]) => html`<option value="${k}" ${k === kind ? raw("selected") : ""}>${n}</option>`)}</select></label></div>
+<label><span>Text</span><textarea name="text">${text}</textarea></label>
+<div class="actions"><button class="primary">Create</button></div>
+</form>
+</div>`,
   });
 }
+
+// A row of a list: the whole row is the link, its count or its kind at the end.
+const row = (href, first, meta = "") =>
+  html`<li><a class="entry" href="${href}"><span class="first">${first}</span>${meta ? html`<span class="meta">${meta}</span>` : ""}</a></li>`;
 
 export function browseView({ counts }) {
   return layout({
     title: "Pages",
     nav: "browse",
-    body: html`<h1>Pages</h1>
-<ul class="kinds">${KINDS.map(([k, n]) => html`<li><a href="/browse/${k}">${n}</a> <span class="dim">${counts[k] ?? 0}</span></li>`)}</ul>
-<p class="actions"><a href="/new">New page</a></p>`,
+    body: html`${pageHead({ title: "Pages", tools: html`<a class="button" href="/new">New page</a>` })}
+<div class="sheet list"><ul class="plain rows">${KINDS.map(([k, n]) => row(`/browse/${k}`, n, String(counts[k] ?? 0)))}</ul></div>`,
   });
 }
 
@@ -294,14 +312,25 @@ export function kindView({ kind, pages }) {
       if (!byMonth.has(m)) byMonth.set(m, []);
       byMonth.get(m).push(p);
     }
-    list = [...byMonth].map(([m, ps]) => html`<h2>${m}</h2><ul class="days">${ps.map((p) => html`<li><a href="${pageHref(p.path)}">${p.title.slice(8)}</a></li>`)}</ul>`);
+    list =
+      byMonth.size === 0
+        ? html`<p class="empty">No day is written yet. <a href="/">Write today</a>.</p>`
+        : [...byMonth].map(
+            ([m, ps]) => html`<section class="group" aria-label="${m}">${panelHead(fmt(m + "-01", { month: "long", year: "numeric" }))}
+<ul class="days">${ps.map((p) => html`<li><a href="${pageHref(p.path)}" aria-label="${shortDay(p.title)}">${Number(p.title.slice(8))}</a></li>`)}</ul></section>`,
+          );
   } else {
-    list = html`<ul>${[...pages].sort((a, b) => a.title.localeCompare(b.title)).map((p) => html`<li><a href="${pageHref(p.path)}">${p.title}</a></li>`)}</ul>`;
+    const sorted = [...pages].sort((a, b) => a.title.localeCompare(b.title));
+    list =
+      sorted.length === 0
+        ? html`<p class="empty">No page here yet. <a href="/new?kind=${kind}">Make one</a>.</p>`
+        : html`<div class="sheet list"><ul class="plain rows">${sorted.map((p) => row(pageHref(p.path), p.title))}</ul></div>`;
   }
   return layout({
     title: kindName[kind],
     nav: "browse",
-    body: html`<p class="crumb"><a href="/browse">Pages</a></p><h1>${kindName[kind]}</h1>${list}`,
+    body: html`${pageHead({ kind: html`<a href="/browse">Pages</a>`, title: kindName[kind], tools: kind === "journal" || kind === "files" ? "" : html`<a class="button" href="/new?kind=${kind}">New</a>` })}
+${list}`,
   });
 }
 
@@ -310,17 +339,19 @@ export function searchView({ q, hits, partial }) {
     q === ""
       ? ""
       : hits.length === 0
-        ? html`<p class="dim">Nothing holds “${q}”. <a href="/new?title=${encodeURIComponent(q)}">Create the page ${q}</a>.</p>`
-        : html`<ul class="hits">${hits.map((h) => html`<li><a href="${pageHref(h.page.path)}">${h.page.title}</a> <span class="dim">${kindName[h.page.kind]}</span><br><span class="snippet">${h.snippet}</span></li>`)}</ul>`
+        ? html`<p class="empty">Nothing holds “${q}”. <a href="/new?title=${encodeURIComponent(q)}">Create the page ${q}</a>.</p>`
+        : html`<div class="sheet list"><ul class="plain rows">${hits.map(
+            (h) => html`<li class="hit"><a class="hit-link" href="${pageHref(h.page.path)}">${h.page.title}</a> <span class="tag">${kindName[h.page.kind]}</span><span class="snippet">${h.snippet}</span></li>`,
+          )}</ul></div>`
   }</div>`;
   if (partial) return results;
   return layout({
     title: "Search",
     nav: "search",
-    body: html`<h1>Search</h1>
-<form action="/search" class="search">
-<input type="search" name="q" value="${q}" placeholder="Words or #tag" autofocus autocomplete="off"
-  hx-get="/search" hx-trigger="input changed delay:300ms, search" hx-target="#results" hx-swap="outerHTML">
+    body: html`${pageHead({ title: "Search" })}
+<form action="/search" class="search" role="search">
+<label><span>Words or #tag</span><input type="search" name="q" value="${q}" autofocus autocomplete="off"
+  hx-get="/search" hx-trigger="input changed delay:300ms, search" hx-target="#results" hx-swap="outerHTML"></label>
 </form>
 ${results}`,
   });
@@ -330,13 +361,17 @@ export function metricsView({ metrics, last }) {
   return layout({
     title: "Metrics",
     nav: "metrics",
-    body: html`<h1>Metrics</h1>
-${readingForm(metrics)}
-<ul class="metrics">${metrics.map((m) => {
-      const r = last.get(m.name);
-      return html`<li><a href="/metrics/${encodeURIComponent(m.name)}">${m.name}</a> ${r ? html`<span>${r.text} ${m.unit}</span> <span class="dim">${r.day}</span>` : html`<span class="dim">no reading</span>`}</li>`;
-    })}</ul>
-<p class="actions"><a href="/new?kind=metrics">New metric</a></p>`,
+    body: html`${pageHead({ title: "Metrics", tools: html`<a class="button" href="/new?kind=metrics">New metric</a>` })}
+<section class="record" aria-label="Add a reading"><h2>Add a reading</h2>${readingForm(metrics, "", "", { primary: true })}</section>
+${
+  metrics.length === 0
+    ? html`<p class="empty">No metric yet. <a href="/new?kind=metrics">Make the first one</a>.</p>`
+    : html`<div class="readings metric-tiles">${metrics.map((m) => {
+        const r = last.get(m.name);
+        return html`<a class="reading-tile" href="/metrics/${encodeURIComponent(m.name)}"><span class="name">${m.name}</span>
+${r ? html`<span class="reading">${r.text}</span><span class="unit">${m.unit ? `${m.unit} · ` : ""}${r.day}</span>` : html`<span class="unit">no reading yet</span>`}</a>`;
+      })}</div>`
+}`,
   });
 }
 
@@ -350,29 +385,33 @@ export function metricView({ metric, page, readings, span, svg, metrics }) {
   return layout({
     title: metric.name,
     nav: "metrics",
-    body: html`<p class="crumb"><a href="/metrics">Metrics</a></p>
-<h1>${metric.name} ${metric.unit ? html`<small>${metric.unit}</small>` : ""}</h1>
-${readingForm(metrics, metric.name)}
-<p class="spans">${spans.map(([s, n]) => (s === span ? html`<b>${n}</b>` : html`<a href="?span=${s}">${n}</a>`))}</p>
-${svg ? raw(svg) : html`<p class="dim">No reading in this span.</p>`}
-<table class="readings"><tr><th>Day</th><th>Value</th><th>Source</th></tr>
-${recent.map((r) => html`<tr><td><a href="/day/${r.day}">${r.day}</a>${r.takenAt ? html` <span class="dim">${r.takenAt.slice(11, 16)}</span>` : ""}</td><td>${r.text}</td><td class="dim">${r.source}</td></tr>`)}
-</table>
-<p class="actions">${page ? html`<a href="${pageHref(page.path)}">The metric's page</a>` : ""}</p>`,
+    body: html`${pageHead({
+      kind: html`<a href="/metrics">Metrics</a>`,
+      title: metric.name,
+      sub: html`${metric.unit ? html`<span class="unit">${metric.unit}</span>` : ""}${page ? html`<a href="${pageHref(page.path)}">The metric's page</a>` : ""}`,
+    })}
+<section class="record" aria-label="Add a reading"><h2>Add a reading</h2>${readingForm(metrics, metric.name, "", { primary: true })}</section>
+<nav class="spans" aria-label="Span">${spans.map(([s, n]) => (s === span ? html`<span aria-current="true">${n}</span>` : html`<a href="?span=${s}">${n}</a>`))}</nav>
+${svg ? raw(svg) : html`<p class="empty">No reading in this span. <a href="?span=all">See them all</a>.</p>`}
+${recent.length > 0 ? html`<div class="scroll"><table class="series"><thead><tr><th scope="col">Day</th><th scope="col">Value</th><th scope="col">Source</th></tr></thead><tbody>
+${recent.map((r) => html`<tr><td class="date"><a href="/day/${r.day}">${r.day}</a>${r.takenAt ? ` ${r.takenAt.slice(11, 16)}` : ""}</td><td class="value">${r.text}</td><td>${r.source}</td></tr>`)}
+</tbody></table></div>` : ""}`,
   });
 }
 
+// Capture works offline: the service worker keeps this page, and app.js queues what is added.
 export function captureView({ metrics }) {
   return layout({
     title: "Capture",
-    body: html`<h1>Capture</h1>
-<p class="dim">What you add here waits on the phone while it is offline, and goes to the day it was written on.</p>
-${noteForm("")}
-${readingForm(metrics)}
-<p class="center"><a href="/">Today</a></p>`,
+    nav: "capture",
+    body: html`${pageHead({ title: "Capture", sub: "What you add here waits on the phone while it is offline, and goes to the day it was written on." })}
+<div class="sheet">
+<section class="capture" aria-label="Add a note"><h2>A note</h2>${noteForm("")}</section>
+<section class="capture" aria-label="Add a reading"><h2>A reading</h2>${readingForm(metrics)}</section>
+</div>`,
   });
 }
 
 export function messageView({ title, message, status }) {
-  return layout({ title, body: html`<h1>${title}</h1><p>${message}</p><p><a href="/">Today</a></p>`, status });
+  return layout({ title, body: html`${pageHead({ title })}<div class="alert" role="alert"><p>${message}</p></div><p><a class="button" href="/">Today</a></p>`, status });
 }
