@@ -42,6 +42,7 @@
           grd
           pkgs.openssl
           pkgs.coreutils
+          pkgs.util-linux
         ];
         text = ''
           if [ ! -s ${tls}/rdp.key ]; then
@@ -52,8 +53,12 @@
             chown gnome-remote-desktop:gnome-remote-desktop ${tls}/rdp.key ${tls}/rdp.crt
             echo "made a TLS certificate"
           fi
-          # On stdin, so the password is never in a process list.
-          grdctl --system rdp set-credentials ${user} <${passwordFile}
+          # `grdctl --system` is this same command run as the daemon's user through
+          # pkexec, which NixOS does not have; root does it with runuser. On stdin,
+          # so the password is never in a process list.
+          runuser -u gnome-remote-desktop -- env HOME=${home} \
+            XDG_DATA_HOME=${home}/.local/share XDG_CONFIG_HOME=${home}/.config \
+            grdctl rdp set-credentials ${user} <${passwordFile}
           echo "RDP login set for ${user}"
         '';
       };
