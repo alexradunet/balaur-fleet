@@ -31,7 +31,11 @@ in
       # a router filtering private answers, and without waiting out a cached
       # "no such name". The public A records at the registrar say the same.
       webHosts = lib.filterAttrs (
-        host: h: h.tailnetIp != null && nixosConfigs ? ${host} && nixosConfigs.${host}.config.balaur ? web
+        host: h:
+        h.tailnetIp != null
+        && nixosConfigs ? ${host}
+        && nixosConfigs.${host}.config.balaur ? web
+        && nixosConfigs.${host}.config.balaur.web.inDns
       ) fleet;
       rewrites = lib.concatLists (
         lib.mapAttrsToList (

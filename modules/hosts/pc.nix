@@ -69,6 +69,9 @@ in
           # The LAN's DNS server with ad and tracker blocking (AdGuard Home), moved from
           # the tablet: the router hands out 192.168.50.12 as the DNS server.
           adblock
+          # https://balaur.space: the home page and this machine's web UIs behind Caddy,
+          # moved from the tablet (balaur.web below).
+          web
           # The life log as files: the folder, `lifelog`, Obsidian, and the nightly mirror of
           # the keeper's history (balaur.lifelog-client.mirrorFrom below).
           lifelog-client
@@ -106,6 +109,23 @@ in
           username = config.sops.placeholder."filelist-username";
           passkey = config.sops.placeholder."filelist-passkey";
         };
+      };
+
+      # https://balaur.space: its A records at Gandi point at this machine's tailnet
+      # address. The certificate's DNS challenge uses a Gandi personal access token
+      # (Domain > "Manage domain technical configurations", balaur.space only).
+      sops.secrets."gandi-token".sopsFile = config.balaur.secrets.hostFile;
+      sops.templates."gandi.env".content = ''
+        GANDIV5_PERSONAL_ACCESS_TOKEN=${config.sops.placeholder."gandi-token"}
+      '';
+      balaur.web = {
+        domain = "balaur.space";
+        dnsProvider = "gandiv5";
+        dnsCredentialsFile = config.sops.templates."gandi.env".path;
+        # The phone. With the fleet's machines, the devices that open everything; a
+        # device of another Tailscale account the pc is shared with gets the
+        # household's services only (modules/web.nix).
+        ownerAddresses = [ "100.79.180.82" ];
       };
 
       # The second NVMe: the old Windows disk, kept for the personal media on it.

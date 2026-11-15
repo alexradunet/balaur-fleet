@@ -228,6 +228,16 @@ in
           example = [ "100.64.0.7" ];
           description = "Tailnet addresses of the owner's devices that are not machines of the fleet (a phone): with the fleet's own, the only ones served the `owner` web UIs and the whole home page.";
         };
+        inDns = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = ''
+            Whether the domain's records name this machine: the A records at the
+            registrar, and the answers the LAN's DNS (`adblock`) gives. Exactly one
+            machine per domain; false on a machine that still serves its own web
+            UIs while another one has taken the domain over (a move in progress).
+          '';
+        };
       };
 
       config = {
