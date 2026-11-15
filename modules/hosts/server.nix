@@ -58,6 +58,8 @@ in
           never-sleep
           # Its GNOME desktop over RDP, on the tailnet, with no monitor attached.
           remote-desktop
+          # /srv/proton (the second NVMe) mirrored to Proton Drive, hourly.
+          proton-drive
           # Orca's runtime for the laptop's Orca to pair with, from boot (:6768, tailnet).
           orca-server
           # The fleet's local LLM, on the Radeon 890M (Nemotron 3.5 Lightning).

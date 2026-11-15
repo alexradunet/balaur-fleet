@@ -60,6 +60,7 @@ modules/
   base.nix                boot, admin account, SSH, Nix, housekeeping, locale + timezone, printing; the `balaur.services` registry
   network.nix             NetworkManager, Tailscale (+ SSH), <host>.local (mDNS)
   backup.nix              restic, nightly and off-site, of the state only one machine has (waits for a repository)
+  proton-drive.nix        rclone, hourly: /srv/proton (the server) mirrored to Proton Drive, one way, nothing lost there
   never-sleep.nix         a machine on duty never sleeps (the tablet, the server)
   always-on.nix           a laptop as a server: ignore lid and power key, battery = UPS, 80% charge cap
   gnome.nix               GNOME itself: GDM, the session, PipeWire, the canonical apps (Firefox + its add-ons, Ghostty), the Balaur app + Shell extension, one look and keyboards (US + RO), the ambient screen's settings
