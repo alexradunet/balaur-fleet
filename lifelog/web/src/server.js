@@ -86,13 +86,6 @@ function loadStatic() {
   return out;
 }
 
-// today is the day on the tablet's clock (its time zone is the owner's).
-function today() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
 export function createApp({ folder: root, bin = "lifelog", stateDir }) {
   const folder = new Folder(root);
   const lifelog = new Lifelog({ bin, folder: folder.root });
@@ -127,7 +120,7 @@ export function createApp({ folder: root, bin = "lifelog", stateDir }) {
   }
 
   const routes = [
-    ["GET", /^\/$/, async () => redirect(`/day/${today()}`)],
+    ["GET", /^\/$/, async () => redirect(`/day/${v.today()}`)],
 
     [
       "GET",
@@ -145,7 +138,7 @@ export function createApp({ folder: root, bin = "lifelog", stateDir }) {
         return page(
           v.dayView({
             day,
-            today: today(),
+            today: v.today(),
             page: shown?.page,
             rendered: shown?.rendered,
             dated,
@@ -342,7 +335,7 @@ export function createApp({ folder: root, bin = "lifelog", stateDir }) {
           const form = await formOf(req);
           c = Object.fromEntries(form);
           c.id = createHash("sha256").update(JSON.stringify(c) + Date.now() + Math.random()).digest("hex").slice(0, 32);
-          if (!c.day) c.day = today();
+          if (!c.day) c.day = v.today();
         }
         try {
           const result = await captures.apply(c);

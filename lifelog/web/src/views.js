@@ -40,7 +40,35 @@ const KINDS = [
 ];
 export const kindName = Object.fromEntries(KINDS);
 
+// today is the day on the tablet's clock (its time zone is the owner's).
+export function today() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+const asDate = (day) => new Date(day + "T12:00:00Z");
+const fmt = (day, opts) => asDate(day).toLocaleDateString("en-GB", { ...opts, timeZone: "UTC" });
+// "Sat 14 Nov": a day near the others, in the rail and on a step.
+export const shortDay = (day) => fmt(day, { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
+export const weekdayOf = (day) => fmt(day, { weekday: "long" });
+
+// An icon is a glyph of pictures/icons.png, drawn as a mask in the colour of its text (app.css).
+const icon = (name) => html`<span class="icon icon-${name}" aria-hidden="true"></span>`;
+
+// The sections of every day: the rail on a wide screen, the bottom bar on a phone.
+const SECTIONS = [
+  ["today", "/", "Today", "today"],
+  ["browse", "/browse", "Pages", "browse"],
+  ["metrics", "/metrics", "Metrics", "metrics"],
+  ["capture", "/capture", "Capture", "chat"],
+];
+
+// layout is the shell (docs/plans/004-the-almanac-look.md). At 900 px and wider: the rail of wood on the left (the
+// brand and today, Search, New, the sections) and the page beside it. Under 900 px the head of the rail is a top bar
+// and its sections a bottom bar. It needs no script.
 export function layout({ title, body, nav = "" }) {
+  const now = today();
   return html`<!doctype html>
 <html lang="en">
 <head>
@@ -58,110 +86,162 @@ export function layout({ title, body, nav = "" }) {
 <script src="/static/app.js" type="module"></script>
 </head>
 <body>
-<header class="bar">
-  <nav>
-    <a href="/" class="${nav === "today" ? "on" : ""}">Today</a>
-    <a href="/browse" class="${nav === "browse" ? "on" : ""}">Pages</a>
-    <a href="/metrics" class="${nav === "metrics" ? "on" : ""}">Metrics</a>
-    <a href="/search" class="${nav === "search" ? "on" : ""}">Search</a>
-  </nav>
-  <span id="queue" class="queue" hidden></span>
+<a class="skip" href="#main">Skip to the content</a>
+<div class="shell">
+<header class="rail">
+<div class="rail-head"><a class="brand" href="/">Life</a><span class="date">${shortDay(now)}</span>
+<a class="button rail-search-link${nav === "search" ? " here" : ""}" href="/search" aria-label="Search">${icon("search")}</a></div>
+<a class="rail-search${nav === "search" ? " here" : ""}" href="/search">${icon("search")}Search</a>
+<a class="button rail-new" href="/new" aria-label="New page">${icon("new")}<span class="rail-new-words">New</span></a>
+<nav aria-label="Sections"><ul>
+${SECTIONS.map(([key, href, name, ic]) => html`<li><a href="${href}"${nav === key ? raw(' aria-current="page"') : ""}>${icon(ic)}${name}</a></li>`)}
+</ul></nav>
+<p id="queue" class="queue" role="status" hidden></p>
 </header>
-<main>
+<div class="column">
+<main id="main">
 ${body}
 </main>
+</div>
+</div>
 </body>
 </html>`;
 }
 
-function props(page) {
-  const entries = Object.entries(page?.props ?? {}).filter(([k, v]) => k !== "aliases" && v.length > 0);
-  if (entries.length === 0 && !(page?.aliases?.length > 0)) return "";
-  return html`<dl class="props">
-${page.aliases.length > 0 ? html`<dt>also</dt><dd>${page.aliases.join(", ")}</dd>` : ""}
-${entries.map(([k, v]) => html`<dt>${k}</dt><dd>${v.join(", ")}</dd>`)}
-</dl>`;
+// toast is what a write did, at the top of the page: an open dialog that Close or Escape closes, with no script.
+function toast(words) {
+  return html`<dialog open closedby="closerequest" class="toast" aria-label="Result"><h2>${words}</h2>
+<form method="dialog"><button class="small close">Close</button></form></dialog>`;
 }
 
+// panelHead is the head of a part of a page: its heading, and a link at its end.
+function panelHead(title, link = "") {
+  return html`<div class="panel-head"><h2>${title}</h2>${link}</div>`;
+}
+
+function facts(page) {
+  const entries = Object.entries(page?.props ?? {}).filter(([k, v]) => k !== "aliases" && v.length > 0);
+  if (entries.length === 0 && !(page?.aliases?.length > 0)) return "";
+  return html`<section class="group" aria-label="Properties">${panelHead("Properties")}
+<dl class="props">
+${page.aliases.length > 0 ? html`<dt>also</dt><dd>${page.aliases.join(", ")}</dd>` : ""}
+${entries.map(([k, v]) => html`<dt>${k}</dt><dd>${v.join(", ")}</dd>`)}
+</dl></section>`;
+}
+
+// problemsBox is the checker's word on a page after a save: an alert, red when one problem is an error.
 function problemsBox(problems) {
   if (!problems || problems.length === 0) return "";
-  return html`<section class="problems">
-<h2>The checker found</h2>
-<ul>${problems.map((p) => html`<li class="${p.class}"><b>${p.class}</b> ${p.message}. <i>Fix:</i> ${p.fix}</li>`)}</ul>
-</section>`;
+  const bad = problems.some((p) => p.class === "error" || p.class === "loss");
+  return html`<div class="alert${bad ? " danger" : ""}" role="alert">
+<p><strong>The checker found ${problems.length === 1 ? "a problem" : `${problems.length} problems`}.</strong> The page is saved.</p>
+<ul>${problems.map((p) => html`<li><span class="tag">${p.class}</span> ${p.message}. Fix: ${p.fix}</li>`)}</ul>
+</div>`;
 }
 
 function backlinksBox(list) {
   if (!list || list.length === 0) return "";
-  return html`<section class="backlinks">
-<h2>Linked from</h2>
-<ul>${list.map((p) => html`<li><a href="${pageHref(p.path)}">${p.title}</a></li>`)}</ul>
+  return html`<section class="group" aria-label="Linked from">${panelHead("Linked from")}
+<ul class="plain">${list.map((p) => html`<li><a href="${pageHref(p.path)}">${p.title}</a></li>`)}</ul>
 </section>`;
 }
 
-export function noteForm(day) {
-  return html`<form class="capture" method="post" action="/api/capture" data-capture="note">
+// The two forms of the offline queue (public/app.js). Each works with no script: the browser posts it.
+export function noteForm(day, { primary = true } = {}) {
+  return html`<form class="note-form" method="post" action="/api/capture" data-capture="note">
 <input type="hidden" name="type" value="note">
 <input type="hidden" name="day" value="${day}">
-<textarea name="text" rows="2" placeholder="${day ? `A note for ${day}` : "A note for today"}" required></textarea>
-<button>Add</button>
+<label><span>Note</span><textarea name="text" rows="3" placeholder="${day ? `A note for ${shortDay(day)}` : "A note for today"}" required></textarea></label>
+<button${primary ? raw(' class="primary"') : ""}>Add</button>
 </form>`;
 }
 
 export function readingForm(metrics, chosen = "", day = "") {
-  return html`<form class="capture reading" method="post" action="/api/capture" data-capture="reading">
+  return html`<form class="inline reading-form" method="post" action="/api/capture" data-capture="reading">
 <input type="hidden" name="type" value="reading">
 ${day ? html`<input type="hidden" name="day" value="${day}">` : ""}
-<select name="metric" required>
-${chosen ? "" : html`<option value="">Metric</option>`}
+<label><span>Metric</span><select name="metric" required>
+${chosen ? "" : html`<option value="">Choose</option>`}
 ${metrics.map((m) => html`<option value="${m.name}" ${m.name === chosen ? raw("selected") : ""}>${m.name}${m.unit ? ` (${m.unit})` : ""}</option>`)}
-</select>
-<input name="value" inputmode="decimal" placeholder="Value" required autocomplete="off">
+</select></label>
+<label><span>Value</span><input name="value" inputmode="decimal" required autocomplete="off"></label>
 <button>Add</button>
 </form>`;
 }
 
 function dayShift(day, n) {
-  const d = new Date(day + "T12:00:00Z");
+  const d = asDate(day);
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
 
+// step is the link to the day before or after: its arrow, and the day where the column has room for it.
+function step(day, rel) {
+  const label = `${rel === "prev" ? "The day before" : "The day after"}, ${shortDay(day)}`;
+  return html`<a class="button step" rel="${rel}" href="/day/${day}" aria-label="${label}">${rel === "prev" ? html`<span aria-hidden="true">‹</span>` : ""}<span class="step-day">${shortDay(day)}</span>${rel === "next" ? html`<span aria-hidden="true">›</span>` : ""}</a>`;
+}
+
+// The day (aminte plan 095): a calendar leaf heads it. The sheet holds what is written and the note to add; the
+// margin holds the readings and the pages that link here. On a narrow column the margin comes after the sheet.
 export function dayView({ day, today, page, rendered, dated, readings, metrics, backlinks }) {
-  const weekday = new Date(day + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" });
+  const isToday = day === today;
   return layout({
     title: day,
-    nav: day === today ? "today" : "",
-    body: html`<div class="dayhead">
-<a href="/day/${dayShift(day, -1)}" aria-label="the day before">‹</a>
-<h1>${day} <small>${weekday}</small></h1>
-<a href="/day/${dayShift(day, 1)}" aria-label="the day after">›</a>
-</div>
-${day !== today ? html`<p class="center"><a href="/">Today</a></p>` : ""}
+    nav: isToday ? "today" : "",
+    body: html`<header class="page-head day-head">
+<div class="day-title"><a class="leaf" href="/browse/journal" aria-label="${fmt(day, { month: "long", year: "numeric" })}, the journal">
+<span class="leaf-month">${fmt(day, { month: "short", year: "numeric" })}</span><span class="leaf-day">${Number(day.slice(8))}</span></a>
+<div class="what"><h1>${weekdayOf(day)}</h1>
+<p class="sub">${isToday ? html`<span class="tag open">today</span>` : html`<a href="/">Go to today</a>`} <span class="date">${day}</span></p></div></div>
+<div class="tools">${step(dayShift(day, -1), "prev")}${step(dayShift(day, 1), "next")}</div>
+</header>
+<div class="sheet-margin">
+<div class="sheet">
+<section class="journal" aria-label="Journal">
+${panelHead("Journal", html`<a href="/edit/journal/${day}.md">${page ? "Edit the day" : "Write the day"}</a>`)}
+${rendered ? html`<div class="prose journal-text">${raw(rendered)}</div>` : html`<p class="empty">Nothing written on this day yet. Add a note below.</p>`}
+</section>
+<section class="capture" id="capture" aria-label="Add a note">
+<h2>${isToday ? "Add to today" : `Add to ${shortDay(day)}`}</h2>
 ${noteForm(day)}
-<article class="page">${rendered ? raw(rendered) : html`<p class="dim">Nothing written on this day yet.</p>`}</article>
-<p class="actions"><a href="/edit/journal/${day}.md">${page ? "Edit the day" : "Write the day"}</a></p>
-${dated.length > 0 ? html`<section><h2>Pages of this day</h2><ul>${dated.map((p) => html`<li><a href="${pageHref(p.path)}">${p.title}</a></li>`)}</ul></section>` : ""}
-<section><h2>Readings</h2>
-${readings.length > 0 ? html`<ul class="readings">${readings.map((r) => html`<li><a href="/metrics/${encodeURIComponent(r.metric)}">${r.metric}</a> ${r.text} ${metrics.get(r.metric)?.unit ?? ""}${r.takenAt ? html` <span class="dim">${r.takenAt.slice(11, 16)}</span>` : ""}</li>`)}</ul>` : html`<p class="dim">None.</p>`}
+</section>
+${dated.length > 0 ? html`<section class="also" aria-label="Pages of this day"><h2>Pages of this day</h2><ul class="plain">${dated.map((p) => html`<li><a href="${pageHref(p.path)}">${p.title}</a></li>`)}</ul></section>` : ""}
+</div>
+<div class="margin">
+<section class="group" aria-label="Readings">
+${panelHead("Readings", html`<a href="/metrics">Metrics</a>`)}
+${readings.length > 0 ? html`<div class="readings">${readings.map((r) => html`<div class="reading-tile"><a class="name" href="/metrics/${encodeURIComponent(r.metric)}">${r.metric}</a>
+<span class="reading">${r.text}</span><span class="unit">${metrics.get(r.metric)?.unit ?? ""}${r.takenAt ? ` · ${r.takenAt.slice(11, 16)}` : ""}</span></div>`)}</div>` : html`<p class="empty">No readings on this day. Add one below.</p>`}
 ${readingForm([...metrics.values()], "", day)}
 </section>
-${backlinksBox(backlinks)}`,
+${backlinksBox(backlinks)}
+</div>
+</div>`,
   });
 }
 
+// A page: the head with its kind and title; the sheet with the body; the margin with its properties and the pages
+// that link to it. A save's result is a toast; the checker's problems are an alert.
 export function pageView({ page, rendered, backlinks, problems, saved }) {
   return layout({
     title: page.title,
-    body: html`<p class="crumb"><a href="/browse/${page.kind}">${kindName[page.kind]}</a></p>
-<h1>${page.title}</h1>
-${saved ? html`<p class="ok">Saved.</p>` : ""}
+    body: html`${saved ? toast("Saved.") : ""}
+<header class="page-head">
+<div class="what"><p class="kind"><a href="/browse/${page.kind}">${kindName[page.kind]}</a></p><h1>${page.title}</h1>
+${page.kind === "metrics" ? html`<p class="sub"><a href="/metrics/${encodeURIComponent(page.title)}">Its readings</a></p>` : ""}</div>
+<div class="tools"><a class="button" href="/edit/${encPath(page.path)}">Edit</a></div>
+</header>
 ${problemsBox(problems)}
-${page.problem ? html`<p class="warn">The properties do not parse: ${page.problem}</p>` : ""}
-${props(page)}
-<article class="page">${raw(rendered)}</article>
-<p class="actions"><a href="/edit/${encPath(page.path)}">Edit</a>${page.kind === "metrics" ? html` · <a href="/metrics/${encodeURIComponent(page.title)}">Readings</a>` : ""}</p>
-${backlinksBox(backlinks)}`,
+${page.problem ? html`<div class="alert" role="alert"><p><strong>The properties do not parse.</strong> ${page.problem}</p></div>` : ""}
+<div class="sheet-margin">
+<div class="sheet">
+${rendered.trim() ? html`<section class="page-body" aria-label="The page"><div class="prose">${raw(rendered)}</div></section>` : html`<p class="empty">Nothing written here yet. <a href="/edit/${encPath(page.path)}">Write it</a>.</p>`}
+</div>
+<div class="margin">
+${facts(page)}
+${backlinksBox(backlinks)}
+</div>
+</div>`,
   });
 }
 

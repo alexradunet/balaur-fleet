@@ -70,7 +70,8 @@ test("a page shows its links, its aliases and its backlinks", async () => {
 test("the day view shows the day page and the day's readings", async () => {
   const r = await get("/day/2026-11-10");
   assert.equal(r.status, 200);
-  assert.match(r.body, /weight<\/a> 81\.4 kg/);
+  // A tile: the metric, its value and its unit.
+  assert.match(r.body, /<a class="name" href="\/metrics\/weight">weight<\/a>\s*<span class="reading">81\.4<\/span><span class="unit">kg<\/span>/);
   assert.match((await get("/day/2026-11-15")).body, /08:00 Walked\./);
   assert.equal((await get("/")).status, 303);
 });
