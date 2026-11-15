@@ -1,77 +1,73 @@
-:root {
-  --bg: #fafafa; --card: #ffffff; --fg: #1e1e1e; --dim: #5e5c64; --line: #deddda;
-  --accent: #3584e4; --missing: #c01c28; --warn: #9c6e03; --ok: #26a269;
-  color-scheme: light dark;
+/* app.css: only what lifelog-web's own vocabulary needs, on top of base.css (ordinary HTML and the tokens). It is
+   the components and the utilities layers of the one cascade that base.css declares. Every colour, size and face is
+   a token of base.css: no rule here names a colour of its own. A material sets its text through the aliases of
+   base.css (--text, --text-strong, --text-muted, --text-link, --rule). The pictures are in pictures/ (README.md
+   there). See lifelog/docs/plans/004-the-almanac-look.md. */
+
+@layer components{
+/* Wood: the bar. Parchment: what is written. */
+.bar{--text:var(--rail-ink); --text-strong:var(--rail-accent); --text-muted:var(--rail-ink); --text-link:var(--rail-accent); --rule:var(--outline);
+  color:var(--text); background-color:var(--rail); background-image:url(/static/pictures/wood.png),var(--grain-ground); background-size:252px 480px,4px 4px; image-rendering:pixelated}
+.problems,.backlinks,ul.hits,ul.kinds,ul.metrics,table.readings{--text:var(--ink); --text-strong:var(--ink); --text-muted:var(--muted); --text-link:var(--link); --rule:var(--edge);
+  color:var(--text); background-color:var(--surface); background-image:var(--grain-ink); background-size:4px 4px; border:2px solid var(--edge)}
+
+/* The floor under the page: a faint tile of boards. The page is a slab of oak on it. */
+body{background-image:url(/static/pictures/ground.png),var(--grain-ground); background-size:480px 288px,4px 4px; image-rendering:pixelated}
+main{image-rendering:auto; max-inline-size:760px; margin-inline:auto; padding:var(--space-4) var(--space-4) var(--space-10);
+  background-color:var(--desk); background-image:var(--grain-ground); background-size:4px 4px; box-shadow:var(--bevel-up); min-block-size:100vh;
+  display:flex; flex-direction:column; gap:var(--space-3)}
+
+.bar{position:sticky; inset-block-start:0; z-index:1; border-block-end:2px solid var(--outline); box-shadow:var(--bevel-up),var(--drop-hard);
+  padding:env(safe-area-inset-top) var(--space-2) 0;
+  & nav{display:flex; max-inline-size:760px; margin-inline:auto}
+  & nav a{flex:1; text-align:center; padding:var(--space-3) var(--space-1); color:var(--rail-ink);
+    &:hover{color:var(--rail-accent); text-decoration:none}
+    &.on{color:var(--rail-accent); font-weight:700; box-shadow:inset 0 -3px 0 var(--rail-accent)}}}
+.queue{display:flex; flex-wrap:wrap; gap:6px; max-inline-size:760px; margin-inline:auto; padding:6px var(--space-2); font-size:13px; color:var(--rail-accent);
+  &[hidden]{display:none}}
+
+h1 small{font:400 13px/19px var(--mono); color:var(--text-muted)}
+h2{margin-block-start:var(--space-4)}
+.dayhead{display:flex; align-items:center; justify-content:space-between;
+  & a{font:400 36px/1 var(--display); padding:0 var(--space-3)}
+  & h1{text-align:center}}
+.page{overflow-wrap:anywhere;
+  & img{max-inline-size:100%; block-size:auto}
+  & p+p,& ul,& ol,& pre,& blockquote,& h2,& h3{margin-block-start:var(--space-3)}}
+a.wikilink.missing{color:var(--danger)}
+.props{display:grid; grid-template-columns:max-content 1fr; gap:2px var(--space-3);
+  & dd{margin:0; overflow-wrap:anywhere}}
+.crumb{font-size:13px}
+.ok{color:var(--done)}
+.warn{color:var(--warn)}
+.problems{padding:var(--space-3) var(--space-4);
+  & :is(.error,.loss) b{color:var(--danger)}
+  & pre{max-block-size:40vh; overflow:auto}}
+.backlinks{padding:var(--space-3) var(--space-4)}
+form.capture{display:flex; gap:var(--space-2); align-items:start;
+  & textarea{flex:1; min-block-size:var(--control)}}
+form.reading{& select{max-inline-size:45%} & input{flex:1; min-inline-size:0}}
+form.editor{display:flex; flex-direction:column; gap:var(--space-3);
+  & textarea{min-block-size:60vh; font:400 15px/24px var(--mono)}}
+ul.hits,ul.kinds,ul.metrics{list-style:none; padding:var(--space-1) var(--space-4);
+  & li{padding:var(--space-2) 0; margin:0; border-block-end:1px solid var(--line-soft)}}
+:is(ul.kinds,ul.metrics) li{display:flex; gap:var(--space-3); align-items:baseline;
+  & a{flex:1}}
+.snippet{font-size:13px; color:var(--text-muted); overflow-wrap:anywhere}
+ul.days{list-style:none; padding:0; display:flex; flex-wrap:wrap; gap:6px;
+  & li{margin:0}
+  & a{display:inline-block; min-inline-size:2.4em; text-align:center; padding:var(--space-1); font-family:var(--mono);
+    background:var(--surface); color:var(--link); border:2px solid var(--edge)}}
+.spans{display:flex; gap:var(--space-4)}
+svg.chart{inline-size:100%; block-size:auto; background:var(--surface); border:2px solid var(--edge);
+  & text{fill:var(--muted); font:400 12px var(--mono)}
+  & .axis{stroke:var(--line-soft)}
+  & .line{fill:none; stroke:var(--link); stroke-width:2}
+  & .dots circle{fill:var(--link)}}
+table.readings td:first-child{font-family:var(--mono)}
 }
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #242424; --card: #303030; --fg: #ffffff; --dim: #c0bfbc; --line: #3d3d3d;
-          --accent: #78aeed; --missing: #ff7b63; --warn: #f8e45c; --ok: #8ff0a4; }
+
+@layer utilities{
+.dim{color:var(--text-muted)}
+.center{text-align:center}
 }
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--fg);
-       font: 17px/1.5 Cantarell, "Adwaita Sans", system-ui, sans-serif; }
-main { max-width: 760px; margin: 0 auto; padding: 12px 16px 64px; }
-a { color: var(--accent); }
-h1 { font-size: 24px; margin: 12px 0; overflow-wrap: anywhere; }
-h1 small { font-size: 15px; color: var(--dim); font-weight: 400; }
-h2 { font-size: 15px; color: var(--dim); margin: 24px 0 8px; }
-.dim { color: var(--dim); }
-.center { text-align: center; }
-.bar { position: sticky; top: 0; z-index: 1; background: var(--card); border-bottom: 1px solid var(--line);
-       padding: env(safe-area-inset-top) 8px 0; }
-.bar nav { display: flex; max-width: 760px; margin: 0 auto; }
-.bar nav a { flex: 1; text-align: center; padding: 12px 4px; text-decoration: none; color: var(--fg); }
-.bar nav a.on { color: var(--accent); font-weight: 700; box-shadow: inset 0 -3px var(--accent); }
-.queue { display: flex; flex-wrap: wrap; gap: 6px; max-width: 760px; margin: 0 auto; padding: 6px 8px;
-         font-size: 14px; color: var(--warn); }
-.queue[hidden] { display: none; }
-.queue button { font-size: 13px; }
-.dayhead { display: flex; align-items: center; justify-content: space-between; }
-.dayhead a { font-size: 32px; text-decoration: none; padding: 0 12px; }
-.dayhead h1 { text-align: center; }
-.page { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px 16px;
-        overflow-wrap: anywhere; }
-.page img { max-width: 100%; height: auto; border-radius: 8px; }
-.page pre { overflow-x: auto; }
-.wikilink { text-decoration: none; }
-.wikilink.missing { color: var(--missing); }
-.tag { text-decoration: none; }
-.actions { margin: 12px 0; }
-.props { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: 15px; margin: 0 0 12px; }
-.props dt { color: var(--dim); }
-.props dd { margin: 0; overflow-wrap: anywhere; }
-.crumb { margin: 8px 0 0; font-size: 15px; }
-.ok { color: var(--ok); }
-.warn { color: var(--warn); }
-.problems { border: 1px solid var(--warn); border-radius: 12px; padding: 4px 16px; margin: 12px 0; }
-.problems .error b, .problems .loss b { color: var(--missing); }
-.problems pre { white-space: pre-wrap; max-height: 40vh; overflow: auto; font-size: 14px; }
-form.capture { display: flex; gap: 8px; margin: 12px 0; }
-form.capture textarea { flex: 1; }
-form.reading select { max-width: 45%; }
-form.reading input { flex: 1; min-width: 0; }
-input, select, textarea, button { font: inherit; color: inherit; background: var(--card);
-       border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
-button { background: var(--accent); color: #fff; border: 0; padding: 8px 16px; }
-textarea { width: 100%; }
-form.editor label { display: block; margin: 8px 0; }
-form.editor label input, form.editor label select { width: 100%; }
-form.editor textarea { min-height: 60vh; font: 15px/1.5 ui-monospace, "Adwaita Mono", monospace; }
-form.search input { width: 100%; }
-ul.hits { list-style: none; padding: 0; }
-ul.hits li { padding: 8px 0; border-bottom: 1px solid var(--line); }
-.snippet { font-size: 15px; color: var(--dim); overflow-wrap: anywhere; }
-ul.kinds, ul.metrics { list-style: none; padding: 0; }
-ul.kinds li, ul.metrics li { padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: baseline; }
-ul.kinds li a, ul.metrics li a { flex: 1; }
-ul.days { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-ul.days li a { display: inline-block; min-width: 2.4em; text-align: center; padding: 4px; border: 1px solid var(--line); border-radius: 6px; text-decoration: none; }
-.spans { display: flex; gap: 16px; }
-svg.chart { width: 100%; height: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
-svg.chart text { fill: var(--dim); font-size: 12px; }
-svg.chart .axis { stroke: var(--line); }
-svg.chart .line { fill: none; stroke: var(--accent); stroke-width: 2; }
-svg.chart .dots circle { fill: var(--accent); }
-table.readings { width: 100%; border-collapse: collapse; margin-top: 12px; }
-table.readings td, table.readings th { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
-ul.readings { padding-left: 20px; }

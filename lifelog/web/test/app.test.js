@@ -2,10 +2,12 @@
 // on a synthetic folder, with the real lifelog program.
 
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { after, before, test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { sha256 } from "../src/folder.js";
 import { createApp } from "../src/server.js";
@@ -162,6 +164,41 @@ test("the service worker carries the version of the static files", async () => {
   const r = await get("/sw.js");
   assert.match(r.body, /const VERSION = "[0-9a-f]{12}"/);
   assert.equal((await get("/static/htmx.min.js")).status, 200);
+});
+
+test("every static file is served, in the cache's hash and in the shell", async () => {
+  // Walked here on its own, not by the server's list: a file the server forgets fails.
+  const pub = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public");
+  const walk = (dir) =>
+    readdirSync(path.join(pub, dir), { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(path.join(dir, e.name)) : e.name.endsWith(".md") ? [] : [path.join(dir, e.name).split(path.sep).join("/")],
+    );
+  const files = walk("").sort();
+  for (const want of ["base.css", "app.css", "fonts/jersey-15-400-latin.woff2", "fonts/OFL-jersey-15.txt", "pictures/wood.png", "icon-192.png"]) {
+    assert.ok(files.includes(want), want);
+  }
+  const route = (rel) => (rel === "sw.js" || rel === "manifest.webmanifest" ? `/${rel}` : `/static/${rel}`);
+  const hash = createHash("sha256");
+  for (const rel of files) {
+    const data = readFileSync(path.join(pub, rel));
+    hash.update(data);
+    if (rel === "sw.js") continue;
+    const r = await get(route(rel));
+    assert.equal(r.status, 200, rel);
+    assert.equal(r.body, data.toString(), rel);
+  }
+  hash.update(readFileSync(path.join(pub, "..", "node_modules", "htmx.org", "dist", "htmx.min.js")));
+  const sw = (await get("/sw.js")).body;
+  assert.match(sw, new RegExp(`const VERSION = "${hash.digest("hex").slice(0, 12)}"`));
+  const shell = JSON.parse(/const SHELL = (\[.*\]);/.exec(sw)[1]);
+  const want = ["/capture", "/static/htmx.min.js", ...files.filter((f) => f !== "sw.js" && !f.endsWith(".txt")).map(route)];
+  assert.deepEqual([...shell].sort(), want.sort());
+});
+
+test("a face has a cache of a year; the sheets are checked each time", async () => {
+  assert.match((await get("/static/fonts/atkinson-hyperlegible-400-latin.woff2")).headers["cache-control"], /max-age=31536000/);
+  assert.equal((await get("/static/base.css")).headers["cache-control"], "no-cache");
+  assert.match((await get("/static/base.css")).headers["content-security-policy"], /style-src 'self';/);
 });
 
 test("the applied ids are kept in the state folder only", () => {

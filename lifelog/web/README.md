@@ -17,6 +17,11 @@ The life folder on the phone: the journal, the pages, the readings and search, s
 | `src/lifelog.js` | the calls to the Go program, and the index, kept until a file changes |
 | `src/markdown.js` | markdown and wikilinks as HTML (no raw HTML from a page) |
 | `src/readings.js`, `src/search.js` | the CSV files and their chart; full-text search |
+| `public/base.css`, `public/app.css` | the Almanac look ([plan 004](../docs/plans/004-the-almanac-look.md)): the tokens and ordinary HTML, then the app's components; `test/sheets.test.js` holds their contrast and layers |
+| `public/fonts/`, `public/pictures/` | the three faces and the pixel art, copied from aminte (a README in each) |
+
+Every file of `public/` is served and goes into the service worker's cache by itself (`staticFiles()` in
+`src/server.js`); a test holds this.
 
 ```sh
 nix develop                                  # from the repo root: Go and Node

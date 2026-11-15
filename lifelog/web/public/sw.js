@@ -5,7 +5,8 @@
 
 const VERSION = "__VERSION__";
 const CACHE = `lifelog-${VERSION}`;
-const SHELL = ["/capture", "/static/app.css", "/static/app.js", "/static/htmx.min.js", "/static/icon.svg", "/manifest.webmanifest"];
+// The server writes the shell: /capture and every static file (staticFiles() in server.js).
+const SHELL = "__SHELL__";
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

@@ -9,7 +9,7 @@
 //   LIFELOG_WEB_STATE      the app's state folder (the ids of applied captures)
 
 import { createHash } from "node:crypto";
-import { promises as fs, readFileSync } from "node:fs";
+import { promises as fs, readdirSync, readFileSync } from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -33,30 +33,56 @@ class HttpError extends Error {
   }
 }
 
-// The static files: the app's own, and htmx from its package. Each is read
-// once; the service worker's cache name is the hash of all of them.
-function loadStatic() {
-  const pub = path.join(here, "..", "public");
-  const files = {
-    "/static/app.css": ["app.css", "text/css"],
-    "/static/app.js": ["app.js", "text/javascript"],
-    "/static/icon.svg": ["icon.svg", "image/svg+xml"],
-    "/manifest.webmanifest": ["manifest.webmanifest", "application/manifest+json"],
-    "/sw.js": ["sw.js", "text/javascript"],
+// The static files: every file of public/ (but its READMEs), and htmx from its
+// package. Each is read once. One list makes the routes, the hash that names
+// the service worker's cache, and the shell that the service worker keeps, so
+// a new file cannot be left out of the cache (test: "every static file").
+const TYPES = {
+  ".css": "text/css",
+  ".js": "text/javascript",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".woff2": "font/woff2",
+  ".txt": "text/plain; charset=utf-8",
+  ".webmanifest": "application/manifest+json",
+};
+const AT_ROOT = new Set(["manifest.webmanifest", "sw.js"]);
+// A face is never changed in place: a changed file gets a new name (public/fonts/README.md).
+const YEAR = "public, max-age=31536000, immutable";
+
+export function staticFiles(pub = path.join(here, "..", "public")) {
+  const list = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(path.join(pub, dir), { withFileTypes: true })) {
+      const rel = dir ? `${dir}/${e.name}` : e.name;
+      if (e.isDirectory()) walk(rel);
+      else if (!e.name.endsWith(".md")) list.push(rel);
+    }
   };
+  walk("");
+  return list.sort().map((rel) => {
+    const type = TYPES[path.extname(rel)];
+    if (!type) throw new Error(`public/${rel}: no type for its extension`);
+    return { rel, route: AT_ROOT.has(rel) ? `/${rel}` : `/static/${rel}`, type, file: path.join(pub, rel) };
+  });
+}
+
+function loadStatic() {
   const out = new Map();
   const hash = createHash("sha256");
-  for (const [route, [name, type]] of Object.entries(files)) {
-    const data = readFileSync(path.join(pub, name));
+  for (const { route, type, file, rel } of staticFiles()) {
+    const data = readFileSync(file);
     hash.update(data);
-    out.set(route, { data, type });
+    out.set(route, { data, type, cache: rel.startsWith("fonts/") ? YEAR : "no-cache" });
   }
   const htmx = readFileSync(path.join(here, "..", "node_modules", "htmx.org", "dist", "htmx.min.js"));
   hash.update(htmx);
-  out.set("/static/htmx.min.js", { data: htmx, type: "text/javascript" });
+  out.set("/static/htmx.min.js", { data: htmx, type: "text/javascript", cache: "no-cache" });
   const version = hash.digest("hex").slice(0, 12);
+  // The shell: the capture page and every static file but the worker itself and the licences.
+  const shell = ["/capture", ...[...out.keys()].filter((r) => r !== "/sw.js" && !r.endsWith(".txt"))];
   const sw = out.get("/sw.js");
-  sw.data = Buffer.from(sw.data.toString("utf8").replace("__VERSION__", version));
+  sw.data = Buffer.from(sw.data.toString("utf8").replace("__VERSION__", version).replace('"__SHELL__"', JSON.stringify(shell)));
   return out;
 }
 
@@ -356,7 +382,7 @@ export function createApp({ folder: root, bin = "lifelog", stateDir }) {
       const st = statics.get(url.pathname);
       let out;
       if (st && req.method === "GET") {
-        out = { status: 200, type: st.type, body: st.data, cache: "no-cache" };
+        out = { status: 200, type: st.type, body: st.data, cache: st.cache };
       } else {
         let pathname;
         try {

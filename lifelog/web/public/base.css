@@ -1,0 +1,232 @@
+/* base.css: the look of ordinary HTML (its elements, forms, tables and buttons), on the tokens of the Almanac
+   design system, bound in Hearthwood. It is copied from aminte (extensions/web/view/html/base.css) and changed only
+   where lifelog-web differs: the faces are at /static/fonts/. See lifelog/docs/plans/004-the-almanac-look.md.
+   This sheet styles elements, not classes, so a page reads as HTML with this file alone; app.css adds what the
+   app's own vocabulary needs. Nothing is fetched from another host. Dark is the identity; light is the daylight
+   study of the same room, by prefers-color-scheme. Every colour is a token, written once as light-dark(light, dark).
+   The two sheets are one cascade in four layers, declared once here: tokens, base (this file), components and
+   utilities (app.css); @font-face stays outside them. Every rule uses logical properties. test/sheets.test.js
+   holds these rules and the contrast of the tokens. */
+
+@layer tokens, base, components, utilities;
+
+/* Atkinson Hyperlegible for words, IBM Plex Mono for days, times, counts and values, Jersey 15 for the few large
+   things (a title, the leaf's number, a reading): the latin files, then the latin-ext ones, which a browser fetches
+   only for a page with a letter in their range. */
+@font-face{font-family:"Atkinson Hyperlegible"; font-style:normal; font-weight:400; font-display:swap; src:url(/static/fonts/atkinson-hyperlegible-400-latin.woff2) format("woff2"); unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Atkinson Hyperlegible"; font-style:normal; font-weight:400; font-display:swap; src:url(/static/fonts/atkinson-hyperlegible-400-latin-ext.woff2) format("woff2"); unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Atkinson Hyperlegible"; font-style:italic; font-weight:400; font-display:swap; src:url(/static/fonts/atkinson-hyperlegible-400-italic-latin.woff2) format("woff2"); unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Atkinson Hyperlegible"; font-style:italic; font-weight:400; font-display:swap; src:url(/static/fonts/atkinson-hyperlegible-400-italic-latin-ext.woff2) format("woff2"); unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Atkinson Hyperlegible"; font-style:normal; font-weight:700; font-display:swap; src:url(/static/fonts/atkinson-hyperlegible-700-latin.woff2) format("woff2"); unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Atkinson Hyperlegible"; font-style:normal; font-weight:700; font-display:swap; src:url(/static/fonts/atkinson-hyperlegible-700-latin-ext.woff2) format("woff2"); unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-weight:400; font-display:swap; src:url(/static/fonts/ibm-plex-mono-400-latin.woff2) format("woff2"); unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-weight:400; font-display:swap; src:url(/static/fonts/ibm-plex-mono-400-latin-ext.woff2) format("woff2"); unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-weight:500; font-display:swap; src:url(/static/fonts/ibm-plex-mono-500-latin.woff2) format("woff2"); unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"IBM Plex Mono"; font-style:normal; font-weight:500; font-display:swap; src:url(/static/fonts/ibm-plex-mono-500-latin-ext.woff2) format("woff2"); unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"Jersey 15"; font-style:normal; font-weight:400; font-display:swap; src:url(/static/fonts/jersey-15-400-latin.woff2) format("woff2"); unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Jersey 15"; font-style:normal; font-weight:400; font-display:swap; src:url(/static/fonts/jersey-15-400-latin-ext.woff2) format("woff2"); unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+
+/* The tokens: the materials (a slab of oak for the page, the boards of the floor under it, wood for the rail,
+   parchment for what is written), the text of each material, the accents (gold for where the owner is and what is today, ember for the one loud button, teal for a
+   link and the focus ring), the shapes (bevels and hard drops, no radius) and the faces. Every pair a use names
+   holds 4.5:1 for text and 3:1 for an edge and the focus ring, in both themes; a test reads this one block and
+   checks it. A material sets its own text through the aliases --text, --text-strong, --text-muted, --text-link and
+   --rule: the page sets them for oak here, and a parchment or wood element resets them, so one rule draws a link or
+   a heading on any material. The type scale is 12 / 13 / 15 / 18 / 24 px, with the title up to 46 px in the display face, and a control is 40 px high, 44 px under 900 px, where the screen is a touch screen
+   (aminte plan 095). */
+@layer tokens{
+:root{
+  color-scheme:light;
+  --ground:light-dark(#efe2bd, #140c06); --desk:light-dark(#e6d4a4, #211408); --rail:light-dark(#3a2210, #2a1709); --rail-deep:light-dark(#2c1a0c, #1d0f06); --surface:light-dark(#f4e9c4, #e8d9ae); --surface-deep:light-dark(#e4d49e, #d6c188);
+  --edge:light-dark(#8c7240, #7f663a); --outline:light-dark(#241708, #120a04); --line:light-dark(#c8b488, #3b2a16); --line-soft:light-dark(#cdb983, #c2aa72);
+  --ink:#2c2012; --muted:light-dark(#5c4c2f, #463a24); --page-ink:light-dark(#3a2c18, #c9b894); --page-strong:light-dark(#241a0c, #ecdcb2); --page-muted:light-dark(#6a5838, #bfb19c); --rail-ink:light-dark(#d6bb92, #cbb18e);
+  --accent:light-dark(#6f4e0e, #f2c14e); --rail-accent:#f2c14e; --accent-ink:light-dark(#6b4a0c, #4f3709); --accent-soft:light-dark(#e9d38c, #e9c974); --on-accent:light-dark(#fff3dc, #1c0d04);
+  --link:light-dark(#0a5546, #084337); --link-page:light-dark(#0a5546, #39c6af); --primary:light-dark(#b5400a, #ff955c); --primary-hover:light-dark(#9c3608, #ffa676);
+  --warn:#8f3a12; --warn-ink:#7e3210;
+  --done:light-dark(#3f6a22, #3d6621);
+  --danger:#a8201f; --danger-ink:light-dark(#8f1d12, #8a1c11); --danger-soft:light-dark(#f3cbbf, #efc3b5); --danger-line:light-dark(#c25a48, #b8503f);
+  --mark:#f2c14e; --focus:#0e7f6b; --backdrop:light-dark(#1a0d04b8, #0a0501b8);
+  --bevel-light:light-dark(#ffdea64d, #ffc4762e); --bevel-dark:#0000008c; --paper-light:#ffffff73; --slab-shade:#40301240; --well-shade:#4030122e;
+  --grain-ground:repeating-conic-gradient(light-dark(#2c20120a, #ffd69606) 0% 25%,transparent 0% 50%);
+  --grain-ink:repeating-conic-gradient(#402c120b 0% 25%,transparent 0% 50%);
+  --rail-shade:linear-gradient(90deg,#00000040,transparent 14px); --rail-foot-shade:linear-gradient(180deg,transparent 60%,#00000040);
+  --accent-tint:#f2c14e1f; --rail-hairline:#f2c14e2e; --chip-ground:#00000030; --rail-on-accent:#1c0d04; --focus-halo:#0e7f6b22;
+  --bevel-up:inset 0 3px 0 var(--bevel-light),inset 3px 0 0 var(--bevel-light),inset 0 -3px 0 var(--bevel-dark),inset -3px 0 0 var(--bevel-dark);
+  --bevel-in:inset 0 3px 0 var(--bevel-dark),inset 3px 0 0 var(--bevel-dark),inset 0 -3px 0 var(--bevel-light),inset -3px 0 0 var(--bevel-light);
+  --parch-bevel:inset 0 2px 0 var(--paper-light),inset 0 -3px 0 var(--surface-deep),0 3px 0 var(--bevel-dark);
+  --drop-hard:0 3px 0 var(--bevel-dark); --shadow-float:0 6px 0 var(--bevel-dark);
+  --slab-bevel:inset 0 3px 0 var(--paper-light),inset 0 -3px 0 var(--slab-shade); --slab-pressed:inset 0 3px 0 var(--slab-shade);
+  --well:inset 0 2px 0 var(--well-shade);
+  --text:var(--page-ink); --text-strong:var(--page-strong); --text-muted:var(--page-muted); --text-link:var(--link-page); --rule:var(--line);
+  --toast-bg:var(--surface); --toast-ink:var(--ink); --toast-link:var(--link);
+  --display:"Jersey 15","Atkinson Hyperlegible","Segoe UI",system-ui,sans-serif;
+  --sans:"Atkinson Hyperlegible","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --space-1:4px; --space-2:8px; --space-3:12px; --space-4:16px; --space-5:20px; --space-6:24px; --space-8:32px; --space-10:40px;
+  --rail-width:248px; --block:1200px; --frame:calc(var(--rail-width) + var(--block) + 2 * var(--space-8)); --control:40px; --control-small:32px; --measure:70ch; --measure-read:62ch;
+}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark}}
+@media (max-width:899px){:root{--control:44px; --control-small:40px}}
+}
+
+@layer base{
+*,*::before,*::after{box-sizing:border-box}
+/* The column no longer jumps sideways when one page needs a scrollbar and the next does not. */
+html{-webkit-text-size-adjust:100%; scroll-behavior:smooth; scrollbar-gutter:stable}
+body{margin:0; background-color:var(--ground); background-image:var(--grain-ground); background-size:4px 4px; color:var(--text);
+  font:400 15px/22px var(--sans); text-wrap:pretty}
+
+/* Headings: h1 is the page, in the display face; h2 names a group of it, h3 a part of that; all in sentence case,
+   none in capitals. */
+h1,h2,h3,h4{text-wrap:balance; overflow-wrap:break-word; margin:0; color:var(--text-strong)}
+/* The title and the group heading scale with the column (cqi: the nearest container, the page's column), from a
+   phone's size to the wide one. */
+h1{font:400 clamp(36px, 26px + 2cqi, 46px)/1 var(--display); letter-spacing:.01em}
+h2{font-size:clamp(17px, 16px + .25cqi, 18px); line-height:24px; font-weight:700}
+h3{font-size:15px; line-height:22px; font-weight:700}
+h4{font-size:15px; line-height:22px; font-weight:700; color:var(--text-muted)}
+p{margin:0}
+/* A rule is a stitch: a dotted line of the material's rule colour. */
+hr{block-size:2px; border:0; margin:var(--space-6) 0; background:linear-gradient(to right,var(--rule) 50%,transparent 50%) 0 0/8px 2px repeat-x}
+small{font-size:13px; line-height:19px; color:var(--text-muted)}
+abbr[title]{cursor:help; text-decoration:underline dotted}
+
+a{color:var(--text-link); text-decoration:none;
+  &:hover{text-decoration:underline}}
+:where(a,button,summary,input,textarea,select,[tabindex]):focus-visible{outline:2px solid var(--focus); outline-offset:2px}
+[role=alert]:focus{outline:2px solid var(--focus); outline-offset:2px} /* a refused form puts the focus on its alert */
+/* The first motion: a press sinks. Reduced motion keeps the press and drops the transition. The second motion is the
+   step from one page to the next: the browser cross-fades the pages, and app.css names the leaf and the sheet so
+   they move on their own (aminte plan 097). */
+@view-transition{navigation:auto}
+@media (prefers-reduced-motion:reduce){@view-transition{navigation:none}}
+@media (prefers-reduced-motion:no-preference){button,summary{transition:transform .08s,box-shadow .08s,filter .08s}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto} *,*::before,*::after{transition:none!important;animation:none!important}}
+
+main{display:block}
+footer{color:var(--text-muted); font-size:13px; line-height:19px}
+
+/* Parchment: the material of what is written. A card is an article on it, with the gold notch in its corner; a
+   callout is an aside, a gold wash on the same paper. Each resets the text aliases for ink on paper. */
+article,aside{--text:var(--ink); --text-strong:var(--ink); --text-muted:var(--muted); --text-link:var(--link); --rule:var(--edge);
+  color:var(--text); background-color:var(--surface); background-image:var(--grain-ink); background-size:4px 4px;
+  border:2px solid var(--edge); box-shadow:var(--parch-bevel)}
+article{position:relative; padding:var(--space-4) var(--space-5);
+  &::after{content:""; position:absolute; inset-block-start:6px; inset-inline-end:6px; inline-size:7px; block-size:7px; background:var(--accent-ink)}}
+aside{background-color:var(--accent-soft); padding:var(--space-3) 14px; font-size:14px; line-height:20px;
+  &>*+*{margin-block-start:var(--space-2)}}
+
+/* Lists. */
+ul,ol{margin:0; padding-inline-start:1.4em}
+li+li{margin-block-start:var(--space-1)}
+dl{margin:0}
+dt{font-weight:700}
+dd{margin:0 0 var(--space-2); color:var(--text-muted)}
+
+/* Tables: the readings of a series, a habit's completion, the properties of any entity. Days and numbers line up. */
+table{border-collapse:collapse; inline-size:100%; font-size:14px; line-height:20px; font-variant-numeric:tabular-nums}
+caption{caption-side:bottom; text-align:start; color:var(--text-muted); font-size:13px; padding:var(--space-2) var(--space-2) 0}
+th,td{text-align:start; vertical-align:top; padding:var(--space-2); border-block-end:1px solid var(--line-soft)}
+thead th{color:var(--text-muted); font-weight:700; font-size:13px; border-block-end:2px solid var(--rule); white-space:nowrap;
+  &::first-letter{text-transform:uppercase}} /* sentence case, also for the names the generic view takes from JSON */
+th[scope=row]{color:var(--text-muted); font-weight:400}
+tbody tr:hover{background:var(--surface-deep)}
+table table{font-size:inherit}
+
+/* Forms: a label wraps its field, the words over the control, so a form needs no layout classes. A field is a well
+   carved into the paper. Days, times and numbers are typed in mono. */
+form{margin:0}
+fieldset{border:0; margin:0; padding:0; min-inline-size:0}
+/* The title of a field is a small tracked label: the face of the small groups of a page, so a form reads as one thing
+   with the heading over it. */
+legend,label>span{font:700 12px/16px var(--sans); letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted)}
+legend{padding:0}
+/* The word "required" beside a title stays a quiet word, not a second label; the words beside a checkbox are a
+   sentence, not a title over a control. */
+:is(legend,label>span) small,label:has(>input[type=checkbox])>span{font-weight:400; letter-spacing:0; text-transform:none}
+label:has(>input[type=checkbox])>span{font:inherit}
+label{position:relative; display:flex; flex-direction:column; gap:var(--space-1); font-size:13px; line-height:19px; color:var(--text-muted)}
+input,textarea,select{inline-size:100%; block-size:var(--control); padding:0 var(--space-3); font:400 15px/22px var(--sans); color:var(--ink);
+  background:var(--surface-deep); border:2px solid var(--edge); box-shadow:var(--well);
+  &:hover{border-color:var(--outline)}
+  &:focus-visible{outline:2px solid var(--focus); outline-offset:0; border-color:var(--focus)}}
+input[type=date],input[type=time],input[type=number],input[type=datetime-local]{font-family:var(--mono); font-size:14px; font-variant-numeric:tabular-nums}
+input[type=checkbox],input[type=radio]{inline-size:auto; block-size:auto; box-shadow:none; accent-color:var(--accent-ink)}
+label:has(>input[type=checkbox]){flex-direction:row; align-items:center} /* a checkbox before its words, on one row */
+input[type=file]{block-size:auto; padding:var(--space-2) var(--space-3)}
+/* The box grows with its text (a browser without field-sizing keeps the rows that the server sets). */
+textarea{block-size:auto; min-block-size:6em; max-block-size:60vh; field-sizing:content; padding:10px var(--space-3); resize:vertical; font:400 16px/26px var(--sans)}
+input[readonly],textarea[readonly]{background:var(--surface)}
+/* A field the server refused (aria-invalid, with the alert that says why) and a field the browser refuses once the
+   owner has typed in it (:user-invalid: a required field left empty, a number that is not one) show the same edge. */
+:is(input,textarea,select):is([aria-invalid=true],:user-invalid){border-color:var(--danger-line)}
+::placeholder{color:var(--muted); opacity:.8}
+
+/* The select is the app's own where the browser lets a sheet draw it (appearance:base-select: Chromium and Safari;
+   Firefox keeps its native one): the list is a parchment slip under the field, the chosen option tinted, the arrow
+   the chevron of a details. */
+@supports (appearance:base-select){
+  select,::picker(select){appearance:base-select}
+  select{display:flex; align-items:center; justify-content:space-between; gap:var(--space-2)}
+  select::picker-icon{content:""; flex:none; inline-size:7px; block-size:7px; margin-inline-end:3px; border:solid currentColor; border-width:0 2px 2px 0; transform:rotate(45deg)}
+  select:open::picker-icon{transform:rotate(-135deg)}
+  ::picker(select){margin-block-start:2px; padding:var(--space-1); border:2px solid var(--edge); color:var(--ink);
+    background-color:var(--surface); background-image:var(--grain-ink); background-size:4px 4px; box-shadow:var(--shadow-float)}
+  option{padding:5px 9px; font:400 15px/22px var(--sans);
+    &::checkmark{display:none}
+    &:checked{background:var(--accent-soft); color:var(--accent-ink); font-weight:700}
+    &:is(:hover,:focus-visible){background:var(--surface-deep); outline:0}}
+  @media (prefers-reduced-motion:no-preference){
+    ::picker(select){opacity:0; transition:opacity .12s, overlay .12s allow-discrete, display .12s allow-discrete}
+    select:open::picker(select){opacity:1;
+      @starting-style{opacity:0}}
+  }
+}
+
+/* A button is a parchment slab with its outline, a light top bevel and a hard drop; pressed, it sinks 3 px and the
+   bevel turns. The primary one, the danger one and the small one are app.css's. */
+button{display:inline-flex; align-items:center; justify-content:center; gap:var(--space-2); block-size:var(--control); margin:0; padding:0 var(--space-4);
+  font:700 15px/1 var(--sans); color:var(--ink); background:var(--surface-deep); border:2px solid var(--outline);
+  box-shadow:var(--slab-bevel),var(--drop-hard); white-space:nowrap; cursor:pointer;
+  &:hover{filter:brightness(1.04)}
+  &:active{transform:translateY(3px); box-shadow:var(--slab-pressed)}
+  &:disabled{opacity:.55; cursor:not-allowed; transform:none; box-shadow:var(--slab-bevel),var(--drop-hard)}}
+
+/* A secondary thing, closed: one line with a chevron that turns when it opens, not a box. */
+details{border:0; padding:0; background:none;
+  &>summary{display:flex; align-items:center; gap:var(--space-2); min-block-size:var(--control); cursor:pointer; list-style:none; font-weight:700; color:var(--text-link);
+    &::-webkit-details-marker{display:none}
+    &::before{content:""; flex:none; inline-size:7px; block-size:7px; margin:0 3px; border:solid currentColor; border-width:0 2px 2px 0; transform:rotate(-45deg)}}
+  &[open]>summary{margin-block-end:var(--space-3);
+    &::before{transform:rotate(45deg)}}}
+
+/* Code and quotations: code is carved into wood. */
+pre{white-space:pre-wrap; overflow-x:auto; background-color:var(--rail-deep); color:var(--rail-ink); border:2px solid var(--outline); box-shadow:var(--bevel-in);
+  padding:10px var(--space-3); margin:0; font:13px/20px var(--mono)}
+code{font:.92em/1.4 var(--mono); background:var(--rail-deep); color:var(--rail-ink); padding:1px 5px}
+pre code{background:none; padding:0; font-size:inherit}
+blockquote{margin:0; padding-inline-start:14px; border-inline-start:3px solid var(--rule); color:var(--text-muted)}
+img,svg,video{max-inline-size:100%; block-size:auto}
+figure{margin:0}
+figcaption{color:var(--text-muted); font-size:13px}
+mark{background:var(--mark); color:var(--ink); padding:0 2px}
+kbd{font:400 12px/16px var(--mono); padding:1px 6px; border:1px solid var(--outline); background:var(--rail); color:var(--rail-ink); white-space:nowrap}
+
+/* A touch screen: a tall text box is capped, so the page around it stays in view. */
+@media (max-width:899px){textarea{max-block-size:45vh}}
+
+/* A narrow column: a denser table. */
+@container (max-width:608px){th,td{padding:6px}}
+
+/* On paper: the content alone, no way to navigate and nothing to fill in. */
+@media print{
+  :root{color-scheme:light}
+  body{margin:0; padding:0; background:#fff; color:#000; font-size:11pt}
+  nav,footer,form,button,details>summary{display:none!important}
+  details{border:0; padding:0}
+  a{color:#000; text-decoration:underline}
+  article,aside{break-inside:avoid; background:none; border:1px solid #999; box-shadow:none}
+  thead th{border-block-end-color:#000}
+  h1,h2,h3{break-after:avoid}
+}
+}

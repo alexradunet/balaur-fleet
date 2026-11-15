@@ -49,8 +49,9 @@ export function layout({ title, body, nav = "" }) {
 <title>${title} · Life</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
-<meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#242424" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#3a2210" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#2a1709" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="/static/base.css">
 <link rel="stylesheet" href="/static/app.css">
 <meta name="htmx-config" content='{"includeIndicatorStyles":false}'>
 <script src="/static/htmx.min.js" defer></script>
