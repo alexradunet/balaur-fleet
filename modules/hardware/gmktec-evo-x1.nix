@@ -11,7 +11,8 @@
 #   Network stack / PXE boot                     Disabled  (no network boot on ethernet)
 #   Boot order                                   the NixOS NVMe only
 #   Fast Boot Disabled, Secure Boot off (systemd-boot is unsigned), SVM and IOMMU on,
-#   power mode Balanced, fan Auto, UMA frame buffer the smallest offered.
+#   power mode Quiet, fan Auto, UMA frame buffer 8 GB (of 64: the 890M is left room
+#   for a small local model; Linux sees 54 GB).
 #
 # Turning it off: `sudo poweroff` over SSH, then the socket, never the socket alone.
 # Turning it on: the socket, or a magic packet to either ethernet port's MAC
