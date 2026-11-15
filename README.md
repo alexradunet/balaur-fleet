@@ -72,7 +72,7 @@ modules/
   home-assistant.nix      Home Assistant: devices and automations, https://home.<domain> and :8123
   web.nix                 https://<domain>: the home page of every machine's web UIs, tailnet only (Caddy, DNS-challenge cert); the owner's devices get all of it, the household's the `household` services
   files.nix               Syncthing: a 200 GiB volume of its own at /srv/files, paired from the registry
-  agent.nix               pi, the OS agent on every machine: the fleet's models, machines and services; `balaur-ask`; roles (`pi-aminte`)
+  agent.nix               pi, the OS agent on every machine: the fleet's models, machines and services; `balaur-ask`; roles (`pi-NAME`, none yet)
   dev.nix                 Claude Code + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep; `dev` opens the sessions
   dev-host.nix            the one machine that holds the development sessions: herdr's server, from boot
   gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow); laptop and pc
@@ -81,7 +81,6 @@ modules/
   game-streaming.nix      Sunshine on the host (the pc), Moonlight on the clients, over the tailnet
   ai.nix                  the fleet's AI entryway on the tablet (`ai-gateway`: local GPU first, Mistral second) and its clients (`ai`)
   strata.nix              Strata: the local LLM on the pc's GPU, stopped while a game runs
-  aminte.nix              aminte, the life log, served on the tablet (`aminte`), and its dev side (`aminte-dev`)
   lifelog.nix             lifelog, the life log as files: the keeper on the tablet (`lifelog`), the folder, `lifelog` and Obsidian on the laptop and the pc (`lifelog-client`)
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
@@ -89,7 +88,7 @@ gnome/                    everything GNOME-facing, in GJS
   app/                    "Balaur", a libadwaita app: the home's services and its people
   shell-extension/        the Scenes menu in Quick Settings (Home Assistant), the ambient screen (photos, machines, services)
 camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 frames -> webcam
-lifelog/                  the life log as markdown + CSV, synced by Syncthing, checked into git (the checker and its commands; will replace aminte)
+lifelog/                  the life log as markdown + CSV, synced by Syncthing, checked into git (the checker and its commands)
 ```
 
 ## What you get

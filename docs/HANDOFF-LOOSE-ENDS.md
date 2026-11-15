@@ -44,8 +44,7 @@ read-only, as it did on the pc: `sudo chmod 2775` it.
 
 And from the session that made the machines alike: `locale` shows `LC_TIME=ro_RO.UTF-8`,
 `gsettings get org.gnome.desktop.input-sources sources` lists `us` and `ro+std` (unless
-it was set by hand before), `lpstat -r` says the scheduler runs, and
-`aminte-prod aminte --help` still reads the token (the secret is now declared by `aminte-dev`).
+it was set by hand before) and `lpstat -r` says the scheduler runs.
 
 ### 4. Keep an eye on the tablet's disk
 

@@ -166,3 +166,13 @@ report, and otherwise when the owner deletes `_check.md`.
   state until a restart.
 - After the fix: the keeper committed nothing new, moved `checked` to the import, and wrote `_check.md` with the
   8 warnings. A keeper run took 176 ms.
+
+### P6, the switch (2026-11-15, by the owner's word)
+
+- Gone from the fleet: `modules/aminte.nix` (the aspects `aminte` and `aminte-dev`), `pkgs/aminte.nix`, the flake
+  input, the role `pi-aminte`, the restic path of aminte's snapshots, and the `balaur.services` entry (the page
+  `https://aminte.<domain>`).
+- Not deleted, on the tablet: `/var/lib/aminte` (`life.db` and its snapshots) and
+  `/srv/files/shared/aminte/life-latest.db`. NixOS does not remove a state folder; the owner deletes them when
+  the copy is no longer wanted. `lifelog-import` can read that snapshot again.
+- Not deleted: the secret `aminte-token` in `secrets/balaur.yaml` (no machine reads it now), and the aminte repo.

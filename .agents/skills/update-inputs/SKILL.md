@@ -1,6 +1,6 @@
 ---
 name: update-inputs
-description: Update the Balaur fleet's flake inputs (nixpkgs, home-manager, sops-nix, llm-agents for Claude Code and pi, aminte) and check what changed before deploying. Use when asked to update, upgrade or bump packages, the agents, aminte, or move to a new NixOS release.
+description: Update the Balaur fleet's flake inputs (nixpkgs, home-manager, sops-nix, llm-agents for Claude Code and pi) and check what changed before deploying. Use when asked to update, upgrade or bump packages, the agents, or move to a new NixOS release.
 ---
 
 # Update inputs
@@ -9,7 +9,7 @@ One input per commit, so a regression points at one change.
 
 ```sh
 nix flake metadata | sed -n '/Inputs/,$p'        # what is locked, and when
-nix flake update <input>                         # nixpkgs, home-manager, sops-nix, llm-agents, aminte, ...
+nix flake update <input>                         # nixpkgs, home-manager, sops-nix, llm-agents, ...
 git diff flake.lock
 ```
 
@@ -19,8 +19,6 @@ git diff flake.lock
 - **home-manager** follows `release-26.05`: keep it on the same release as nixpkgs.
 - **llm-agents** (Claude Code, pi, herdr) is deliberately not following our nixpkgs,
   for its binary cache. Updated daily upstream.
-- **aminte** is not a flake; a change in its Go modules changes the `vendorHash`es in
-  `pkgs/aminte.nix`. Build `.#aminte`; a hash mismatch prints the new value to copy.
 
 Then, for each update:
 

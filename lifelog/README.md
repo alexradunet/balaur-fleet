@@ -2,7 +2,7 @@
 
 The owner's life log as plain files: markdown pages and CSV readings in `/srv/life`, synced by Syncthing between
 the tablet, the laptop and the pc. A keeper on the tablet commits every settled state to git and moves the ref
-`checked` to each state that passes its checker. It replaces aminte, and is built next to it.
+`checked` to each state that passes its checker. It replaced aminte on 2026-11-15.
 
 - [The design](docs/design.md): the model, the layout, the keeper and the rules of the checker.
 - [Plan 001](docs/plans/001-spikes.md): the spikes and their results.
@@ -10,8 +10,7 @@ the tablet, the laptop and the pc. A keeper on the tablet commits every settled 
 
 **Status:** the program (`check`, `add`, `merge`, `rename-links`, `restore`), its package (`pkgs/lifelog.nix`) and
 its aspects (`modules/lifelog.nix`: `lifelog` on the tablet, `lifelog-client` on the laptop and the pc) exist and
-build, with the importer from aminte (`lifelog-import`); not deployed yet. What waits for the owner is in
-[plan 002](docs/plans/002-into-the-fleet.md).
+build, with the importer from aminte (`lifelog-import`); deployed, with the owner's data imported. What waits for the owner is in [plan 002](docs/plans/002-into-the-fleet.md).
 
 ```sh
 nix develop                       # from the repo root: Go (the tests also need git)

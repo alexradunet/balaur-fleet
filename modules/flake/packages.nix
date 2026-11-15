@@ -3,7 +3,7 @@
 # The packages are one overlay, `flake.overlays.default`. The `base` aspect puts
 # it into every machine's nixpkgs, so an aspect says `pkgs.balaur-app` instead of
 # calling pkgs/balaur-app.nix itself, and there is one definition of each.
-{ self, inputs, ... }:
+{ self, ... }:
 let
   overlay = final: _prev: {
     duet-camera = final.callPackage ../../pkgs/duet-camera.nix { };
@@ -11,8 +11,6 @@ let
     lifelog = final.callPackage ../../pkgs/lifelog.nix { };
     balaur-app = final.callPackage ../../pkgs/balaur-app.nix { };
     balaur-shell-extension = final.callPackage ../../pkgs/balaur-shell-extension.nix { };
-    # aminte (github.com/alexradunet/aminte), served by modules/aminte.nix.
-    aminte = final.callPackage ../../pkgs/aminte.nix { src = inputs.aminte; };
   };
 in
 {
@@ -26,7 +24,6 @@ in
         lifelog
         balaur-app
         balaur-shell-extension
-        aminte
         ;
     in
     {
@@ -36,7 +33,6 @@ in
           lifelog
           balaur-app
           balaur-shell-extension
-          aminte
           ;
         # The patched camera modules for the kernel the Duet actually boots (`nix build .#camera-modules` checks the patch still applies).
         camera-modules =

@@ -55,9 +55,6 @@ in
           # A mini-PC on mains power, and a builder: never suspend, or Moonlight and
           # the other machines' builds would find it asleep.
           never-sleep
-          # aminte runs on the tablet; this is the dev side (aminte-prod, the binaries), and
-          # what gives pi its aminte role here (pi-aminte, agent.nix).
-          aminte-dev
           # The life log as files: the folder, `lifelog`, Obsidian, and the nightly mirror of
           # the keeper's history (balaur.lifelog-client.mirrorFrom below).
           lifelog-client

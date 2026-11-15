@@ -1,21 +1,5 @@
 {
   "nodes": {
-    "aminte": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1794480172,
-        "narHash": "sha256-HyAboTpnqjevVemT2zlLF+ShI1Bnf3cdWt90jYb9kmI=",
-        "owner": "alexradunet",
-        "repo": "aminte",
-        "rev": "e5c6f8e4ba1735e163ff44b18418d5c6a220e0a2",
-        "type": "github"
-      },
-      "original": {
-        "owner": "alexradunet",
-        "repo": "aminte",
-        "type": "github"
-      }
-    },
     "bun2nix": {
       "inputs": {
         "flake-parts": [
@@ -180,7 +164,6 @@
     },
     "root": {
       "inputs": {
-        "aminte": "aminte",
         "flake-parts": "flake-parts",
         "home-manager": "home-manager",
         "import-tree": "import-tree",

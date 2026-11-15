@@ -204,7 +204,7 @@ in
       };
 
       config = {
-        # pkgs.balaur-app, pkgs.aminte, ...: one definition each, for every aspect.
+        # pkgs.balaur-app, pkgs.lifelog, ...: one definition each, for every aspect.
         nixpkgs.overlays = [ overlay ];
 
         boot.loader.systemd-boot = {

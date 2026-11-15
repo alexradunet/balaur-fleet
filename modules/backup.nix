@@ -1,13 +1,12 @@
 # Backups: restic, every night, of the state that exists on one machine only and
 # that no rebuild can bring back: what was set up in the services' own web UIs,
-# and aminte's snapshots. Everything else is either declared in this repo or
+# and the life log's history. Everything else is either declared in this repo or
 # already on more than one machine (the Syncthing folder, with its versions).
 #
 # What it backs up is found from the aspects on the machine, so adding a service
 # does not mean editing a list here:
 #
 #   home-assistant   /var/lib/hass, without the recorder's history database
-#   aminte           its nightly snapshots (consistent copies of life.db)
 #   lifelog          the keeper's git history of the life folder (the folder itself
 #                    is on every machine that has a lifelog aspect)
 #   adblock          AdGuard Home's settings and statistics
@@ -34,8 +33,7 @@
       cfg = config.balaur.backup;
       has = name: config.balaur ? ${name};
       found =
-        lib.optionals (has "aminte") [ "/var/lib/aminte/snapshots" ]
-        ++ lib.optionals (has "lifelog") [ "/var/lib/lifelog/life.git" ]
+        lib.optionals (has "lifelog") [ "/var/lib/lifelog/life.git" ]
         ++ lib.optionals config.services.home-assistant.enable [ config.services.home-assistant.configDir ]
         ++ lib.optionals config.services.adguardhome.enable [ "/var/lib/private/AdGuardHome" ]
         ++ lib.optionals config.services.jellyfin.enable [ config.services.jellyfin.dataDir ]
@@ -90,7 +88,7 @@
           # put its public half (fleet.nix, sshHostKey) on the storage server.
           extraOptions = lib.optional (lib.hasPrefix "sftp:" cfg.repository) "sftp.args='-i /etc/ssh/ssh_host_ed25519_key -o BatchMode=yes'";
           timerConfig = {
-            OnCalendar = "04:30"; # after aminte's 03:17 snapshot
+            OnCalendar = "04:30";
             Persistent = true;
             RandomizedDelaySec = "15min";
           };

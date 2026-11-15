@@ -1,7 +1,7 @@
 # lifelog — design
 
 lifelog keeps the owner's life log as plain files: markdown pages and CSV readings, synced by Syncthing between
-the owner's machines, with a checked history in git. It replaces aminte (one SQLite file) in the Balaur fleet. It
+the owner's machines, with a checked history in git. It replaced aminte (one SQLite file) in the Balaur fleet on 2026-11-15. It
 came from an interview, a web research pass, three adversarial reviews and the spikes of
 [plan 001](plans/001-spikes.md); [plan 002](plans/002-into-the-fleet.md) brings it into the fleet.
 
@@ -144,17 +144,17 @@ Each rule applies only in the content folders.
 ## 8. The importer from aminte
 
 - `lifelog-import` does it, a binary of its own beside `lifelog` (its SQLite dependency stays out of `lifelog`).
-- It reads `life-latest.db`, the nightly snapshot that the `aminte` aspect publishes, never the live file.
+- It read `life-latest.db`, the last nightly snapshot of aminte, never the live file. The import ran once (plan 002);
+  the binary stays for a second import from that snapshot.
 - It commits each page with its `created_at` as the git author date, so the creation times live in git.
 - It commits each tombstoned page and then deletes it, so the title-reuse warning knows the names that aminte held.
 - It renames each title that the path rules refuse (for example `C#`) and lists each rename in its report.
-- It flattens each reading's correction chain to its current value; the chain stays in aminte's snapshots.
+- It flattens each reading's correction chain to its current value; the chain stays in the last snapshots of aminte, on the tablet.
 - It writes the readings to `<year>.import.csv` files, as the machine "import".
 
 ## 9. Backups and privacy
 
-- The `backup` aspect (restic, off-site, in Europe) backs up `/var/lib/lifelog/life.git` on the tablet, as it
-  backs up aminte's snapshots. That aspect waits for the owner's choice of a repository.
+- The `backup` aspect (restic, off-site, in Europe) backs up `/var/lib/lifelog/life.git` on the tablet. That aspect waits for the owner's choice of a repository.
 - The pc keeps a mirror clone of `life.git`, fetched nightly over SSH.
 - The fleet repo is public. The folder, the git dir and any copy of them never enter it.
 - Accepted: deleted pages and replaced pictures stay in git and in each backup. The `.stversions` folders (30 days)

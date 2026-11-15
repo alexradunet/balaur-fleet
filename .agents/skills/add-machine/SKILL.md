@@ -47,12 +47,12 @@ choice that is theirs (name, aspects, account).
    - `ai` points everything at the fleet's AI entryway (`ai-gateway`, the tablet only):
      model `balaur` is a fleet GPU running `strata` first (the pc), Mistral second.
    - `agent` is pi, the OS agent. A role is pi with other instructions and only the
-     tools it is given (`pi-aminte`, where `aminte-dev` is).
+     tools it is given (`pi-NAME`).
    - A screen: `gnome` plus exactly one of `tablet` or `desktop`. Not on a normal
      laptop: `never-sleep` and `always-on`, `tablet` (the household account, no lock),
      `camera` (the Duet's sensor).
    - Services, normally on one machine only: `media`, `adblock`, `home-assistant`,
-     `aminte` (`aminte-dev` is its other side), `web`, `torrents`, `backup`.
+     `lifelog` (the keeper), `web`, `torrents`, `backup`.
 
 6. **Switch at boot.** `nixos-rebuild build --flake .#<hostname>`, then
    `sudo nixos-rebuild boot --flake .#<hostname>` and reboot: the first switch to a new

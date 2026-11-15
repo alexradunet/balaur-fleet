@@ -56,8 +56,7 @@ in
           media
           adblock
           web
-          aminte
-          # The life log as files, beside aminte until it replaces it: the keeper (lifelog/).
+          # The life log as files: the keeper (lifelog/).
           lifelog
           home-assistant
           camera
@@ -167,10 +166,5 @@ in
         # services only (modules/web.nix).
         ownerAddresses = [ "100.79.180.82" ];
       };
-
-      # aminte's bearer token: the browser's login at https://aminte.balaur.space, and
-      # the laptop's `aminte-prod` reads the same one (modules/aminte.nix).
-      sops.secrets."aminte-token".owner = "aminte";
-      balaur.aminte.tokenFile = config.sops.secrets."aminte-token".path;
     };
 }

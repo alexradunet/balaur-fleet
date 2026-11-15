@@ -98,4 +98,4 @@ folder and the link, or `nix flake check` fails (`checks.skills`).
 | `add-aspect` | a new feature or service: the file, its options, `balaur.services`, the web UI |
 | `add-machine` | a new machine joins the fleet (run on that machine) |
 | `secrets` | adding, changing, rotating or moving a secret; a new machine's recipients |
-| `update-inputs` | `nix flake update`: nixpkgs, home-manager, the agents, aminte |
+| `update-inputs` | `nix flake update`: nixpkgs, home-manager, the agents |
