@@ -29,10 +29,6 @@ in
   flake.nixosConfigurations.server = inputs.nixpkgs.lib.nixosSystem {
     modules = [ aspects.host-server ];
   };
-  # The rename, for one deploy: the running machine is still called `pc`, and its
-  # auto-deploy builds the configuration of that name. Once it runs as `server`,
-  # this goes.
-  flake.nixosConfigurations.pc = config.flake.nixosConfigurations.server;
 
   flake.modules.nixos.host-server =
     { config, ... }:
