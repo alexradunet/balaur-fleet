@@ -58,7 +58,7 @@ in
           never-sleep
           # Its GNOME desktop over RDP, on the tailnet, with no monitor attached.
           remote-desktop
-          # /srv/proton (the second NVMe) mirrored to Proton Drive, hourly.
+          # /srv/proton (the second NVMe) mirrored to the whole of Proton Drive, hourly.
           proton-drive
           # Orca's runtime for the laptop's Orca to pair with, from boot (:6768, tailnet).
           orca-server

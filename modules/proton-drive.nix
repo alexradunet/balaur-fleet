@@ -1,23 +1,27 @@
 # A copy of a local folder in Proton Drive: every hour, rclone mirrors
 # `balaur.protonDrive.dir` (on the server, /srv/proton, its own partition) to
-# `balaur.protonDrive.remote`. One way: the local folder is the one worked in, Proton
-# is its backup. Proton has no sync client for Linux yet, and rclone's two-way
-# `bisync` against Proton Drive is the part with the most reported failures.
+# `balaur.protonDrive.remote`, the whole of Proton Drive's "My files". One way: the
+# local folder is the one worked in, Proton is its backup. Proton has no sync client
+# for Linux yet, and rclone's two-way `bisync` against Proton Drive is the part with
+# the most reported failures. So files are added on the server, not in Proton's own
+# apps: what is in Proton and not here is taken out of the way at the next sync.
 #
-# Nothing is lost in Proton by a mirror: a file deleted or changed here is moved, in
-# Proton, to `<remote>-deleted/<date>/` instead of being deleted or overwritten. And the
+# Nothing is lost in Proton by a mirror: a file deleted or changed here, or one only
+# Proton had, is moved, in Proton, to `<deletedFolder>/<date>/` instead of being
+# deleted or overwritten (that folder is left out of the sync on both sides). And the
 # sync runs only when the folder's partition is mounted, so a missing disk (an empty
 # folder) never mirrors as "delete everything".
 #
 # The login is the admin's own, kept by rclone in ~/.config/rclone/rclone.conf (0600,
 # its session tokens are refreshed there), not in sops: Proton's login wants the
 # account's password and a 2FA code once, interactively. Until it exists the timer
-# skips.
+# skips; moving the file aside is also how to pause it.
 #
-#   rclone config                          once: new remote "proton", type protondrive
-#   sudo systemctl start proton-drive      sync now
-#   journalctl -u proton-drive             what the last runs did
-#   rclone ls proton:Balaur-deleted        what was replaced or deleted, by date
+#   rclone config                              once: new remote "proton", type protondrive
+#   rclone lsd proton: --protondrive-2fa=NNNNNN   then log in, with a fresh code
+#   sudo systemctl start proton-drive          sync now
+#   journalctl -u proton-drive                 what the last runs did
+#   rclone ls proton:Balaur-deleted            what was replaced or deleted, by date
 {
   flake.modules.nixos.proton-drive =
     {
@@ -31,6 +35,12 @@
       user = config.balaur.user;
       home = config.users.users.${user}.home;
       rcloneConfig = "${home}/.config/rclone/rclone.conf";
+      # proton:  +  Balaur-deleted  ->  proton:Balaur-deleted;  proton:Files  ->  proton:Files/Balaur-deleted
+      deleted =
+        if lib.hasSuffix ":" cfg.remote || lib.hasSuffix "/" cfg.remote then
+          cfg.remote + cfg.deletedFolder
+        else
+          "${cfg.remote}/${cfg.deletedFolder}";
 
       sync = pkgs.writeShellApplication {
         name = "balaur-proton-drive-sync";
@@ -48,7 +58,8 @@
           fi
           exec rclone sync ${lib.escapeShellArg cfg.dir} ${lib.escapeShellArg cfg.remote} \
             --config ${lib.escapeShellArg rcloneConfig} \
-            --backup-dir ${lib.escapeShellArg "${cfg.remote}-deleted"}/"$(date +%F_%H%M)" \
+            --backup-dir ${lib.escapeShellArg deleted}/"$(date +%F_%H%M)" \
+            --exclude ${lib.escapeShellArg "/${cfg.deletedFolder}/**"} \
             --exclude '/lost+found/**' \
             --cache-dir "$CACHE_DIRECTORY" \
             --tpslimit 4 \
@@ -66,8 +77,13 @@
         };
         remote = lib.mkOption {
           type = lib.types.str;
-          default = "proton:Balaur";
-          description = "Where in Proton Drive, as an rclone path (the remote `proton`, from `rclone config`).";
+          default = "proton:";
+          description = "Where in Proton Drive, as an rclone path (the remote `proton`, from `rclone config`); `proton:` is the whole of \"My files\".";
+        };
+        deletedFolder = lib.mkOption {
+          type = lib.types.str;
+          default = "Balaur-deleted";
+          description = "The folder, inside `remote`, where a sync moves what it would delete or overwrite in Proton. Left out of the sync on both sides.";
         };
         requireMount = lib.mkOption {
           type = lib.types.bool;
