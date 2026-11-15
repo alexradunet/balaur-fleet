@@ -1,7 +1,7 @@
 # Plan 004 — the Almanac look (2026-11-15)
 
 lifelog-web gets the look and the UI patterns of aminte's browser: the Almanac, bound in Hearthwood (oak, parchment,
-wood, ink, pixel art). The source is `~/Projects/aminte/extensions/web/` (README, "The shell and the look" and "The
+wood, ink, pixel art). The source is [aminte's `extensions/web/`](https://github.com/alexradunet/aminte/tree/6153686/extensions/web) at 6153686 (README, "The shell and the look" and "The
 sheets, the faces and the pictures"; `view/html/base.css`, `app.css`, the templates; aminte plans 092–149). aminte is
 retired and its repo stays as it is.
 

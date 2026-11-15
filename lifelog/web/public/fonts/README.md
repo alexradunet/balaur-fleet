@@ -4,7 +4,7 @@ The three faces of the Almanac look ([plan 004](../../../docs/plans/004-the-alma
 for words, IBM Plex Mono for days, times and numbers, Jersey 15 for the few large things (a page's title, the day's
 number, a reading's value), at 20 px and above only. All are under the SIL Open Font License 1.1. Each licence is the
 `OFL-*.txt` file beside its fonts, and the app serves it with them. The files are copied from aminte
-(`~/Projects/aminte/extensions/web/view/html/fonts/`).
+([aminte at 6153686](https://github.com/alexradunet/aminte/tree/6153686/extensions/web/view/html/fonts)).
 
 The app serves every file of this folder at `/static/fonts/<file>` with a cache of one year, so **a changed file
 gets a new name**.
