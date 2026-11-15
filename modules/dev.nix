@@ -47,6 +47,7 @@ in
       environment.systemPackages = [
         agents.claude-code # `claude`
         agents.herdr # workspace manager for agent sessions (herdr.dev)
+        agents.orca # desktop app for parallel agents, each in its own worktree (stablyai/orca)
         dev
       ]
       ++ (with pkgs; [
