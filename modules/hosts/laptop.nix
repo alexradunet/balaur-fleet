@@ -43,6 +43,8 @@ in
           network
           gnome
           desktop
+          # Hyprland as a second session, Omarchy-style; GDM offers both (hyprland.nix).
+          hyprland
           dev
           files
           # torrents (the qBittorrent server) is on the server; this is just the

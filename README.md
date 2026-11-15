@@ -63,6 +63,7 @@ modules/
   never-sleep.nix         a machine on duty never sleeps (the server)
   gnome.nix               GNOME itself: GDM, the session, PipeWire, the canonical apps (Firefox + its add-ons, Ghostty), the Balaur app + Shell extension, one look and keyboards (US + RO), the ambient screen's settings
   desktop.nix             GNOME as a personal desktop: a normal login, the GNOME apps it drops
+  hyprland.nix            Hyprland, Omarchy-style, as a second session (the laptop): waybar, Walker, mako, hyprlock; Super+K lists the keys
   media.nix               Jellyfin: watches what `torrents` downloaded, /srv/media
   dlna.nix                MiniDLNA: folders served as they are to the players on the home network (the server)
   torrents.nix            qBittorrent + FileList search (aspect `torrents`, the server), and
