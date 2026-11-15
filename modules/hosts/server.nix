@@ -131,28 +131,29 @@ in
         ownerAddresses = [ "100.79.180.82" ];
       };
 
-      # The second NVMe: the old Windows disk, kept for the personal media on it.
-      # Writable, to tidy it from here; nofail, so the machine boots without it.
-      fileSystems."/mnt/old-ssd" = {
-        device = "/dev/disk/by-uuid/1C6CA5E96CA5BE40";
-        fsType = "ntfs3";
-        options = [
-          "nofail"
-          "uid=1000"
-          "gid=100"
-          "x-gvfs-show"
-        ];
+      # The second NVMe (the Crucial P3), two ext4 halves by label: `proton`, the
+      # personal files Proton Drive keeps a copy of, and `media`, qBittorrent's
+      # downloads that DLNA serves. nofail, so the machine boots without the disk.
+      fileSystems."/srv/proton" = {
+        device = "/dev/disk/by-label/proton";
+        fsType = "ext4";
+        options = [ "nofail" ];
       };
+      fileSystems."/srv/media" = {
+        device = "/dev/disk/by-label/media";
+        fsType = "ext4";
+        options = [ "nofail" ];
+      };
+      systemd.tmpfiles.rules = [ "d /srv/proton 0750 alex users - -" ];
 
       balaur = {
         # The existing login on this machine; its password is kept as is.
         user = "alex";
         # Served to the home network (no login: dlna.nix): qBittorrent's movies and
-        # shows (the categories), and a folder of the old disk.
+        # shows (the categories).
         dlna.dirs = [
           "V,/srv/media/movies"
           "V,/srv/media/shows"
-          "/mnt/old-ssd/True Strength"
         ];
         # FileList's login for the search plugin, from this machine's sops file (below).
         torrents = {
