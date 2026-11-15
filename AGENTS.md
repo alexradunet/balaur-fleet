@@ -1,6 +1,6 @@
 # Balaur
 
-**Loose ends from the last session: docs/HANDOFF-LOOSE-ENDS.md** (delete it and this line when the list is empty).
+**Open work is in GitHub issues** (`gh issue list`): one per item, labelled `needs-you` (the user), `to-check` (built, not yet seen working), `security`. Close an issue when it is done and verified; open one for what a session leaves undone.
 
 These are the instructions for every agent that works on this repository: Claude Code
 (`CLAUDE.md` imports this file) and pi, the fleet's OS agent (it reads this file

@@ -69,7 +69,8 @@ once it is rotated at its source (the provider's site) and the new value stored.
    and its own `secrets/hosts/<host>.yaml` with a rule like the others').
 2. `sops updatekeys -y secrets/balaur.yaml` (and each other file whose rule changed) on
    a machine with an admin key in `~/.config/sops/age/keys.txt`.
-3. An admin key for the user on that machine: `ssh-to-age -private-key -i
+3. An admin key for the user on that machine (the admin SSH key is backed up in Proton,
+   2026-11-05): `ssh-to-age -private-key -i
    ~/.ssh/id_ed25519 -o ~/.config/sops/age/keys.txt`, its public half
    (`ssh-to-age < ~/.ssh/id_ed25519.pub`) in `.sops.yaml` as `admin_<host>`, then
    `updatekeys` again.
