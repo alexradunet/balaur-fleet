@@ -72,8 +72,8 @@ in
           # https://balaur.space: the home page and this machine's web UIs behind Caddy,
           # moved from the tablet (balaur.web below).
           web
-          # The life log's keeper, moved from the tablet: the folder, its checked history
-          # (balaur.lifelog.importFrom below) and its web app at https://life.balaur.space.
+          # The life log's keeper, moved from the tablet (its history imported
+          # 2026-11-15): the folder, its checked history and https://life.balaur.space.
           lifelog
           # qBittorrent with FileList search, moved from the tablet: /srv/media.
           torrents
@@ -144,9 +144,6 @@ in
       balaur = {
         # The existing login on this machine; its password is kept as is.
         user = "alex";
-        # The keeper moved here from the tablet (2026-11-15): it starts from a copy of
-        # the tablet's history, put in this folder by the owner.
-        lifelog.importFrom = "/var/lib/lifelog-import/life.git";
         # Served to the home network (no login: dlna.nix): qBittorrent's movies and
         # shows (the categories), and a folder of the old disk.
         dlna.dirs = [
