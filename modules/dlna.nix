@@ -14,7 +14,12 @@
 # link from the other machines' home pages, which dial `http://<host>:<port>`.
 {
   flake.modules.nixos.dlna =
-    { config, lib, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.balaur.dlna;
     in
@@ -61,6 +66,20 @@
         systemd.services.minidlna.unitConfig.RequiresMountsFor = map (
           dir: ''"${lib.removePrefix "A," (lib.removePrefix "V," (lib.removePrefix "P," dir))}"''
         ) cfg.dirs;
+
+        # A rescan at every start (`-r`; the NixOS module's command otherwise). Inotify
+        # only sees what changes while it runs: files moved in while it was stopped,
+        # or a whole folder moved in at once, were never indexed, and the players saw
+        # empty folders until the index was rebuilt by hand. A rescan of folders on an
+        # SSD takes seconds.
+        systemd.services.minidlna.serviceConfig.ExecStart =
+          let
+            minidlna = config.services.minidlna;
+            conf =
+              (pkgs.formats.keyValue { listsAsDuplicateKeys = true; }).generate "minidlna.conf"
+                minidlna.settings;
+          in
+          lib.mkForce "${lib.getExe minidlna.package} -S -r -P /run/minidlna/pid -f ${conf}";
 
         # On this machine's Home page with its live state; no `port`, so no link (above).
         balaur.services = [
