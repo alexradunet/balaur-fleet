@@ -59,3 +59,13 @@ flowchart LR
 - **W3:** `pkgs/lifelog-web.nix` (`buildNpmPackage`, its tests in the build), the service in the `lifelog` aspect,
   and a `socket` for `balaur.services`, which `web` proxies to.
 - **W4:** deploy; the owner opens `https://life.<domain>` on the phone and installs it.
+
+## The deploy (2026-11-15, commit b8f35fd)
+
+- The tablet and the pc run it, with no failed unit; the laptop was asleep.
+- `https://life.balaur.space` answers the pc (200) and refuses the tablet's own screen (403). systemd made the
+  socket `root:caddy`, 0660, and started the app on the first request.
+- On the real folder, each view answers in 0.04–0.11 s; a search over every page in 0.4 s.
+  `systemd-analyze security lifelog-web.service`: 2.9 (OK). The app logged no error.
+- The desktop: the laptop and the pc open the same address in a browser.
+- Not seen yet: the phone (installing it, the offline queue).
