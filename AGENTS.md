@@ -47,13 +47,13 @@ push (`.github/workflows/check.yml`); it reports, it does not stop a deploy.
 `main` on GitHub is the fleet's one source of truth; every machine is a copy of it.
 The `auto-deploy` aspect (on every machine) checks `main` every 5 minutes and, on a
 new commit, switches to its own configuration at that commit and fast-forwards its
-clone. So work from whichever machine you are at — laptop, pc or tablet — and
+clone. So work from whichever machine you are at — laptop, server or tablet — and
 deploying is `git push`. Skill `deploy` has the whole routine.
 
-- The development sessions live in Orca on the pc (`orca-server`); the other machines' Orca
+- The development sessions live in Orca on the server (`orca-server`); the other machines' Orca
   apps pair with it, and the agents keep working while they sleep.
 - Each machine builds its own system, and the heavy builds go to the fleet's builders
-  (the pc first; fleet.nix). So editing on the tablet is fine: the Duet only evaluates.
+  (the server first; fleet.nix). So editing on the tablet is fine: the Duet only evaluates.
 - `balaur-fleet-status` shows every machine's deployed commit, state and failed units.
 - A commit that fails is retried after 15 minutes and an hour, then left until the
   next push; a switch that loses GitHub is rolled back. Push a fix rather than wait.

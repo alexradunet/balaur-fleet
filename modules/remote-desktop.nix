@@ -7,9 +7,9 @@
 # machine's sops file), then the account's own at the login screen.
 #
 #   the fleet:        `remote-desktop-client` (below): an app per host, one click
-#   Windows:          Remote Desktop Connection, to `pc` (the tailnet name)
+#   Windows:          Remote Desktop Connection, to `server` (the tailnet name)
 #   Android, iOS:     Microsoft's "Windows App"
-#   the password:     sops decrypt --extract '["rdp-password"]' secrets/hosts/pc.yaml
+#   the password:     sops decrypt --extract '["rdp-password"]' secrets/hosts/server.yaml
 #
 # Port 3389 on the tailnet only (tailscale0 is trusted; nothing is opened on the
 # LAN). The TLS certificate is self-signed, made once; a client asks to trust it
@@ -19,15 +19,15 @@
 # its login, set again at every start from sops (it keeps its own copy; without a
 # TPM it can use, in a file in its home), so sops stays the one place to change it.
 #
-# remote-desktop-client: on a desktop, an app ("pc (Remote Desktop)") for every
+# remote-desktop-client: on a desktop, an app ("server (Remote Desktop)") for every
 # machine of the fleet with `remote-desktop`, which opens its desktop in a window
 # (FreeRDP, resized with the window). The first click asks for that machine's RDP
 # password and keeps it in the GNOME Keyring; every later click just connects. The
 # client machine needs no secret of the server's: the laptop, which travels, is not
 # a recipient of the other machines' sops files. A wrong or changed password:
 # `balaur-rdp --forget <host>`, and the next click asks again. To copy it over
-# without typing it: `ssh pc "sops decrypt --extract '[\"rdp-password\"]' \
-#   ~/Projects/balaur-fleet/secrets/hosts/pc.yaml" | balaur-rdp --store pc`.
+# without typing it: `ssh server "sops decrypt --extract '[\"rdp-password\"]' \
+#   ~/Projects/balaur-fleet/secrets/hosts/server.yaml" | balaur-rdp --store server`.
 { config, ... }:
 let
   nixosConfigs = config.flake.nixosConfigurations;

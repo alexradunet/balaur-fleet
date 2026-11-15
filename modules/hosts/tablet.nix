@@ -161,7 +161,7 @@ in
         # tablet is shared with a second person, whose devices get the household's
         # services only (modules/web.nix).
         ownerAddresses = [ "100.79.180.82" ];
-        # The pc has taken balaur.space over (2026-11-15); this Caddy stays only for
+        # The server has taken balaur.space over (2026-11-15); this Caddy stays only for
         # what has not moved yet (the life log, Home Assistant) and goes with them.
         inDns = false;
       };

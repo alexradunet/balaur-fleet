@@ -274,7 +274,7 @@ in
           # The folder is shared by the `media` group (2775): with systemd's
           # default 0022, every folder or file Syncthing brings from another machine
           # arrives without group write, and the admin cannot add to it there (a
-          # `photos` made on the tablet was read-only on the pc).
+          # `photos` made on the tablet was read-only on the pc, now the server).
           serviceConfig.UMask = "0002";
         };
 

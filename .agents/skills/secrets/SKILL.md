@@ -15,10 +15,10 @@ and length instead.
 | File | Who can decrypt | For |
 |---|---|---|
 | `secrets/balaur.yaml` | every machine, every admin key | only what more than one machine needs |
-| `secrets/hosts/<host>.yaml` | that machine, the admin keys of the pc and the tablet | everything one machine needs |
+| `secrets/hosts/<host>.yaml` | that machine, the admin keys of the server and the tablet | everything one machine needs |
 
 The laptop's admin key is deliberately not a recipient of the host files (it travels,
-unencrypted), so edit those from the pc or the tablet. Recipients are in `.sops.yaml`;
+unencrypted), so edit those from the server or the tablet. Recipients are in `.sops.yaml`;
 machine recipients are their SSH host keys through `ssh-to-age`.
 
 ## Use a secret

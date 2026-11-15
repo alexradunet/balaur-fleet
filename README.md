@@ -13,9 +13,11 @@ The second is **laptop**, a **Lenovo Yoga Pro 7 14APH8**: the personal machine. 
 the base and the admin's environment, and runs none of the house
 services.
 
-The third is **pc**, a **GMKtec NucBox EVO-X1** with an RTX 5060 Ti on OCuLink: a gaming
-desktop that streams its games to the rest of the tailnet, runs the fleet's local LLM
-(Strata), and builds for the other machines.
+The third is **server** (called `pc` until 2026-11-15), a **GMKtec NucBox EVO-X1** on
+ethernet: the home's always-on server, taking over from the tablet. It runs the AI
+entryway and the fleet's local LLM (on its Radeon iGPU), AdGuard, the web front,
+qBittorrent and DLNA, Orca's development sessions and an RDP desktop, and it builds
+for the other machines.
 
 Every machine follows `main` on GitHub by itself (`auto-deploy`): a push is a deploy.
 `balaur-fleet-status` shows what each one runs.
@@ -47,10 +49,10 @@ modules/
   flake/                  flake wiring: the packages overlay, checks, formatter, dev shell
   hosts/tablet.nix        tablet = these aspects + its own settings (account, voices, ...)
   hosts/laptop.nix        laptop = its aspects + its own settings (account, roaming, ...)
-  hosts/pc.nix            pc = its aspects     + its own settings (builder, streaming, ...)
+  hosts/server.nix        server = its aspects + its own settings (builder, web, ...)
   hardware/yoga-duet-7.nix  the Duet's firmware and CPU bits (Intel)
   hardware/yoga-pro-7.nix   the laptop's firmware and CPU bits (AMD)
-  hardware/gmktec-evo-x1.nix, nvidia-egpu.nix  the pc (the mini-PC, AMD); the NVIDIA card in a USB4 dock (the laptop)
+  hardware/gmktec-evo-x1.nix, nvidia-egpu.nix  the server (the mini-PC, AMD); the NVIDIA card in a USB4 dock (the laptop)
   fleet.nix               the registry: every machine, its IPs and keys; SSH trust, remote builds
   auto-deploy.nix         every machine follows main: retries, roll back, `balaur-fleet-status`
   home.nix                home-manager: the admin's shell, git, gh, the same on every machine
@@ -58,14 +60,14 @@ modules/
   base.nix                boot, admin account, SSH, Nix, housekeeping, locale + timezone, printing; the `balaur.services` registry
   network.nix             NetworkManager, Tailscale (+ SSH), <host>.local (mDNS)
   backup.nix              restic, nightly and off-site, of the state only one machine has (waits for a repository)
-  never-sleep.nix         a machine on duty never sleeps (the tablet, the pc)
+  never-sleep.nix         a machine on duty never sleeps (the tablet, the server)
   always-on.nix           a laptop as a server: ignore lid and power key, battery = UPS, 80% charge cap
   gnome.nix               GNOME itself: GDM, the session, PipeWire, the canonical apps (Firefox + its add-ons, Ghostty), the Balaur app + Shell extension, one look and keyboards (US + RO), the ambient screen's settings
   tablet.nix              GNOME as a household tablet: auto-login, OSK, rotation, apps, web apps, ambient screen
   desktop.nix             GNOME as a personal desktop: a normal login, the GNOME apps it drops
   camera.nix              the Duet's front camera: patched kernel modules + RGB-IR relay, movement wakes the screen
   media.nix               Jellyfin: watches what `torrents` downloaded, /srv/media
-  dlna.nix                MiniDLNA: folders served as they are to the players on the home network (the pc)
+  dlna.nix                MiniDLNA: folders served as they are to the players on the home network (the server)
   torrents.nix            qBittorrent + FileList search (aspect `torrents`, the tablet only), and
                           `balaur-torrent` + the magnet handler (aspect `torrents-client`, anywhere)
   adblock.nix             AdGuard Home: network-wide ad/tracker blocking on :53, UI on :3000
@@ -74,16 +76,16 @@ modules/
   files.nix               Syncthing: a 200 GiB volume of its own at /srv/files, paired from the registry
   agent.nix               pi, the OS agent on every machine: the fleet's models, machines and services; `balaur-ask`; roles (`pi-NAME`, none yet)
   dev.nix                 Claude Code + Orca (from numtide/llm-agents.nix, daily updates), gh, ripgrep
-  orca-server.nix         Orca's runtime as a service from boot (the pc): the development sessions, for the other machines' Orca to pair with
-  remote-desktop.nix      GNOME over RDP with no monitor (the pc); `remote-desktop-client`: one click to it
-  local-llm.nix           llama.cpp on the iGPU (Nemotron 3.5 Lightning, the pc): the AI entryway's local tier
+  orca-server.nix         Orca's runtime as a service from boot (the server): the development sessions, for the other machines' Orca to pair with
+  remote-desktop.nix      GNOME over RDP with no monitor (the server); `remote-desktop-client`: one click to it
+  local-llm.nix           llama.cpp on the iGPU (Nemotron 3.5 Lightning, the server): the AI entryway's local tier
   gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow); the laptop
   wow-market.nix          WoW Market: what to craft, buy and sell in WoW: Forever, from Auctionator's scans; http://laptop:8790 on the tailnet (the laptop)
   steam.nix               Steam and GameMode, for a machine that plays locally (none at the moment)
   game-streaming.nix      Sunshine on a host, Moonlight on the clients, over the tailnet (none at the moment)
   ai.nix                  the fleet's AI entryway on the tablet (`ai-gateway`: local GPU first, Mistral second) and its clients (`ai`)
   strata.nix              Strata: a local LLM on a discrete NVIDIA card, stopped while a game runs (none at the moment)
-  lifelog.nix             lifelog, the life log as files: the keeper on the tablet (`lifelog`) and its web app at https://life.<domain>, the folder, `lifelog` and Obsidian on the laptop and the pc (`lifelog-client`)
+  lifelog.nix             lifelog, the life log as files: the keeper on the tablet (`lifelog`) and its web app at https://life.<domain>, the folder, `lifelog` and Obsidian on the laptop and the server (`lifelog-client`)
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
 gnome/                    everything GNOME-facing, in GJS
@@ -99,7 +101,7 @@ lifelog/                  the life log as markdown + CSV, synced by Syncthing, c
 |---|---|
 | Built-in screen | GNOME, logged in by itself as a household account (`balaur.tablet.user`, `balaur` on the tablet) that never locks. Apps run full screen; swipe up for the app switcher. The on-screen keyboard pops up on touch (English and Romanian), and the screen follows rotation. Dock: **Balaur**, **Firefox** (uBlock Origin), **Jellyfin**, **Gelly** (Jellyfin music). **AdGuard Home** and **qBittorrent** (and **Syncthing** with the `files` aspect) are installed as GNOME web apps. **Snapshot** shows the front camera. Admin tools sit in an **Admin** folder, with a **Developer terminal** that asks for the admin password. |
 | Screen on/off | GNOME blanks the screen after `balaur.camera.screenTimeout` (2 minutes by default, 15 on the tablet) idle, and never locks. Movement in front of the camera counts as activity: it keeps the screen on and wakes it (`0` = always on). The relay looks at 3 frames a second for this, and runs its full image pipeline only while an app uses the webcam (`balaur.camera.tuning.idleFps`). |
-| AI (aspects `ai-gateway`, `ai`, `local-llm`) | One entryway for every model call in the fleet: `http://tablet:4000/v1` (OpenAI-compatible; `OPENAI_BASE_URL` points there on every machine), with a page at **https://ai.balaur.space** to see the tiers and the last requests and to change the route and the remote model. Model `balaur` answers from the pc's Radeon 890M (`local-llm`: Nemotron 3.5 Lightning on llama.cpp) when it is up and free, else from Mistral; `balaur-local` and `balaur-remote` pick one. |
+| AI (aspects `ai-gateway`, `ai`, `local-llm`) | One entryway for every model call in the fleet: `http://server:4000/v1` (OpenAI-compatible; `OPENAI_BASE_URL` points there on every machine), with a page at **https://ai.balaur.space** to see the tiers and the last requests and to change the route and the remote model. Model `balaur` answers from the server's Radeon 890M (`local-llm`: Nemotron 3.5 Lightning on llama.cpp) when it is up and free, else from Mistral; `balaur-local` and `balaur-remote` pick one. |
 | The Balaur app | **Home**: every service with its live state and a button that opens its app, and **People**: who of the household opens which service. GNOME's overview search finds the services too. Quick Settings has a **Scenes** menu with Home Assistant's scenes and scripts. |
 | Ad blocking (aspect `adblock`) | AdGuard Home as the LAN DNS server, with European upstreams (Quad9, DNS4EU) and Samsung TV ad/ACR-tracking rules. Set it as the router's DNS 1 (keep a public DNS 2 so the network survives the box being off). |
 

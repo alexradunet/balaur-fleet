@@ -1,5 +1,5 @@
 # A machine the others depend on never sleeps: the tablet (the home's server),
-# the pc (the fleet's builder and game-streaming host). Sleep, suspend and
+# the server (the fleet's builder and home server). Sleep, suspend and
 # hibernate are switched off, and GDM's login screen never suspends either.
 #
 # A laptop-as-server also wants `always-on` (the lid, the power key, the battery

@@ -19,7 +19,7 @@
 #
 #   journalctl -fu local-llm-fetch      the download
 #   journalctl -u local-llm             the model loading, each request's speed
-#   curl -s pc:8090/health              {"status":"ok"} once loaded
+#   curl -s server:8090/health            {"status":"ok"} once loaded
 {
   flake.modules.nixos.local-llm =
     {

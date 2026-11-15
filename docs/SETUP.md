@@ -188,14 +188,14 @@ nixos-rebuild switch --flake .#tablet --sudo --accept-flake-config
 
 (After that first switch the cache is part of the system config, so the flag is not needed.)
 
-**The sessions live on the pc,** in Orca: its `orca-server` aspect runs `orca serve` from
+**The sessions live on the server,** in Orca: its `orca-server` aspect runs `orca serve` from
 boot (`systemctl --user status orca-serve`), and that runtime owns every project,
 worktree, terminal and agent. The other machines' Orca apps are only windows onto it:
-pair one once from Orca's window on the pc (a pairing link, pasted on the client into
+pair one once from Orca's window on the server (a pairing link, pasted on the client into
 **Settings → Remote Orca Servers → Add Server**), then make it the **Active Server**.
-Closing the laptop changes nothing on the pc; the agents keep working.
+Closing the laptop changes nothing on the server; the agents keep working.
 
-The projects are cloned on the pc, and so are the logins (`claude`, `pi`,
+The projects are cloned on the server, and so are the logins (`claude`, `pi`,
 `gh auth login`, `orca account add --agent claude`).
 
 **Updating the agents** (they move fast):
@@ -402,7 +402,7 @@ read across the room. It shows:
   the home's services (green running, grey stopped or not answering, red failed);
 - a slow slideshow of the photos in the synced folder.
 
-On the side in landscape; above the clock when the tablet is turned to portrait. The pc and the laptop show
+On the side in landscape; above the clock when the tablet is turned to portrait. The server and the laptop show
 the same screen after a minute idle (the `gnome` aspect writes its settings on every GNOME machine), until
 GNOME blanks and locks them as usual; `balaur.ambient.idleSeconds = 0` in a host file turns it off there. A touch, click or key brings
 back what was there. The tap that does it doesn't reach the app.

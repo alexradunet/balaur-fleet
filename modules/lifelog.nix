@@ -5,7 +5,7 @@
 #   lifelog          the always-on machine (the tablet): the folder, and the
 #                    keeper, which commits each settled state of the folder to
 #                    the branch `live` and moves the refs `checked` and `seen`.
-#   lifelog-client   the machines the owner writes on (laptop, pc): the folder,
+#   lifelog-client   the machines the owner writes on (laptop, server): the folder,
 #                    the `lifelog` command, Obsidian, and on one of them a
 #                    nightly mirror of the history.
 #

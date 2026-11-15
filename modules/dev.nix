@@ -5,7 +5,7 @@
 #   nix flake update llm-agents && nixos-rebuild switch --flake .#$(hostname) --sudo
 # Per-project toolchains come from `nix develop` (see each repo's flake).
 #
-# The development sessions live in Orca on the pc (`orca-server`): the other
+# The development sessions live in Orca on the server (`orca-server`): the other
 # machines' Orca apps pair with it (Settings -> Remote Orca Servers), so the work
 # stays there while a laptop sleeps.
 { inputs, ... }:

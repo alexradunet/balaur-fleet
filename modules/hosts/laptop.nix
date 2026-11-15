@@ -45,11 +45,11 @@ in
           desktop
           dev
           files
-          # torrents (the qBittorrent server) stays on the tablet; this is just the
+          # torrents (the qBittorrent server) is on the server; this is just the
           # client, so a magnet clicked here can be sent there.
           torrents-client
           auto-deploy
-          # The fleet's AI entryway on the tablet: the pc's local model first, Mistral second.
+          # The fleet's AI entryway on the server: its local model first, Mistral second.
           ai
           # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
           agent

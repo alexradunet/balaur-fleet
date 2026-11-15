@@ -1,14 +1,14 @@
-# pc: the GMKtec NucBox EVO-X1 mini-PC, the fleet's most powerful machine, on its
-# way to being the home's always-on server (taking over from the tablet) and the
+# server: the GMKtec NucBox EVO-X1 mini-PC (called `pc` until 2026-11-15), the fleet's most
+# powerful machine and the home's always-on server (taking over from the tablet), and the
 # fleet's first-choice builder. Wired, on a smart socket: the firmware powers it on
 # when power returns (gmktec-evo-x1.nix has the BIOS settings).
-# Machine-generated files (hardware-configuration.nix) live in hosts/pc/.
+# Machine-generated files (hardware-configuration.nix) live in hosts/server/.
 { inputs, config, ... }:
 let
   aspects = config.flake.modules.nixos;
 in
 {
-  fleet.pc = {
+  fleet.server = {
     description = "GMKtec NucBox EVO-X1: the home server, fleet builder";
     tailnetIp = "100.118.216.118";
     sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILAacHQ+NIgv8wtFGuzdu3jF52vZJtv9H9p8fqK6F6sb";
@@ -26,11 +26,15 @@ in
     };
   };
 
-  flake.nixosConfigurations.pc = inputs.nixpkgs.lib.nixosSystem {
-    modules = [ aspects.host-pc ];
+  flake.nixosConfigurations.server = inputs.nixpkgs.lib.nixosSystem {
+    modules = [ aspects.host-server ];
   };
+  # The rename, for one deploy: the running machine is still called `pc`, and its
+  # auto-deploy builds the configuration of that name. Once it runs as `server`,
+  # this goes.
+  flake.nixosConfigurations.pc = config.flake.nixosConfigurations.server;
 
-  flake.modules.nixos.host-pc =
+  flake.modules.nixos.host-server =
     { config, ... }:
     {
       imports =
@@ -62,7 +66,7 @@ in
           orca-server
           # The fleet's local LLM, on the Radeon 890M (Nemotron 3.5 Lightning).
           local-llm
-          # The fleet's AI entryway (http://pc:4000/v1), moved from the tablet: the
+          # The fleet's AI entryway (http://server:4000/v1), moved from the tablet: the
           # clients take the first machine that has it. The tablet's copy stays the
           # page behind https://ai.balaur.space until the web front moves here too.
           ai-gateway
@@ -84,9 +88,9 @@ in
         ])
         # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
         # .agents/skills). It must be `git add`ed or flakes cannot see it.
-        ++ [ ../../hosts/pc/hardware-configuration.nix ];
+        ++ [ ../../hosts/server/hardware-configuration.nix ];
 
-      networking.hostName = "pc";
+      networking.hostName = "server";
 
       # The value this machine's first install wrote. Never "upgrade" it by hand.
       system.stateVersion = "26.05";
@@ -99,7 +103,7 @@ in
       nix.daemonIOSchedClass = "idle";
 
       # FileList's username and passkey are two entries in this machine's own sops
-      # file (secrets/hosts/pc.yaml); the search plugin wants them as one JSON object.
+      # file (secrets/hosts/server.yaml); the search plugin wants them as one JSON object.
       sops.secrets."filelist-username".sopsFile = config.balaur.secrets.hostFile;
       sops.secrets."filelist-passkey".sopsFile = config.balaur.secrets.hostFile;
       sops.templates."filelist.json" = {
@@ -123,7 +127,7 @@ in
         dnsProvider = "gandiv5";
         dnsCredentialsFile = config.sops.templates."gandi.env".path;
         # The phone. With the fleet's machines, the devices that open everything; a
-        # device of another Tailscale account the pc is shared with gets the
+        # device of another Tailscale account the server is shared with gets the
         # household's services only (modules/web.nix).
         ownerAddresses = [ "100.79.180.82" ];
       };
