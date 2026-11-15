@@ -139,6 +139,12 @@ in
                     default = null;
                     description = "Its web UI on this machine, if any.";
                   };
+                  socket = lib.mkOption {
+                    type = lib.types.nullOr lib.types.str;
+                    default = null;
+                    example = "/run/thing/http.sock";
+                    description = "A Unix socket its web UI listens on, in place of `port`, so that no local account reaches it: the `web` aspect proxies `subdomain` to it, and Caddy must be able to open it. Needs `subdomain`.";
+                  };
                   path = lib.mkOption {
                     type = lib.types.str;
                     default = "";
@@ -160,10 +166,11 @@ in
                   audience = lib.mkOption {
                     type = lib.types.enum [
                       "owner"
+                      "private"
                       "household"
                     ];
                     default = "owner";
-                    description = "Who the `web` aspect serves this web UI to: the owner's devices only, or also the devices of the people the machine is shared with. Household only for a service with accounts of its own, or one the whole household may run.";
+                    description = "Who the `web` aspect serves this web UI to: the owner's devices only; `private`, the owner's devices except this machine itself, whose screen the people it is shared with use (for private data); or also the devices of the people the machine is shared with. Household only for a service with accounts of its own, or one the whole household may run.";
                   };
                   login = lib.mkOption {
                     type = lib.types.bool;

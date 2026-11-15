@@ -7,8 +7,9 @@ the tablet, the laptop and the pc. A keeper on the tablet commits every settled 
 - [The design](docs/design.md): the model, the layout, the keeper and the rules of the checker.
 - [Plan 001](docs/plans/001-spikes.md): the spikes and their results.
 - [Plan 002](docs/plans/002-into-the-fleet.md): the way into the fleet.
+- [Plan 003](docs/plans/003-the-web-app.md): the web app, for the phone ([web/](web/README.md)).
 
-**Status:** the program (`check`, `add`, `merge`, `rename-links`, `restore`), its package (`pkgs/lifelog.nix`) and
+**Status:** the program (`check`, `index`, `new`, `add`, `merge`, `rename-links`, `restore`), its package (`pkgs/lifelog.nix`) and
 its aspects (`modules/lifelog.nix`: `lifelog` on the tablet, `lifelog-client` on the laptop and the pc) exist and
 build, with the importer from aminte (`lifelog-import`); deployed, with the owner's data imported. What waits for the owner is in [plan 002](docs/plans/002-into-the-fleet.md).
 

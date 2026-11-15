@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -15,6 +16,7 @@ func cmdCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	report := fs.Bool("report", false, "print the text of _check.md")
+	asJSON := fs.Bool("json", false, "print the problems as a JSON list (for the web app)")
 	gitDir := fs.String("git-dir", "", "the git dir of the folder's history; with it, the rules that compare -seen with -live run too")
 	seen := fs.String("seen", "seen", "the ref of the state the owner last acknowledged")
 	live := fs.String("live", "live", "the ref of the state just committed")
@@ -58,9 +60,15 @@ func cmdCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 			header += " There is no acknowledged state yet, so the rules that compare with the past did not run."
 		}
 	}
-	if *report {
+	switch {
+	case *report:
 		fmt.Fprint(stdout, check.Report(problems, header))
-	} else {
+	case *asJSON:
+		if err := json.NewEncoder(stdout).Encode(problemsJSON(problems)); err != nil {
+			fmt.Fprintf(stderr, "lifelog check: %v\n", err)
+			return exitFailed
+		}
+	default:
 		for _, p := range problems {
 			fmt.Fprintf(stdout, "%s\t%s\t%s\t%s (fix: %s)\n", p.Class, p.Rule, p.Path, p.Message, p.Fix)
 		}
@@ -71,4 +79,20 @@ func cmdCheck(ctx context.Context, args []string, stdout, stderr io.Writer) int 
 		}
 	}
 	return exitOK
+}
+
+type problemJSON struct {
+	Class   string `json:"class"`
+	Rule    string `json:"rule"`
+	Path    string `json:"path"`
+	Message string `json:"message"`
+	Fix     string `json:"fix"`
+}
+
+func problemsJSON(problems []check.Problem) []problemJSON {
+	out := make([]problemJSON, 0, len(problems))
+	for _, p := range problems {
+		out = append(out, problemJSON{p.Class.String(), p.Rule, p.Path, p.Message, p.Fix})
+	}
+	return out
 }

@@ -177,7 +177,14 @@ in
       # the wrong machine's service.
       cfg = config.balaur;
       localUrl =
-        s: if s.port == null then null else "${s.scheme}://127.0.0.1:${toString s.port}${s.path}";
+        s:
+        if s.port != null then
+          "${s.scheme}://127.0.0.1:${toString s.port}${s.path}"
+        # A web UI on a socket: only through this machine's Caddy (web.nix).
+        else if s.socket != null && cfg ? web && s.subdomain != null then
+          "https://${s.subdomain}.${cfg.web.domain}${s.path}"
+        else
+          null;
       # `tablet` installs a GNOME web app for each of these (tablet.nix).
       hasWebApp = s: cfg ? tablet && s.port != null && s.appIcon != null;
       # Whether a household device opens it (the People page): only what a machine
@@ -210,20 +217,28 @@ in
       remoteServices = lib.concatLists (
         lib.mapAttrsToList (
           host: _:
-          map (s: {
-            inherit (s)
-              name
-              description
-              icon
-              login
-              ;
-            inherit host;
-            group = "On ${host}";
-            url = remoteUrl host s;
-            unit = "";
-            desktopId = null;
-            shared = sharedBy nixosConfigs.${host}.config.balaur s;
-          }) (lib.filter (s: s.port != null) nixosConfigs.${host}.config.balaur.services)
+          map
+            (s: {
+              inherit (s)
+                name
+                description
+                icon
+                login
+                ;
+              inherit host;
+              group = "On ${host}";
+              url = remoteUrl host s;
+              unit = "";
+              desktopId = null;
+              shared = sharedBy nixosConfigs.${host}.config.balaur s;
+            })
+            (
+              lib.filter (
+                s:
+                s.port != null
+                || (s.socket != null && s.subdomain != null && nixosConfigs.${host}.config.balaur ? web)
+              ) nixosConfigs.${host}.config.balaur.services
+            )
         ) (lib.intersectAttrs nixosConfigs others)
       );
     in

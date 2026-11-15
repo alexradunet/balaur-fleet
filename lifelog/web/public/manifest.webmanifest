@@ -1,0 +1,12 @@
+{
+  "name": "Life",
+  "short_name": "Life",
+  "description": "The life log: the journal, pages and readings",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fafafa",
+  "theme_color": "#3584e4",
+  "icons": [{ "src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }],
+  "shortcuts": [{ "name": "Capture", "url": "/capture" }]
+}

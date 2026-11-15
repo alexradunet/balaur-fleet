@@ -1,0 +1,26 @@
+{
+  "name": "lifelog-web",
+  "version": "0.1.0",
+  "description": "The life folder on the phone: pages, readings and search, served on the tablet",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "files": [
+    "src",
+    "public"
+  ],
+  "bin": {
+    "lifelog-web": "src/server.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "htmx.org": "2.0.11",
+    "markdown-it": "15.0.3"
+  }
+}

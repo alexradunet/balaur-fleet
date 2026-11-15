@@ -5,7 +5,8 @@ the owner's machines, with a checked history in git. It replaced aminte (one SQL
 came from an interview, a web research pass, three adversarial reviews and the spikes of
 [plan 001](plans/001-spikes.md); [plan 002](plans/002-into-the-fleet.md) brings it into the fleet.
 
-**Machines: tablet (the keeper), laptop and pc.** All three run NixOS. The phone is deferred.
+**Machines: tablet (the keeper), laptop and pc.** All three run NixOS. The phone has no copy of the folder: it opens
+the web app on the tablet ([plan 003](plans/003-the-web-app.md)).
 
 **The idea that keeps it small: git history records what changed.** The keeper commits every settled state, so
 the files need no ids and no append-only rows. Git does not record what a change *means*, so a few rules keep
@@ -99,7 +100,9 @@ stateDiagram-v2
 
 ## 5. Writers
 
-- Obsidian, or any editor, on the laptop and the pc. A reading is a line typed into the machine's CSV, or appended
+- Obsidian, or any editor, on the laptop and the pc. On the phone, the web app on the tablet (`lifelog/web`): it saves a page only if
+  nobody changed it since it was opened, adds a note to a day page, and adds readings as the machine `web`
+  (`metrics/<m>/<year>.web.csv`). It makes pages with `lifelog new` and reads the folder with `lifelog index`. A reading is a line typed into the machine's CSV, or appended
   by `lifelog add weight 81.4`, which adds a missing final newline first and appends one well-formed line.
 - A correction of a reading is an edit of its line. Git keeps the old value; the checker warns, so it is visible.
 - A rename outside Obsidian leaves links to the old name. `lifelog rename-links <old> <new>` rewrites them.
@@ -169,7 +172,7 @@ Each rule applies only in the content folders.
 - Full-text search in the file: ripgrep and Obsidian.
 - The one-transaction save: a change arrives file by file; the quiet window replaces it.
 - The zone name of a reading: the offset in `taken_at` replaces it.
-- The API, the CLI's actions, the MCP server and the browser of aminte: Obsidian and the `lifelog` CLI replace them.
+- The API, the CLI's actions and the MCP server of aminte: Obsidian, the web app and the `lifelog` CLI replace them.
 
 ## 11. Accepted costs
 
@@ -180,7 +183,7 @@ Each rule applies only in the content folders.
 
 ## 12. Deferred
 
-- The phone (Android): it brings back capture files and a capture tool.
+- A copy of the folder on the phone (Syncthing on Android); the web app covers the phone for now.
 - A client app (Flutter); if it comes, it calls the Go checker through FFI.
 - Period pages, until they are used.
 - The counts of errors, losses and warnings on the Balaur app's Home page (a status file the keeper writes).

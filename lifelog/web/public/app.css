@@ -1,0 +1,77 @@
+:root {
+  --bg: #fafafa; --card: #ffffff; --fg: #1e1e1e; --dim: #5e5c64; --line: #deddda;
+  --accent: #3584e4; --missing: #c01c28; --warn: #9c6e03; --ok: #26a269;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #242424; --card: #303030; --fg: #ffffff; --dim: #c0bfbc; --line: #3d3d3d;
+          --accent: #78aeed; --missing: #ff7b63; --warn: #f8e45c; --ok: #8ff0a4; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+       font: 17px/1.5 Cantarell, "Adwaita Sans", system-ui, sans-serif; }
+main { max-width: 760px; margin: 0 auto; padding: 12px 16px 64px; }
+a { color: var(--accent); }
+h1 { font-size: 24px; margin: 12px 0; overflow-wrap: anywhere; }
+h1 small { font-size: 15px; color: var(--dim); font-weight: 400; }
+h2 { font-size: 15px; color: var(--dim); margin: 24px 0 8px; }
+.dim { color: var(--dim); }
+.center { text-align: center; }
+.bar { position: sticky; top: 0; z-index: 1; background: var(--card); border-bottom: 1px solid var(--line);
+       padding: env(safe-area-inset-top) 8px 0; }
+.bar nav { display: flex; max-width: 760px; margin: 0 auto; }
+.bar nav a { flex: 1; text-align: center; padding: 12px 4px; text-decoration: none; color: var(--fg); }
+.bar nav a.on { color: var(--accent); font-weight: 700; box-shadow: inset 0 -3px var(--accent); }
+.queue { display: flex; flex-wrap: wrap; gap: 6px; max-width: 760px; margin: 0 auto; padding: 6px 8px;
+         font-size: 14px; color: var(--warn); }
+.queue[hidden] { display: none; }
+.queue button { font-size: 13px; }
+.dayhead { display: flex; align-items: center; justify-content: space-between; }
+.dayhead a { font-size: 32px; text-decoration: none; padding: 0 12px; }
+.dayhead h1 { text-align: center; }
+.page { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px 16px;
+        overflow-wrap: anywhere; }
+.page img { max-width: 100%; height: auto; border-radius: 8px; }
+.page pre { overflow-x: auto; }
+.wikilink { text-decoration: none; }
+.wikilink.missing { color: var(--missing); }
+.tag { text-decoration: none; }
+.actions { margin: 12px 0; }
+.props { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: 15px; margin: 0 0 12px; }
+.props dt { color: var(--dim); }
+.props dd { margin: 0; overflow-wrap: anywhere; }
+.crumb { margin: 8px 0 0; font-size: 15px; }
+.ok { color: var(--ok); }
+.warn { color: var(--warn); }
+.problems { border: 1px solid var(--warn); border-radius: 12px; padding: 4px 16px; margin: 12px 0; }
+.problems .error b, .problems .loss b { color: var(--missing); }
+.problems pre { white-space: pre-wrap; max-height: 40vh; overflow: auto; font-size: 14px; }
+form.capture { display: flex; gap: 8px; margin: 12px 0; }
+form.capture textarea { flex: 1; }
+form.reading select { max-width: 45%; }
+form.reading input { flex: 1; min-width: 0; }
+input, select, textarea, button { font: inherit; color: inherit; background: var(--card);
+       border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+button { background: var(--accent); color: #fff; border: 0; padding: 8px 16px; }
+textarea { width: 100%; }
+form.editor label { display: block; margin: 8px 0; }
+form.editor label input, form.editor label select { width: 100%; }
+form.editor textarea { min-height: 60vh; font: 15px/1.5 ui-monospace, "Adwaita Mono", monospace; }
+form.search input { width: 100%; }
+ul.hits { list-style: none; padding: 0; }
+ul.hits li { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.snippet { font-size: 15px; color: var(--dim); overflow-wrap: anywhere; }
+ul.kinds, ul.metrics { list-style: none; padding: 0; }
+ul.kinds li, ul.metrics li { padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: baseline; }
+ul.kinds li a, ul.metrics li a { flex: 1; }
+ul.days { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+ul.days li a { display: inline-block; min-width: 2.4em; text-align: center; padding: 4px; border: 1px solid var(--line); border-radius: 6px; text-decoration: none; }
+.spans { display: flex; gap: 16px; }
+svg.chart { width: 100%; height: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+svg.chart text { fill: var(--dim); font-size: 12px; }
+svg.chart .axis { stroke: var(--line); }
+svg.chart .line { fill: none; stroke: var(--accent); stroke-width: 2; }
+svg.chart .dots circle { fill: var(--accent); }
+table.readings { width: 100%; border-collapse: collapse; margin-top: 12px; }
+table.readings td, table.readings th { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+ul.readings { padding-left: 20px; }

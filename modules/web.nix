@@ -12,12 +12,14 @@
 # address, which only answers devices on the tailnet. Most services have no
 # logins, so never point it at a public address or forward ports to it.
 #
-# Two audiences (`audience` in `balaur.services`). The owner's devices open
+# The audiences (`audience` in `balaur.services`). The owner's devices open
 # everything: they are the fleet's machines, by their `tailnetIp` in the registry,
 # and `ownerAddresses` (a phone). Any other device on the tailnet is one of the
 # household's, through a machine shared with another person's Tailscale account:
 # it gets the "household" services and a home page that lists only those, and a
 # 403 from the rest. A new device of the owner's is a stranger until it is listed.
+# A "private" service (the life log) is the owner's, and not this machine's own
+# address either: its screen is the household's, and its browser comes from there.
 #
 # Caddy only decides between names on port 443. Which *ports* a shared user
 # reaches is the tailnet policy's to say (Tailscale's admin console, Access
@@ -68,7 +70,11 @@ in
       address = host: fleet.${host}.address or host;
       # This machine's web UIs with a subdomain get https://<subdomain>.<domain>
       # through Caddy; the other machines' keep their plain address.
-      proxied = lib.filter (s: s.port != null && s.subdomain != null) config.balaur.services;
+      proxied = lib.filter (
+        s: (s.port != null || s.socket != null) && s.subdomain != null
+      ) config.balaur.services;
+      # A web UI on a socket is reached only through this machine's Caddy.
+      reachable = host: s: s.port != null || (host == me && s.socket != null && s.subdomain != null);
       url =
         host: s:
         if host == me && s.subdomain != null then
@@ -89,6 +95,11 @@ in
         lib.filter (a: a != null) (lib.mapAttrsToList (_: h: h.tailnetIp) fleet) ++ cfg.ownerAddresses
       );
       ownerList = lib.concatStringsSep " " owners;
+      # The `private` services: not this machine's own address either. Its screen
+      # is the household's, and its browser reaches Caddy from that address.
+      privateList = lib.concatStringsSep " " (
+        lib.filter (a: a != (fleet.${me}.tailnetIp or null)) owners
+      );
       # What a household device can open: this machine's own, and only through Caddy
       # (the policy gives a shared user no other port, and no other machine).
       forHousehold = host: s: host == me && s.subdomain != null && s.audience == "household";
@@ -96,7 +107,7 @@ in
       section =
         keep: host:
         let
-          web = lib.filter (s: s.port != null && keep host s) (servicesOf host);
+          web = lib.filter (s: reachable host s && keep host s) (servicesOf host);
         in
         lib.optionalString (web != [ ]) ''
           <section>
@@ -266,7 +277,16 @@ in
                     @stranger not remote_ip ${ownerList}
                     respond @stranger "Only the owner's devices can open this page (balaur.web.ownerAddresses)." 403
                   ''
-                  + "reverse_proxy 127.0.0.1:${toString s.port}";
+                  + lib.optionalString (s.audience == "private") ''
+                    @stranger not remote_ip ${privateList}
+                    respond @stranger "Only the owner's own devices can open this page, and not this machine's screen (balaur.web.ownerAddresses)." 403
+                  ''
+                  + (
+                    if s.socket != null then
+                      "reverse_proxy unix/${s.socket}"
+                    else
+                      "reverse_proxy 127.0.0.1:${toString s.port}"
+                  );
               }
             ) proxied
           );

@@ -9,6 +9,7 @@ let
     duet-camera = final.callPackage ../../pkgs/duet-camera.nix { };
     # lifelog, the life log as files (lifelog/, modules/lifelog.nix).
     lifelog = final.callPackage ../../pkgs/lifelog.nix { };
+    lifelog-web = final.callPackage ../../pkgs/lifelog-web.nix { };
     balaur-app = final.callPackage ../../pkgs/balaur-app.nix { };
     balaur-shell-extension = final.callPackage ../../pkgs/balaur-shell-extension.nix { };
   };
@@ -22,6 +23,7 @@ in
       inherit (pkgs.extend overlay)
         duet-camera
         lifelog
+        lifelog-web
         balaur-app
         balaur-shell-extension
         ;
@@ -31,6 +33,7 @@ in
         inherit
           duet-camera
           lifelog
+          lifelog-web
           balaur-app
           balaur-shell-extension
           ;
@@ -41,11 +44,12 @@ in
         default = balaur-app;
       };
 
-      # duet-camera, lifelog, the app and the Shell extension run their tests while building.
+      # duet-camera, lifelog, lifelog-web, the app and the Shell extension run their tests while building.
       checks = {
         inherit
           duet-camera
           lifelog
+          lifelog-web
           balaur-app
           balaur-shell-extension
           ;

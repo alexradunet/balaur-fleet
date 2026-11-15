@@ -118,6 +118,7 @@ in
     let
       cfg = config.balaur;
       folder = cfg.lifelog-folder;
+      webSocket = "/run/lifelog-web/http.sock";
 
       # One run of the keeper (design §4). The timer starts it every minute.
       keep = pkgs.writeShellApplication {
@@ -292,7 +293,80 @@ in
               unit = "lifelog-keeper.timer";
               group = "Personal";
             }
+            {
+              name = "Life";
+              description = "The life log: the journal, pages and readings";
+              icon = "📓";
+              socket = webSocket;
+              subdomain = "life";
+              # Health data and private notes: not even this machine's own screen.
+              audience = "private";
+              unit = "lifelog-web.service";
+              group = "Personal";
+            }
           ];
+
+          # The web app (lifelog/web, plan 003): the folder on the phone. It listens on
+          # a Unix socket that only Caddy can open, because a loopback port is open to
+          # every local account and this machine is shared. systemd makes the socket
+          # (group caddy, 0660) and starts the app on the first request, so Caddy needs
+          # no new group. The app has no network at all.
+          assertions = [
+            {
+              assertion = cfg ? web;
+              message = "the `lifelog` aspect serves its web app through the `web` aspect (Caddy): add `web` to this machine";
+            }
+          ];
+          users.users.lifelog-web = {
+            isSystemUser = true;
+            group = "lifelog-web";
+            extraGroups = [ "lifelog" ];
+          };
+          users.groups.lifelog-web = { };
+          systemd.sockets.lifelog-web = {
+            wantedBy = [ "sockets.target" ];
+            listenStreams = [ webSocket ];
+            socketConfig = {
+              SocketGroup = config.services.caddy.group;
+              SocketMode = "0660";
+            };
+          };
+          systemd.services.lifelog-web = {
+            description = "lifelog web app: the life folder on the phone";
+            requires = [ "lifelog-web.socket" ];
+            after = [ "syncthing.service" ];
+            environment = {
+              LIFELOG_FOLDER = folder;
+              LIFELOG_BIN = lib.getExe pkgs.lifelog;
+              NODE_ENV = "production";
+            };
+            serviceConfig = {
+              User = "lifelog-web";
+              Group = "lifelog-web";
+              ExecStart = lib.getExe pkgs.lifelog-web;
+              # The ids of the captures it applied.
+              StateDirectory = "lifelog-web";
+              StateDirectoryMode = "0700";
+              # Files it writes take the group lifelog (the setgid folder) and mode 0660.
+              UMask = "0007";
+              ReadWritePaths = [ folder ];
+              Restart = "on-failure";
+              ProtectSystem = "strict";
+              ProtectHome = true;
+              PrivateTmp = true;
+              PrivateDevices = true;
+              PrivateNetwork = true;
+              RestrictAddressFamilies = [ "AF_UNIX" ];
+              NoNewPrivileges = true;
+              ProtectKernelTunables = true;
+              ProtectKernelModules = true;
+              ProtectControlGroups = true;
+              RestrictSUIDSGID = true;
+              RestrictNamespaces = true;
+              LockPersonality = true;
+              CapabilityBoundingSet = "";
+            };
+          };
         }
       ];
     };

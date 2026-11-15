@@ -81,14 +81,14 @@ modules/
   game-streaming.nix      Sunshine on the host (the pc), Moonlight on the clients, over the tailnet
   ai.nix                  the fleet's AI entryway on the tablet (`ai-gateway`: local GPU first, Mistral second) and its clients (`ai`)
   strata.nix              Strata: the local LLM on the pc's GPU, stopped while a game runs
-  lifelog.nix             lifelog, the life log as files: the keeper on the tablet (`lifelog`), the folder, `lifelog` and Obsidian on the laptop and the pc (`lifelog-client`)
+  lifelog.nix             lifelog, the life log as files: the keeper on the tablet (`lifelog`) and its web app at https://life.<domain>, the folder, `lifelog` and Obsidian on the laptop and the pc (`lifelog-client`)
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
 gnome/                    everything GNOME-facing, in GJS
   app/                    "Balaur", a libadwaita app: the home's services and its people
   shell-extension/        the Scenes menu in Quick Settings (Home Assistant), the ambient screen (photos, machines, services)
 camera/                   Go (stdlib only) RGB-IR camera pipeline: raw IPU6 frames -> webcam
-lifelog/                  the life log as markdown + CSV, synced by Syncthing, checked into git (the checker and its commands)
+lifelog/                  the life log as markdown + CSV, synced by Syncthing, checked into git (the checker and its commands; web/: the web app, in Node.js)
 ```
 
 ## What you get

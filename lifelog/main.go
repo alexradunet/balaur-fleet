@@ -2,6 +2,8 @@
 // into it (docs/design.md):
 //
 //	lifelog check         the rules of design §6; the keeper runs it
+//	lifelog index         print the pages, their links and the metrics as JSON (for the web app)
+//	lifelog new           create a page, refused when the checker would find it in error
 //	lifelog add           append one reading to this machine's CSV of a metric
 //	lifelog merge         merge a Syncthing conflict copy of a CSV into its file
 //	lifelog rename-links  rewrite the links to a renamed page
@@ -26,7 +28,9 @@ const (
 )
 
 const usage = `usage:
-  lifelog check [-report] [-git-dir DIR [-seen REF] [-live REF]] [FOLDER]
+  lifelog check [-report | -json] [-git-dir DIR [-seen REF] [-live REF]] [FOLDER]
+  lifelog index
+  lifelog new KIND TITLE < TEXT
   lifelog add [-day DAY] [-at INSTANT] [-source SOURCE] [-machine NAME] METRIC VALUE
   lifelog merge COPY
   lifelog rename-links OLD NEW
@@ -44,6 +48,8 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 	}
 	cmds := map[string]func() int{
 		"check":        func() int { return cmdCheck(ctx, args[1:], stdout, stderr) },
+		"index":        func() int { return cmdIndex(args[1:], stdout, stderr) },
+		"new":          func() int { return cmdNew(args[1:], stdin, stdout, stderr) },
 		"add":          func() int { return cmdAdd(args[1:], stdout, stderr) },
 		"merge":        func() int { return cmdMerge(args[1:], stdin, stdout, stderr) },
 		"rename-links": func() int { return cmdRenameLinks(args[1:], stdout, stderr) },
