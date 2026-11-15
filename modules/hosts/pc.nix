@@ -60,6 +60,10 @@ in
           orca-server
           # The fleet's local LLM, on the Radeon 890M (Nemotron 3.5 Lightning).
           local-llm
+          # The fleet's AI entryway (http://pc:4000/v1), moved from the tablet: the
+          # clients take the first machine that has it. The tablet's copy stays the
+          # page behind https://ai.balaur.space until the web front moves here too.
+          ai-gateway
           # The life log as files: the folder, `lifelog`, Obsidian, and the nightly mirror of
           # the keeper's history (balaur.lifelog-client.mirrorFrom below).
           lifelog-client
