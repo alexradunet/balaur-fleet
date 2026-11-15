@@ -563,6 +563,9 @@ in
           window-padding-x = 10;
           window-padding-y = 10;
           window-decoration = false;
+          # Ghostty's own default makes Ctrl+Enter full screen; Hyprland has F11
+          # for that, and programs need the key (Claude Code: send now).
+          keybind = [ "ctrl+enter=unbind" ];
         };
       };
       programs.btop = {
