@@ -12,7 +12,7 @@ and the Proton Drive mirror. Its admin page is Cockpit, and it builds for the ot
 machines.
 
 **laptop**, a **Lenovo Yoga Pro 7 14APH8**, is the personal machine and the only one with
-a desktop: stock GNOME, and everything on it GNOME-native. It shares the base and the
+a desktop: Hyprland, set up like Omarchy, with libadwaita apps. It shares the base and the
 admin's environment, and runs none of the house services.
 
 The first head, **tablet** (a Lenovo Yoga Duet 7), was the household screen and the home
@@ -61,9 +61,8 @@ modules/
   proton-drive.nix        rclone, hourly: /srv/proton (the server) mirrored to all of Proton Drive, one way, nothing lost there
                           and `proton-drive-client`: that folder as /mnt/proton on a desktop (SSHFS)
   never-sleep.nix         a machine on duty never sleeps (the server)
-  gnome.nix               GNOME itself: GDM, the session, PipeWire, the canonical apps (Firefox + its add-ons, Ghostty), the Balaur app + Shell extension, one look and keyboards (US + RO), the ambient screen's settings
-  desktop.nix             GNOME as a personal desktop: a normal login, the GNOME apps it drops
-  hyprland.nix            Hyprland, Omarchy-style, as a second session (the laptop): waybar, Walker, mako, hyprlock; Super+K lists the keys
+  desktop.nix             a personal desktop: sound, Firefox + its add-ons, Ghostty, the Balaur app, the GTK apps we keep, disks, keyring, Bluetooth
+  hyprland.nix            Hyprland, Omarchy-style, the desktop's session: greetd, waybar, Walker, mako, hyprlock; Super+K lists the keys
   media.nix               Jellyfin: watches what `torrents` downloaded, /srv/media
   dlna.nix                MiniDLNA: folders served as they are to the players on the home network (the server)
   torrents.nix            qBittorrent + FileList search (aspect `torrents`, the server), and
@@ -86,9 +85,7 @@ modules/
   lifelog.nix             lifelog, the life log as files: the keeper on the server (`lifelog`) and its web app at https://life.<domain>, the folder, `lifelog` and Obsidian on the laptop (`lifelog-client`)
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
-gnome/                    everything GNOME-facing, in GJS
-  app/                    "Balaur", a libadwaita app: the home's services and its people
-  shell-extension/        the Scenes menu in Quick Settings (Home Assistant), the ambient screen (photos, machines, services)
+gnome/app/                "Balaur", a GJS/libadwaita app: the home's services and its people
 lifelog/                  the life log as markdown + CSV, synced by Syncthing, checked into git (the checker and its commands; web/: the web app, in Node.js)
 ```
 
@@ -97,7 +94,7 @@ lifelog/                  the life log as markdown + CSV, synced by Syncthing, c
 | Where | What |
 |---|---|
 | AI (aspects `ai-gateway`, `ai`, `local-llm`) | One entryway for every model call in the fleet: `http://server:4000/v1` (OpenAI-compatible; `OPENAI_BASE_URL` points there on every machine), with a page at **https://ai.balaur.space** to see the tiers and the last requests and to change the route and the remote model. Model `balaur` answers from the server's Radeon 890M (`local-llm`: Nemotron 3.5 Lightning on llama.cpp) when it is up and free, else from Mistral; `balaur-local` and `balaur-remote` pick one. |
-| The Balaur app | **Home**: every service with its live state and a button that opens its app, and **People**: who of the household opens which service. GNOME's overview search finds the services too. Quick Settings has a **Scenes** menu with Home Assistant's scenes and scripts. |
+| The Balaur app | **Home**: every service with its live state and a button that opens its app, and **People**: who of the household opens which service. |
 | Ad blocking (aspect `adblock`) | AdGuard Home as the LAN DNS server, with European upstreams (Quad9, DNS4EU) and Samsung TV ad/ACR-tracking rules. Set it as the router's DNS 1 (keep a public DNS 2 so the network survives the box being off). |
 
 Adding a service = an aspect that appends to `balaur.services`: it shows on the Balaur app's Home
@@ -131,11 +128,11 @@ nix develop                                   # Go, GJS, Node 22, libadwaita
 cd lifelog && go test ./...                   # the life log's checker and commands (lifelog/README.md)
 nix build .#balaur-app && ./result/bin/balaur-app # the app (gnome/app/README.md)
 ```
-Each directory under `gnome/` has a short README.
+gnome/app has a short README.
 
 ## Status
 
-On the laptop: GNOME, the Balaur app and Shell extension. On the server, headless: the AI
+On the laptop: Hyprland and the Balaur app. On the server, headless: the AI
 entryway and local model, AdGuard Home, the web front, qBittorrent and DLNA, the life log,
 Home Assistant, Orca, the Proton Drive mirror and Cockpit. The tablet waits for a new
 purpose. Next steps: [docs/ROADMAP.md](docs/ROADMAP.md).

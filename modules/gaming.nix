@@ -18,11 +18,11 @@
 # Add-ons are kept by instawow, not declared here: picking one should not need a
 # rebuild.
 #
-# One small user service: GNOME counts only keyboards, mice and touch as activity,
-# and games on Proton do not ask it to stay awake, so on a controller the screen
-# blanked and locked mid-game. `balaur-gamepad-awake` holds GNOME's idle inhibitor
-# while a gamepad is in use, until 5 minutes after its last input
-# (gaming/gamepad-awake.py).
+# One small user service: the compositor counts only keyboards, mice and touch as
+# activity, and games on Proton do not ask it to stay awake, so on a controller the
+# screen blanks and locks mid-game. `balaur-gamepad-awake` holds a logind idle
+# inhibitor (hypridle honours it) while a gamepad is in use, until 5 minutes
+# after its last input (gaming/gamepad-awake.py).
 {
   flake.modules.nixos.gaming =
     { pkgs, lib, ... }:
@@ -174,7 +174,7 @@
         partOf = [ "graphical-session.target" ];
         after = [ "graphical-session.target" ];
         path = [
-          pkgs.gnome-session
+          pkgs.systemd
           pkgs.coreutils
         ];
         serviceConfig = {

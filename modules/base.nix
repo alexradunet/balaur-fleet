@@ -257,8 +257,8 @@ in
         # Printing (CUPS) on every machine, so any of them can print.
         services.printing.enable = true;
 
-        # Firmware updates from LVFS (`fwupdmgr get-updates`; GNOME Software shows
-        # them too). Every machine here is real hardware; the daemon starts on demand.
+        # Firmware updates from LVFS (`fwupdmgr get-updates`). Every machine here is
+        # real hardware; the daemon starts on demand.
         services.fwupd.enable = true;
 
         zramSwap.enable = true;

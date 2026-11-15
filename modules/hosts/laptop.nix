@@ -1,5 +1,5 @@
 # laptop: the Lenovo Yoga Pro 7 14APH8 the fleet is worked on from. A personal
-# machine, so it gets the shared base and a normal GNOME desktop, and none of the
+# machine, so it gets the shared base and a desktop (Hyprland), and none of the
 # server's aspects: it sleeps when the lid shuts (no `never-sleep`), and it runs
 # no house services.
 # Machine-generated files (hardware-configuration.nix) live in hosts/laptop/.
@@ -41,9 +41,8 @@ in
           home
           secrets
           network
-          gnome
           desktop
-          # Hyprland as a second session, Omarchy-style; GDM offers both (hyprland.nix).
+          # The desktop's session: Hyprland, Omarchy-style (hyprland.nix).
           hyprland
           dev
           files

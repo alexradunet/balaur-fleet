@@ -3,15 +3,13 @@
 # (Walker), waybar on top, mako for notifications, hyprlock and hypridle, swayosd
 # for volume and brightness. Super+K lists every binding.
 #
-# It is a second session next to GNOME, not a replacement: GDM offers both at
-# login, and the apps are the same (Firefox, Ghostty, Nautilus, the Balaur app;
-# libadwaita apps follow GNOME's dark style through the GTK portal). What only
-# GNOME has, its Shell extension (the ambient screen, the Scenes menu) and the
-# Balaur search provider, is not here.
+# It is the desktop's only session (GNOME left the fleet on 2026-11-15). greetd
+# with tuigreet asks for the password on the console and starts it; `desktop`
+# brings the apps and the services around it. libadwaita apps follow the dark
+# style through the GTK portal.
 #
 # Every service of the session (waybar, mako, walker and the rest) is bound to
-# hyprland-session.target, not graphical-session.target, so none of them start
-# inside GNOME.
+# hyprland-session.target, so they start with Hyprland and stop with it.
 #
 # Hyprland changes its config syntax between releases, and home-manager writes the
 # file without reading it. `checks.hyprland-<host>` runs `Hyprland --verify-config`
@@ -315,15 +313,29 @@ in
     {
       config = lib.mkMerge [
         {
-          # The compositor, its portal and a session GDM lists. From nixpkgs, not
-          # Hyprland's own flake: one version, from the binary cache; we use no
-          # plugins that would need theirs.
+          # The compositor and its portal. From nixpkgs, not Hyprland's own flake:
+          # one version, from the binary cache; we use no plugins that would need theirs.
           programs.hyprland.enable = true;
           # hyprlock's PAM service, so it can unlock with the account's password.
           programs.hyprlock.enable = true;
-          # It also turns on NixOS's own hypridle, which graphical-session.target starts:
-          # inside GNOME too, and a second one in Hyprland. home-manager's runs instead.
+          # It also turns on NixOS's own hypridle; home-manager's (below) runs
+          # instead, with its settings, and one is enough.
           services.hypridle.enable = lib.mkForce false;
+
+          # The login: tuigreet on the console, then straight into Hyprland. It
+          # remembers the last user, so only the password is typed. The keyring
+          # unlocks with that password.
+          services.greetd = {
+            enable = true;
+            settings.default_session.command = lib.concatStringsSep " " [
+              (lib.getExe pkgs.tuigreet)
+              "--time"
+              "--remember"
+              "--asterisks"
+              "--cmd start-hyprland"
+            ];
+          };
+          security.pam.services.greetd.enableGnomeKeyring = true;
 
           # swayosd's udev rule hands the backlight to the `video` group, so the
           # brightness keys work without root.
@@ -384,7 +396,7 @@ in
       target = "hyprland-session.target";
     in
     {
-      # The session's own services start with Hyprland and stop with it: not in GNOME.
+      # The session's own services start with Hyprland and stop with it.
       wayland.systemd.target = target;
 
       wayland.windowManager.hyprland = {
@@ -400,7 +412,7 @@ in
         systemd.enable = true;
 
         settings = {
-          # The laptop's panel at GNOME's 167%; any other screen at its preferred mode.
+          # The laptop's panel at 167% (as it was in GNOME); any other screen at its preferred mode.
           monitor = [
             "eDP-1, preferred, auto, 1.666667"
             ", preferred, auto, auto"
@@ -408,7 +420,7 @@ in
           env = [ "XCURSOR_SIZE,24" ];
 
           input = {
-            # The same two layouts as GNOME (gnome.nix); Alt+Shift switches.
+            # US and Romanian (standard); Alt+Shift switches.
             kb_layout = "us,ro";
             kb_variant = ",std";
             kb_options = "grp:alt_shift_toggle";
@@ -609,7 +621,7 @@ in
       services.cliphist.enable = true;
 
       # Locked after 5 minutes, the screen off 30 seconds later, and locked before
-      # every suspend (the lid: logind suspends as it does in GNOME).
+      # every suspend (the lid: logind suspends).
       services.hypridle = {
         enable = true;
         settings = {

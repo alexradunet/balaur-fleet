@@ -77,8 +77,8 @@ what one machine needs. A machine without the `secrets` aspect keeps its few key
 ## The user
 
 - Prefers European providers and lean CPU use.
-- On the desktop (the laptop), everything on screen is GNOME-native (GJS, libadwaita). The
-  server is headless: its admin page is Cockpit.
+- On the desktop (the laptop): Hyprland, Omarchy-style (hyprland.nix), with libadwaita apps
+  and the Balaur app (GJS). The server is headless: its admin page is Cockpit.
 - Build the new piece next to the old one, and switch over only once it works.
 - Verify by exercising the thing (the unit runs, the page answers), not by reading
   the config.

@@ -19,7 +19,7 @@ choice that is theirs (name, aspects, account).
      existing account.
    - Anything else worth keeping: extra packages, a locale or keyboard that differs from
      the fleet's (`base` sets Europe/Bucharest, en_US with ro_RO formats, unfree and
-     printing; `gnome` the US + Romanian keyboards). Say a difference in the host file.
+     printing; `hyprland` the US + Romanian keyboards). Say a difference in the host file.
    - Whether the disk is encrypted (LUKS). The fleet's are not yet; a new laptop should be.
 
 3. **Its generated file.**
@@ -48,7 +48,7 @@ choice that is theirs (name, aspects, account).
      model `balaur` is the fleet's local model first (`local-llm` on the server), Mistral second.
    - `agent` is pi, the OS agent. A role is pi with other instructions and only the
      tools it is given (`pi-NAME`).
-   - A screen: `gnome` and `desktop`. A server stays headless and gets `cockpit` for
+   - A screen: `desktop` and `hyprland`. A server stays headless and gets `cockpit` for
      its admin page. Not on a normal laptop: `never-sleep`.
    - Services, normally on one machine only: `media`, `adblock`, `home-assistant`,
      `lifelog` (the keeper), `web`, `torrents`, `backup`.

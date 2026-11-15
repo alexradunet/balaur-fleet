@@ -4,21 +4,23 @@
 #
 # Thunderbolt hot-plugs, but the port's security level is `user`: a new dock must
 # be approved before its PCIe tunnel opens. bolt does that, and remembers it:
-# approve it once with `boltctl enroll --policy auto <uuid>` (`boltctl list`), or
-# from GNOME's Settings, and it connects by itself from then on. Unplug the dock
+# approve it once with `boltctl enroll --policy auto <uuid>` (`boltctl list`),
+# and it connects by itself from then on. Unplug the dock
 # only with games closed, and before the lid shuts: the driver does not survive
 # its card vanishing under it, nor suspend with the card attached.
 #
 # Booted without the dock, the driver just finds no card and the iGPU carries on
 # alone, so the same system works both ways.
 #
-# Plug the monitor into the card, not the machine. GNOME (mutter) then composites
-# on the NVIDIA card and games render where they are displayed.
+# Plug the monitor into the card, not the machine. Hyprland drives both GPUs
+# (aquamarine) and renders on the one it starts on, the iGPU, copying frames to a
+# monitor on the card; making the card primary when docked is still to check
+# (issue 15). Under GNOME a udev tag made mutter prefer it; Hyprland ignores that.
 {
   flake.modules.nixos.nvidia-egpu =
     { config, ... }:
     {
-      # Loads the NVIDIA kernel modules and userspace. GNOME runs on Wayland, which
+      # Loads the NVIDIA kernel modules and userspace. The compositor is Wayland, which
       # talks to every GPU through KMS, so the iGPU keeps working as well.
       services.xserver.videoDrivers = [
         "modesetting"
@@ -37,16 +39,9 @@
         nvidiaSettings = true;
       };
 
-      # Ask mutter to make the NVIDIA card its primary GPU when present. By default
-      # it picks the GPU the firmware booted on (the iGPU), and would then render
-      # everything there and copy it across to a monitor on the card.
-      services.udev.extraRules = ''
-        SUBSYSTEM=="drm", KERNEL=="card[0-9]*", ATTRS{vendor}=="0x10de", TAG+="mutter-device-preferred-primary"
-      '';
-
       hardware.graphics.enable = true;
 
-      # Approves Thunderbolt/USB4 devices (the dock), with GNOME's Settings panel.
+      # Approves Thunderbolt/USB4 devices (the dock): `boltctl`.
       services.hardware.bolt.enable = true;
     };
 }
