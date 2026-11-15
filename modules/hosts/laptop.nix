@@ -64,6 +64,8 @@ in
           wow-market
           # One click to the server's desktop over RDP (an app per machine with `remote-desktop`).
           remote-desktop-client
+          # The server's /srv/proton (backed up to Proton Drive) as /mnt/proton, over SSHFS.
+          proton-drive-client
         ])
         # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
         # .agents/skills). It must be `git add`ed or flakes cannot see it.

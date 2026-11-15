@@ -22,6 +22,11 @@
 #   sudo systemctl start proton-drive          sync now
 #   journalctl -u proton-drive                 what the last runs did
 #   rclone ls proton:Balaur-deleted            what was replaced or deleted, by date
+{ config, ... }:
+let
+  fleet = config.fleet;
+  nixosConfigs = config.flake.nixosConfigurations;
+in
 {
   flake.modules.nixos.proton-drive =
     {
@@ -128,6 +133,75 @@
             Persistent = true;
             RandomizedDelaySec = "5min";
           };
+        };
+      };
+    };
+
+  # proton-drive-client: on a desktop, the server's folder as a folder here, over SSH
+  # through the tailnet (SSHFS), at /mnt/proton, named "Proton" in the Files sidebar.
+  # Nothing to set up on the server: the fleet already trusts every machine's host key
+  # (fleet.nix) and the admin's ~/.ssh/id_ed25519 (`userKeys`). It mounts when first
+  # opened and lets go after 10 idle minutes, so a laptop that sleeps or travels never
+  # waits on it at boot; away from home it works the same, over the tailnet. What is
+  # changed here is changed on the server, and the next hourly sync takes it to Proton.
+  flake.modules.nixos.proton-drive-client =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      me = config.networking.hostName;
+      user = config.balaur.user;
+      hosts = lib.filter (
+        h: h != me && nixosConfigs ? ${h} && nixosConfigs.${h}.config.balaur ? protonDrive
+      ) (lib.attrNames fleet);
+      server = lib.head hosts;
+      remote = nixosConfigs.${server}.config;
+    in
+    {
+      options.balaur.protonDriveClient.mountPoint = lib.mkOption {
+        type = lib.types.str;
+        default = "/mnt/proton";
+        description = "Where the Proton folder of the machine with `proton-drive` appears here.";
+      };
+
+      config = {
+        assertions = [
+          {
+            assertion = hosts != [ ];
+            message = "proton-drive-client: no other machine of the fleet has the `proton-drive` aspect";
+          }
+        ];
+
+        system.fsPackages = [ pkgs.sshfs ];
+
+        fileSystems.${config.balaur.protonDriveClient.mountPoint} = {
+          device = "${remote.balaur.user}@${fleet.${server}.address}:${remote.balaur.protonDrive.dir}";
+          fsType = "fuse.sshfs";
+          options = [
+            # On first use, not at boot; given up after 10 idle minutes.
+            "noauto"
+            "x-systemd.automount"
+            "x-systemd.idle-timeout=10min"
+            "x-systemd.mount-timeout=20s"
+            "_netdev"
+            "nofail"
+            # Mounted by root, with the admin's own key, for the admin (same uid on
+            # both sides, so files are theirs here too).
+            "IdentityFile=/home/${user}/.ssh/id_ed25519"
+            "allow_other"
+            "default_permissions"
+            "idmap=user"
+            # Through sleep and Wi-Fi changes: notice a dead link, and dial again.
+            "reconnect"
+            "ServerAliveInterval=15"
+            "ServerAliveCountMax=3"
+            "ConnectTimeout=10"
+            "x-gvfs-show"
+            "x-gvfs-name=Proton"
+          ];
         };
       };
     };
