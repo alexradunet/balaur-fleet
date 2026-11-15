@@ -64,6 +64,9 @@ in
           # clients take the first machine that has it. The tablet's copy stays the
           # page behind https://ai.balaur.space until the web front moves here too.
           ai-gateway
+          # The LAN's DNS server with ad and tracker blocking (AdGuard Home), moved from
+          # the tablet: the router hands out 192.168.50.12 as the DNS server.
+          adblock
           # The life log as files: the folder, `lifelog`, Obsidian, and the nightly mirror of
           # the keeper's history (balaur.lifelog-client.mirrorFrom below).
           lifelog-client
