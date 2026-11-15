@@ -145,6 +145,23 @@ in
           fi
 
           # Before GIT_WORK_TREE is set: git init --bare refuses to run with it.
+          ${lib.optionalString (cfg.lifelog.importFrom != null) ''
+            # A keeper moving in from another machine continues that history: it
+            # starts from the copy in the import folder, and does nothing at all
+            # until the copy is there (a fresh history would fork the old one).
+            if [ ! -f "$gitdir/HEAD" ]; then
+              import=${cfg.lifelog.importFrom}
+              if [ ! -f "$import/HEAD" ]; then
+                echo "<4>no history yet: waiting for a copy of the old keeper's in $import" >&2
+                exit 0
+              fi
+              git clone -q --mirror "$import" "$gitdir"
+              git --git-dir "$gitdir" config --unset remote.origin.mirror || true
+              git --git-dir "$gitdir" remote remove origin
+              git --git-dir "$gitdir" symbolic-ref HEAD refs/heads/live
+              echo "history imported from $import: live at $(git --git-dir "$gitdir" rev-parse --short refs/heads/live)"
+            fi
+          ''}
           if [ ! -f "$gitdir/HEAD" ]; then
             # The owner (in the group) reads the history too: the unit's UMask 0007
             # makes what git writes readable by the group.
@@ -233,6 +250,18 @@ in
           default = 60;
           description = "How long nothing in the content folders must change before the keeper commits (design §4).";
         };
+        importFrom = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          example = "/var/lib/lifelog-import/life.git";
+          description = ''
+            For a keeper moving in from another machine: a bare copy of the old
+            keeper's history (`git clone --mirror`, by the owner, who is in the
+            `lifelog` group) that the keeper starts from when it has none. Until the
+            copy is there it does nothing, so that it never starts a second history.
+            The folder that holds it is made writable by the group.
+          '';
+        };
       };
 
       config = lib.mkMerge [
@@ -276,6 +305,11 @@ in
               LockPersonality = true;
             };
           };
+          # The import folder: the owner (in the group) writes the copy into it.
+          systemd.tmpfiles.rules = lib.optional (
+            cfg.lifelog.importFrom != null
+          ) "d ${dirOf cfg.lifelog.importFrom} 2770 lifelog lifelog -";
+
           systemd.timers.lifelog-keeper = {
             wantedBy = [ "timers.target" ];
             timerConfig = {

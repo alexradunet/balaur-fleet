@@ -54,7 +54,8 @@ in
           # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
           agent
           # This machine's own.
-          # The life log as files: the folder, `lifelog`, Obsidian (the keeper is on the tablet).
+          # The life log as files: the folder, `lifelog`, Obsidian, and the nightly mirror of
+          # the keeper's history from the server (balaur.lifelog-client.mirrorFrom below).
           lifelog-client
           # WoW, on the RTX 5060 Ti in its USB4 dock when it is plugged in.
           nvidia-egpu
@@ -78,6 +79,9 @@ in
       balaur = {
         # The existing login on this machine; its password is kept as is.
         user = "alex";
+        # A second copy of the life log's history, fetched nightly from the keeper (it
+        # runs when the laptop next wakes if it slept through the night).
+        lifelog-client.mirrorFrom = "server";
 
         # It roams onto networks nobody here owns: SSH and the Syncthing UI only
         # over the tailnet (tailscale0 is trusted), never on whatever Wi-Fi this is.

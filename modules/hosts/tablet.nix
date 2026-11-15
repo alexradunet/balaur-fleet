@@ -52,8 +52,6 @@ in
           media
           adblock
           web
-          # The life log as files: the keeper (lifelog/).
-          lifelog
           home-assistant
           camera
         ])
