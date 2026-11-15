@@ -65,6 +65,12 @@ in
       # Never "upgrade" it by hand.
       system.stateVersion = "26.05";
 
+      # TEMPORARY (2026-11-15), for the life log's move to the server: the old keeper's
+      # history in /var/lib/lifelog is group 977, which NixOS gives back to the name
+      # `lifelog` (/var/lib/nixos/gid-map), so the owner can read it to copy it over.
+      # Goes once the server's keeper has imported it.
+      users.groups.lifelog.members = [ config.balaur.user ];
+
       balaur = {
         # An EXISTING login on the Duet (its password is kept as is). If this differed from `whoami`, NixOS would
         # create a new user and drop yours, so set it before the first rebuild.
