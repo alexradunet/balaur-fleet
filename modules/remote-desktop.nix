@@ -177,19 +177,39 @@ in
             exit 0
           fi
 
-          password=$(secret-tool lookup service balaur-rdp host "$host" || true)
-          if [ -z "$password" ]; then
-            password=$(zenity --password --title="Remote Desktop: $host") || exit 0
-            [ -n "$password" ] || exit 0
-            printf '%s' "$password" |
-              secret-tool store --label="Remote Desktop: $host" service balaur-rdp host "$host"
-          fi
+          while true; do
+            password=$(secret-tool lookup service balaur-rdp host "$host" || true)
+            if [ -z "$password" ]; then
+              password=$(zenity --password --title="Remote Desktop: $host") || exit 0
+              [ -n "$password" ] || exit 0
+              printf '%s' "$password" |
+                secret-tool store --label="Remote Desktop: $host" service balaur-rdp host "$host"
+            fi
 
-          # The password on stdin, never in the process list. tofu: the server's
-          # self-signed certificate is trusted the first time and checked after.
-          printf '%s\n' "$password" | exec sdl-freerdp /v:"$addr" /u:"$user" /d: /from-stdin:force \
-            /cert:tofu +dynamic-resolution /sound /gfx /title:"$host" /wm-class:balaur-rdp-"$host" \
-            +auto-reconnect
+            # The password on stdin, never in the process list. tofu: the server's
+            # self-signed certificate is trusted the first time and checked after.
+            status=0
+            printf '%s\n' "$password" | sdl-freerdp /v:"$addr" /u:"$user" /d: /from-stdin:force \
+              /cert:tofu +dynamic-resolution /sound /gfx /title:"$host" /wm-class:balaur-rdp-"$host" \
+              +auto-reconnect || status=$?
+
+            # sdl-freerdp's exit codes (client/SDL/SDL3/sdl_utils.hpp): below 128 the
+            # session ended (closed, logged off, disconnected); 132 and 134 are a
+            # refused login; the rest of 128-254, a connection that failed.
+            case $status in
+            132 | 134)
+              secret-tool clear service balaur-rdp host "$host"
+              zenity --question --title="Remote Desktop: $host" \
+                --text="$host refused the RDP password. Try another?" || exit 0
+              ;;
+            12[89] | 1[3-9][0-9] | 2[0-4][0-9] | 25[0-4])
+              zenity --error --title="Remote Desktop: $host" \
+                --text="Could not connect to $host (FreeRDP exit code $status). Is it on, and on the tailnet?"
+              exit "$status"
+              ;;
+            *) exit 0 ;;
+            esac
+          done
         '';
       };
     in
