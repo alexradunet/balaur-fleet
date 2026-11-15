@@ -188,12 +188,13 @@ in
             "x-systemd.mount-timeout=20s"
             "_netdev"
             "nofail"
-            # Mounted by root, with the admin's own key, for the admin (same uid on
-            # both sides, so files are theirs here too).
+            # Mounted by root, with the admin's own key, for the admin. Owners pass
+            # through as they are: the admin has the same uid on every machine (base.nix).
+            # Not `idmap=user`: that maps them to whoever mounted, here root, and the
+            # admin is then refused their own files.
             "IdentityFile=/home/${user}/.ssh/id_ed25519"
             "allow_other"
             "default_permissions"
-            "idmap=user"
             # Through sleep and Wi-Fi changes: notice a dead link, and dial again.
             "reconnect"
             "ServerAliveInterval=15"
