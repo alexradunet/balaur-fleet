@@ -5,8 +5,8 @@
 # of every item it saw in a scan, and the game writes that to Auctionator's
 # SavedVariables file on /reload or logout. wow-market/market.py watches the file as
 # the player (it is in their home, in Battle.net's Wine prefix), keeps each new scan,
-# and serves a page at http://pc:8790 (the tailnet name and the port below; no Caddy
-# in front, since `web` proxies only its own machine's services and the pc has no
+# and serves a page at http://laptop:8790 (the tailnet name and the port below; no Caddy
+# in front, since `web` proxies only its own machine's services and the laptop has no
 # `web`): which crafts of a profession pay over selling their materials, listings
 # below vendor price, enchanting essences, and items cheaper or dearer than their
 # median over the past scans. GET /api/report is the same as JSON, for the OS agent.

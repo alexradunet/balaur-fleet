@@ -1,14 +1,19 @@
-# An NVIDIA card in an external dock (OCuLink or Thunderbolt), next to the
-# machine's own AMD/Intel iGPU. Written for an RTX 5060 Ti on the pc's OCuLink port.
+# An NVIDIA card in an external dock (Thunderbolt/USB4 or OCuLink), next to the
+# machine's own AMD/Intel iGPU. Written for an RTX 5060 Ti, now on the laptop's
+# USB4 port (it was on the pc's OCuLink port).
 #
-# OCuLink is plain PCIe on a cable, with no hot-plug: power the dock on *before*
-# the machine, and don't pull it while running. Booted without the dock, the
-# driver just finds no card and the iGPU carries on alone, so the same system
-# works both ways.
+# Thunderbolt hot-plugs, but the port's security level is `user`: a new dock must
+# be approved before its PCIe tunnel opens. bolt does that, and remembers it:
+# approve it once with `boltctl enroll --policy auto <uuid>` (`boltctl list`), or
+# from GNOME's Settings, and it connects by itself from then on. Unplug the dock
+# only with games closed, and before the lid shuts: the driver does not survive
+# its card vanishing under it, nor suspend with the card attached.
 #
-# Plug the monitor into the card, not the mini-PC. GNOME (mutter) then composites
-# on the NVIDIA card, games render where they are displayed, and Sunshine's
-# capture and NVENC encode happen on the same GPU.
+# Booted without the dock, the driver just finds no card and the iGPU carries on
+# alone, so the same system works both ways.
+#
+# Plug the monitor into the card, not the machine. GNOME (mutter) then composites
+# on the NVIDIA card and games render where they are displayed.
 {
   flake.modules.nixos.nvidia-egpu =
     { config, ... }:
@@ -40,5 +45,8 @@
       '';
 
       hardware.graphics.enable = true;
+
+      # Approves Thunderbolt/USB4 devices (the dock), with GNOME's Settings panel.
+      services.hardware.bolt.enable = true;
     };
 }

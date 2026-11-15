@@ -56,9 +56,11 @@ in
           # This machine's own.
           # The life log as files: the folder, `lifelog`, Obsidian (the keeper is on the tablet).
           lifelog-client
+          # WoW, on the RTX 5060 Ti in its USB4 dock when it is plugged in.
+          nvidia-egpu
           gaming
-          # Moonlight, to play what the pc streams (Sunshine there).
-          game-streaming-client
+          # What to craft, buy and sell in WoW: Forever, from Auctionator's scans.
+          wow-market
         ])
         # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
         # .agents/skills). It must be `git add`ed or flakes cannot see it.
