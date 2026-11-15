@@ -15,6 +15,8 @@ in
     lanIp = "192.168.50.12"; # wired (eno1, c8:ff:bf:05:0a:44), reserved in the router
     userKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICC9pHQla6NLPAlOhbVp204calGMamI9kDCoTLWyUhaH" ];
     syncthingId = "PT5TONV-F2LVWWX-UDUINFG-GRL5DS5-QXBARW3-7LCUJDQ-PCDWATW-IG5PTQJ";
+    # qBittorrent's web UI (`torrents`): where `balaur-torrent` can send downloads.
+    torrentsPort = 8080;
     # 12 cores / 24 threads against the laptop's 8 / 16, so the others send it their
     # builds first. 12 jobs leaves half the threads; the daemon also runs at idle
     # priority here (below), so the services always come first.
@@ -70,7 +72,11 @@ in
           # The life log as files: the folder, `lifelog`, Obsidian, and the nightly mirror of
           # the keeper's history (balaur.lifelog-client.mirrorFrom below).
           lifelog-client
-          # A folder of the old disk, for the players on the home network (below).
+          # qBittorrent with FileList search, moved from the tablet: /srv/media.
+          torrents
+          # Its movies and shows and a folder of the old disk, for the TV and the other
+          # players on the home network (below). In place of Jellyfin: no transcoding,
+          # next to nothing on the CPU.
           dlna
         ])
         # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
@@ -88,6 +94,19 @@ in
       # services.
       nix.daemonCPUSchedPolicy = "idle";
       nix.daemonIOSchedClass = "idle";
+
+      # FileList's username and passkey are two entries in this machine's own sops
+      # file (secrets/hosts/pc.yaml); the search plugin wants them as one JSON object.
+      sops.secrets."filelist-username".sopsFile = config.balaur.secrets.hostFile;
+      sops.secrets."filelist-passkey".sopsFile = config.balaur.secrets.hostFile;
+      sops.templates."filelist.json" = {
+        owner = config.services.qbittorrent.user;
+        mode = "0400";
+        content = builtins.toJSON {
+          username = config.sops.placeholder."filelist-username";
+          passkey = config.sops.placeholder."filelist-passkey";
+        };
+      };
 
       # The second NVMe: the old Windows disk, kept for the personal media on it.
       # Writable, to tidy it from here; nofail, so the machine boots without it.
@@ -107,8 +126,18 @@ in
         user = "alex";
         # A second copy of the life log's history, fetched nightly from the keeper.
         lifelog-client.mirrorFrom = "tablet";
-        # A folder of the old disk, served to the home network (no login: dlna.nix).
-        dlna.dirs = [ "/mnt/old-ssd/True Strength" ];
+        # Served to the home network (no login: dlna.nix): qBittorrent's movies and
+        # shows (the categories), and a folder of the old disk.
+        dlna.dirs = [
+          "V,/srv/media/movies"
+          "V,/srv/media/shows"
+          "/mnt/old-ssd/True Strength"
+        ];
+        # FileList's login for the search plugin, from this machine's sops file (below).
+        torrents = {
+          filelistCredentialsFile = config.sops.templates."filelist.json".path;
+          manageFilelistCredentials = false;
+        };
         # It stays at home, wired or on the home Wi-Fi: SSH and the Syncthing UI on
         # the LAN as well, like the tablet.
       };
