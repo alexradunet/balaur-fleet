@@ -22,6 +22,7 @@ before(async () => {
     "pages/Iron.md": "---\naliases:\n  - Fe\n---\nIron is [[Ferritin|stored]]. #health\n",
     "pages/Ferritin.md": "Holds [[fe]] and [[Nowhere]].\n",
     "journal/2026-11-15.md": "- 08:00 Walked.\n",
+    "pages/Long walk.md": "---\nday: 2026-11-14\n---\nTo the hills.\n",
   });
   app = createApp({ folder: t.life, bin, stateDir: t.state });
   server = http.createServer(app.handle);
@@ -169,7 +170,7 @@ test("the service worker carries the version of the static files", async () => {
 
 test("each screen has one loud button at most, and the shell", async () => {
   // The Almanac look: ember is the one loud button of a screen (plan 004).
-  for (const url of ["/day/2026-11-15", "/p/pages/Iron.md", "/browse", "/browse/journal", "/search?q=iron", "/metrics", "/metrics/weight", "/capture", "/new", "/edit/pages/Iron.md"]) {
+  for (const url of ["/day/2026-11-15", "/week/2026-W46", "/month/2026-11", "/year/2026", "/p/pages/Iron.md", "/browse", "/browse/journal", "/search?q=iron", "/metrics", "/metrics/weight", "/capture", "/new", "/edit/pages/Iron.md"]) {
     const r = await get(url);
     assert.equal(r.status, 200, url);
     assert.ok((r.body.match(/class="(button )?primary"/g) ?? []).length <= 1, `${url} has more than one loud button`);
@@ -184,6 +185,36 @@ test("a save is a toast that Close shuts, with no script", async () => {
   assert.match(r.body, /<dialog open closedby="closerequest" class="toast" aria-label="Result"><h2>Saved\.<\/h2>/);
   assert.match(r.body, /<form method="dialog"><button class="small close">Close<\/button><\/form>/);
   assert.doesNotMatch((await get("/p/pages/Iron.md")).body, /class="toast"/);
+});
+
+test("a week lists its days: the first line, the dated pages, the readings", async () => {
+  const r = await get("/week/2026-W46");
+  assert.equal(r.status, 200);
+  assert.match(r.body, /<a class="day-link" href="\/day\/2026-11-15">[\s\S]*?<p class="first">08:00 Walked\.<\/p>/);
+  assert.match(r.body, /href="\/day\/2026-11-14">[\s\S]*?<p class="dated"><a href="\/p\/pages\/Long%20walk\.md">Long walk<\/a><\/p>/);
+  assert.match(r.body, /href="\/day\/2026-11-10">[\s\S]*?<a href="\/metrics\/weight">weight <span class="value">81\.4 kg<\/span><\/a>/);
+  assert.equal((r.body.match(/<li class="week-day/g) ?? []).length, 7);
+  assert.match(r.body, /rel="prev" href="\/week\/2026-W45"/);
+  assert.equal((await get("/week/2025-W53")).status, 404); // 2025 has 52 weeks
+});
+
+test("a month is its calendar, and the year its twelve months", async () => {
+  const m = await get("/month/2026-11");
+  assert.equal(m.status, 200);
+  assert.match(m.body, /<td class="written"[^>]*><a href="\/day\/2026-11-15"[^>]*><span class="n">15<\/span><span class="first">08:00 Walked\.<\/span>/);
+  assert.match(m.body, /<td><a href="\/day\/2026-11-14"[^>]*><span class="n">14<\/span><span class="meta">1 page<\/span>/);
+  assert.match(m.body, /<th scope="row"><a href="\/week\/2026-W44"/); // the row of the 1st, a Sunday
+  // The count in the head is the number of tinted days (other tests write days too).
+  const written = (m.body.match(/<td class="written"/g) ?? []).length;
+  assert.ok(written >= 1);
+  assert.match(m.body, new RegExp(`>${written} days? written<`));
+  assert.equal((await get("/month/2026-13")).status, 404);
+  const y = await get("/year/2026");
+  assert.equal(y.status, 200);
+  assert.equal((y.body.match(/<section class="month-box"/g) ?? []).length, 12);
+  assert.match(y.body, /<a href="\/day\/2026-11-15" class="written"/);
+  assert.match((await get("/calendar")).headers.location, /^\/month\/\d{4}-\d{2}$/);
+  assert.match((await get("/day/2026-11-15")).body, /<a class="leaf" href="\/month\/2026-11"[\s\S]*<a href="\/week\/2026-W46">Week 46<\/a>/);
 });
 
 test("every static file is served, in the cache's hash and in the shell", async () => {

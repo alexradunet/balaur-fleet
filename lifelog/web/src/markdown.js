@@ -18,6 +18,23 @@ export function splitFrontmatter(text) {
 // (#heading, ^block, |text) up to ]]. The same grammar as `lifelog`.
 const WIKILINK = /^(!?)\[\[([^\[\]|#^\n]+)([^\[\]\n]*)\]\]/;
 
+// firstLine is the first line of a body that holds words, as plain text for a calendar's cell: the mark of a list
+// item, a heading or a quote dropped, a link as its words, markdown's own marks dropped, at most 120 characters. It
+// is text, never HTML: the view escapes it.
+export function firstLine(body) {
+  for (const raw of body.split("\n")) {
+    const line = raw
+      .replace(/^\s*(?:[-*+]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+|#{1,6}\s+|>\s*)+/, "")
+      .replace(/!?\[\[([^\]|]*)\|([^\]]*)\]\]/g, "$2")
+      .replace(/!?\[\[([^\]#^|]*)[^\]]*\]\]/g, "$1")
+      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/[*_`~]+/g, "")
+      .trim();
+    if (line) return line.length > 120 ? line.slice(0, 119) + "…" : line;
+  }
+  return "";
+}
+
 export function encPath(p) {
   return p.split("/").map(encodeURIComponent).join("/");
 }

@@ -2,6 +2,7 @@
 // a page's title or text never becomes markup.
 
 import { encPath, pageHref } from "./markdown.js";
+import { shiftMonth, shiftWeek, weekOf } from "./periods.js";
 
 class Raw {
   constructor(s) {
@@ -59,6 +60,7 @@ const icon = (name) => html`<span class="icon icon-${name}" aria-hidden="true"><
 // The sections of every day: the rail on a wide screen, the bottom bar on a phone.
 const SECTIONS = [
   ["today", "/", "Today", "today"],
+  ["calendar", "/calendar", "Calendar", "calendar"],
   ["browse", "/browse", "Pages", "browse"],
   ["metrics", "/metrics", "Metrics", "metrics"],
   ["capture", "/capture", "Capture", "chat"],
@@ -175,11 +177,11 @@ function dayShift(day, n) {
   return d.toISOString().slice(0, 10);
 }
 
-// step is the link to the day before or after: its arrow, and the day where the column has room for it.
-function step(day, rel) {
-  const label = `${rel === "prev" ? "The day before" : "The day after"}, ${shortDay(day)}`;
-  return html`<a class="button step" rel="${rel}" href="/day/${day}" aria-label="${label}">${rel === "prev" ? html`<span aria-hidden="true">‹</span>` : ""}<span class="step-day">${shortDay(day)}</span>${rel === "next" ? html`<span aria-hidden="true">›</span>` : ""}</a>`;
+// step is the link to the period before or after: its arrow, and its name where the column has room for it.
+function step(href, rel, text, label) {
+  return html`<a class="button step" rel="${rel}" href="${href}" aria-label="${label}">${rel === "prev" ? html`<span aria-hidden="true">‹</span>` : ""}<span class="step-day">${text}</span>${rel === "next" ? html`<span aria-hidden="true">›</span>` : ""}</a>`;
 }
+const dayStep = (day, rel) => step(`/day/${day}`, rel, shortDay(day), `${rel === "prev" ? "The day before" : "The day after"}, ${shortDay(day)}`);
 
 // The day (aminte plan 095): a calendar leaf heads it. The sheet holds what is written and the note to add; the
 // margin holds the readings and the pages that link here. On a narrow column the margin comes after the sheet.
@@ -189,11 +191,11 @@ export function dayView({ day, today, page, rendered, dated, readings, metrics, 
     title: day,
     nav: isToday ? "today" : "",
     body: html`<header class="page-head day-head">
-<div class="day-title"><a class="leaf" href="/browse/journal" aria-label="${fmt(day, { month: "long", year: "numeric" })}, the journal">
+<div class="day-title"><a class="leaf" href="/month/${day.slice(0, 7)}" aria-label="${fmt(day, { month: "long", year: "numeric" })}, the calendar of the month">
 <span class="leaf-month">${fmt(day, { month: "short", year: "numeric" })}</span><span class="leaf-day">${Number(day.slice(8))}</span></a>
 <div class="what"><h1>${weekdayOf(day)}</h1>
-<p class="sub">${isToday ? html`<span class="tag open">today</span>` : html`<a href="/">Go to today</a>`} <span class="date">${day}</span></p></div></div>
-<div class="tools">${step(dayShift(day, -1), "prev")}${step(dayShift(day, 1), "next")}</div>
+<p class="sub">${isToday ? html`<span class="tag open">today</span>` : html`<a href="/">Go to today</a>`} <span class="date">${day}</span> <a href="/week/${weekOf(day)}">Week ${Number(weekOf(day).slice(6))}</a></p></div></div>
+<div class="tools">${dayStep(dayShift(day, -1), "prev")}${dayStep(dayShift(day, 1), "next")}</div>
 </header>
 <div class="sheet-margin">
 <div class="sheet">
@@ -391,7 +393,7 @@ export function metricView({ metric, page, readings, span, svg, metrics }) {
       sub: html`${metric.unit ? html`<span class="unit">${metric.unit}</span>` : ""}${page ? html`<a href="${pageHref(page.path)}">The metric's page</a>` : ""}`,
     })}
 <section class="record" aria-label="Add a reading"><h2>Add a reading</h2>${readingForm(metrics, metric.name, "", { primary: true })}</section>
-<nav class="spans" aria-label="Span">${spans.map(([s, n]) => (s === span ? html`<span aria-current="true">${n}</span>` : html`<a href="?span=${s}">${n}</a>`))}</nav>
+<nav class="tabs" aria-label="Span">${spans.map(([s, n]) => (s === span ? html`<span aria-current="true">${n}</span>` : html`<a href="?span=${s}">${n}</a>`))}</nav>
 ${svg ? raw(svg) : html`<p class="empty">No reading in this span. <a href="?span=all">See them all</a>.</p>`}
 ${recent.length > 0 ? html`<div class="scroll"><table class="series"><thead><tr><th scope="col">Day</th><th scope="col">Value</th><th scope="col">Source</th></tr></thead><tbody>
 ${recent.map((r) => html`<tr><td class="date"><a href="/day/${r.day}">${r.day}</a>${r.takenAt ? ` ${r.takenAt.slice(11, 16)}` : ""}</td><td class="value">${r.text}</td><td>${r.source}</td></tr>`)}
@@ -414,4 +416,96 @@ export function captureView({ metrics }) {
 
 export function messageView({ title, message, status }) {
   return layout({ title, body: html`${pageHead({ title })}<div class="alert" role="alert"><p>${message}</p></div><p><a class="button" href="/">Today</a></p>`, status });
+}
+
+// The periods (plan 004, A5): the week, the month and the year, read from the journal pages, the pages dated by
+// their `day` property and the readings. Each has the tabs of the three, and the steps to the one before and after.
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const monthName = (ym) => fmt(`${ym}-01`, { month: "long", year: "numeric" });
+
+function periodTabs(current, day) {
+  const tabs = [
+    ["week", `/week/${weekOf(day)}`, "Week"],
+    ["month", `/month/${day.slice(0, 7)}`, "Month"],
+    ["year", `/year/${day.slice(0, 4)}`, "Year"],
+  ];
+  return html`<nav class="tabs" aria-label="Period">${tabs.map(([k, href, name]) => (k === current ? html`<span aria-current="page">${name}</span>` : html`<a href="${href}">${name}</a>`))}</nav>`;
+}
+
+// A week: its seven days, Monday first, each a row: the day, its first line, its dated pages and its readings.
+export function weekView({ id, days, data, today }) {
+  const n = Number(id.slice(6));
+  const [prev, next] = [shiftWeek(id, -1), shiftWeek(id, 1)];
+  const span = `${fmt(days[0], { day: "numeric", month: "short" })} – ${fmt(days[6], { day: "numeric", month: "short", year: "numeric" })}`;
+  const anchor = days.includes(today) ? today : days[0];
+  return layout({
+    title: `Week ${n}, ${id.slice(0, 4)}`,
+    nav: "calendar",
+    body: html`<header class="page-head">
+<div class="what"><p class="kind"><a href="/year/${id.slice(0, 4)}">${id.slice(0, 4)}</a></p><h1>Week ${n}</h1><p class="sub"><span class="date">${span}</span></p></div>
+<div class="tools">${step(`/week/${prev}`, "prev", `Week ${Number(prev.slice(6))}`, `The week before, week ${Number(prev.slice(6))}`)}${step(`/week/${next}`, "next", `Week ${Number(next.slice(6))}`, `The week after, week ${Number(next.slice(6))}`)}</div>
+</header>
+${periodTabs("week", anchor)}
+<div class="sheet list"><ul class="plain week-days">${days.map((day) => {
+      const d = data.get(day);
+      return html`<li class="week-day${d.written ? " written" : ""}"${day === today ? raw(' aria-current="date"') : ""}>
+<a class="day-link" href="/day/${day}"><span class="weekday">${weekdayOf(day)}</span> <span class="date">${day}</span>${day === today ? html` <span class="tag open">today</span>` : ""}</a>
+${d.first ? html`<p class="first">${d.first}</p>` : html`<p class="empty">Nothing written.</p>`}
+${d.dated.length > 0 ? html`<p class="dated">${d.dated.map((p, i) => html`${i ? ", " : ""}<a href="${pageHref(p.path)}">${p.title}</a>`)}</p>` : ""}
+${d.readings.length > 0 ? html`<ul class="chips">${d.readings.map((r) => html`<li><a href="/metrics/${encodeURIComponent(r.metric)}">${r.metric} <span class="value">${r.text}${r.unit ? ` ${r.unit}` : ""}</span></a></li>`)}</ul>` : ""}
+</li>`;
+    })}</ul></div>`,
+  });
+}
+
+// A month: the calendar, Monday first, the week's number at the start of each row. A written day is tinted with its
+// first line; today is framed.
+export function monthView({ ym, grid, data, today }) {
+  const [prev, next] = [shiftMonth(ym, -1), shiftMonth(ym, 1)];
+  const written = [...data.values()].filter((d) => d.written).length;
+  const anchor = today.startsWith(ym) ? today : `${ym}-01`;
+  return layout({
+    title: monthName(ym),
+    nav: "calendar",
+    body: html`<header class="page-head">
+<div class="what"><p class="kind"><a href="/year/${ym.slice(0, 4)}">${ym.slice(0, 4)}</a></p><h1>${fmt(`${ym}-01`, { month: "long" })}</h1>
+<p class="sub"><span class="date">${written} ${written === 1 ? "day" : "days"} written</span></p></div>
+<div class="tools">${step(`/month/${prev}`, "prev", fmt(`${prev}-01`, { month: "short" }), `The month before, ${monthName(prev)}`)}${step(`/month/${next}`, "next", fmt(`${next}-01`, { month: "short" }), `The month after, ${monthName(next)}`)}</div>
+</header>
+${periodTabs("month", anchor)}
+<div class="scroll calendar-box"><table class="calendar">
+<thead><tr><th scope="col"><span class="sr">Week</span></th>${WEEKDAYS.map((d) => html`<th scope="col">${d}</th>`)}</tr></thead>
+<tbody>${grid.map((row) => {
+      const week = weekOf(row.find(Boolean));
+      return html`<tr><th scope="row"><a href="/week/${week}" aria-label="Week ${Number(week.slice(6))}">${Number(week.slice(6))}</a></th>${row.map((day) => {
+        if (!day) return html`<td></td>`;
+        const d = data.get(day);
+        return html`<td${d.written ? raw(' class="written"') : ""}${day === today ? raw(' aria-current="date"') : ""}><a href="/day/${day}" aria-label="${shortDay(day)}"><span class="n">${Number(day.slice(8))}</span>${d.first ? html`<span class="first">${d.first}</span>` : ""}${d.dated.length > 0 ? html`<span class="meta">${d.dated.length} ${d.dated.length === 1 ? "page" : "pages"}</span>` : ""}</a></td>`;
+      })}</tr>`;
+    })}</tbody></table></div>`,
+  });
+}
+
+// A year: twelve small months; a written day is tinted, today framed; a month's name opens its calendar.
+export function yearView({ year, months, data, today }) {
+  const written = [...data.values()].filter((d) => d.written).length;
+  const y = Number(year);
+  const anchor = today.startsWith(year) ? today : `${year}-01-01`;
+  return layout({
+    title: year,
+    nav: "calendar",
+    body: html`<header class="page-head">
+<div class="what"><h1>${year}</h1><p class="sub"><span class="date">${written} ${written === 1 ? "day" : "days"} written</span></p></div>
+<div class="tools">${step(`/year/${y - 1}`, "prev", String(y - 1), `The year before, ${y - 1}`)}${step(`/year/${y + 1}`, "next", String(y + 1), `The year after, ${y + 1}`)}</div>
+</header>
+${periodTabs("year", anchor)}
+<div class="year">${months.map(({ ym, grid }) => {
+      const n = grid.flat().filter((d) => d && data.get(d).written).length;
+      return html`<section class="month-box" aria-label="${monthName(ym)}">
+<div class="month-head"><a href="/month/${ym}">${fmt(`${ym}-01`, { month: "long" })}</a><span class="meta">${n || ""}</span></div>
+<table class="month"><thead><tr>${WEEKDAYS.map((d) => html`<th scope="col" abbr="${d}">${d[0]}</th>`)}</tr></thead>
+<tbody>${grid.map((row) => html`<tr>${row.map((day) => (day ? html`<td><a href="/day/${day}"${data.get(day).written ? raw(' class="written"') : ""}${day === today ? raw(' aria-current="date"') : ""} aria-label="${shortDay(day)}">${Number(day.slice(8))}</a></td>` : html`<td></td>`))}</tr>`)}</tbody></table>
+</section>`;
+    })}</div>`,
+  });
 }

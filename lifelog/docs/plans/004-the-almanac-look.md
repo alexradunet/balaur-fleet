@@ -72,3 +72,30 @@ the tablet) and pushed only with the owner's yes.
 - **A3:** browse, search, metrics and the chart, the forms, the editor, capture; the toast and the alert.
 - **A4:** check on the phone and the desktop; deploy; record the deploy here.
 - **A5:** the week, the month and the year, in the new look, with tests.
+
+## The periods (A5)
+
+`/week/2026-W46` (an ISO week, Monday first), `/month/2026-11` and `/year/2026`; `/calendar` opens this month.
+Calendar is a section of the rail and of the phone's bottom bar. The day's leaf opens its month, and the line under
+the weekday links its week. `src/periods.js` holds the date logic, with its tests (every day of five years is in
+the week that its days list).
+
+| view | what each day shows |
+|---|---|
+| week | the weekday and the date, the first line of the journal page, the pages dated that day (`day:`), the readings |
+| month | a cell: the day's number, tinted when written, its first line and its count of dated pages; today framed |
+| year | twelve small months: a written day tinted, today framed |
+
+## The deploy (2026-11-15)
+
+- **A1** (commit 612479b): the tablet ran it in 24e2288 with no failed unit. `https://life.balaur.space/`
+  answered the pc 303. The new `base.css` and the faces were served; a face had `Cache-Control: public,
+  max-age=31536000, immutable`. `journalctl -u lifelog-web -p err` was empty.
+- **A2 and A3** (b853a8b, 8838299): the tablet ran 8838299 with no failed unit; the root answered 303 and the day
+  answered 200 with the new shell; no error in the journal.
+- Found on the way: the service worker serves `/static/` from its cache first, so the first page after an update
+  was drawn with the old sheet. Since A3, `app.js` loads the page again once when a new worker takes over, but not
+  while a field holds text.
+- Found on the way: the build reads the files that git tracks, so a new file must be added to git before
+  `nix build .#lifelog-web` sees it. The test of the static files then fails, as it should.
+- **A4 is open:** the owner looks at it on the phone and the desktop.

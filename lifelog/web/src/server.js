@@ -17,7 +17,8 @@ import { fileURLToPath } from "node:url";
 import { BadCapture, Captures } from "./captures.js";
 import { ConflictError, Folder, PathError } from "./folder.js";
 import { Index, Lifelog, Refused } from "./lifelog.js";
-import { render, splitFrontmatter } from "./markdown.js";
+import { firstLine, render, splitFrontmatter } from "./markdown.js";
+import { daysOfWeek, monthGrid } from "./periods.js";
 import { Readings, chart } from "./readings.js";
 import { Search } from "./search.js";
 import * as v from "./views.js";
@@ -119,8 +120,66 @@ export function createApp({ folder: root, bin = "lifelog", stateDir }) {
     }
   }
 
+  // daysOf is what each of a list of days holds: a journal page and its first line, the pages dated that day (their
+  // `day` property), and, with readings, the readings. The year asks only which days are written.
+  async function daysOf(days, { text = true, withReadings = true } = {}) {
+    const idx = await index.get();
+    const out = new Map(days.map((d) => [d, { written: false, first: "", dated: [], readings: [] }]));
+    for (const p of idx.pages) {
+      if (p.kind === "journal") {
+        if (out.has(p.title)) out.get(p.title).written = true;
+      } else if (out.has(p.props.day?.[0])) out.get(p.props.day[0]).dated.push(p);
+    }
+    if (text) {
+      for (const [day, d] of out) {
+        if (!d.written) continue;
+        const r = await folder.read(`journal/${day}.md`);
+        if (r) d.first = firstLine(splitFrontmatter(r.text).body);
+      }
+    }
+    if (withReadings) {
+      for (const [name, metric] of idx.metrics) {
+        for (const r of await readings.of(name)) if (out.has(r.day)) out.get(r.day).readings.push({ ...r, metric: name, unit: metric.unit });
+      }
+    }
+    return out;
+  }
+
   const routes = [
     ["GET", /^\/$/, async () => redirect(`/day/${v.today()}`)],
+    ["GET", /^\/calendar$/, async () => redirect(`/month/${v.today().slice(0, 7)}`)],
+
+    [
+      "GET",
+      /^\/week\/(\d{4}-W\d{2})$/,
+      async (req, m) => {
+        const days = daysOfWeek(m[1]);
+        if (!days) throw new HttpError(404, "There is no such week.");
+        return page(v.weekView({ id: m[1], days, data: await daysOf(days), today: v.today() }));
+      },
+    ],
+
+    [
+      "GET",
+      /^\/month\/(\d{4}-\d{2})$/,
+      async (req, m) => {
+        const grid = monthGrid(m[1]);
+        if (!grid) throw new HttpError(404, "There is no such month.");
+        const data = await daysOf(grid.flat().filter(Boolean), { withReadings: false });
+        return page(v.monthView({ ym: m[1], grid, data, today: v.today() }));
+      },
+    ],
+
+    [
+      "GET",
+      /^\/year\/(\d{4})$/,
+      async (req, m) => {
+        const months = Array.from({ length: 12 }, (_, i) => `${m[1]}-${String(i + 1).padStart(2, "0")}`);
+        const grids = months.map((ym) => ({ ym, grid: monthGrid(ym) }));
+        const data = await daysOf(grids.flatMap((g) => g.grid.flat().filter(Boolean)), { text: false, withReadings: false });
+        return page(v.yearView({ year: m[1], months: grids, data, today: v.today() }));
+      },
+    ],
 
     [
       "GET",

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { render, splitFrontmatter } from "../src/markdown.js";
+import { firstLine, render, splitFrontmatter } from "../src/markdown.js";
 
 test("a wikilink goes where the index resolved it", () => {
   const links = { Iron: "pages/Iron.md", Nowhere: "", "2026-11-15": "journal/2026-11-15.md" };
@@ -40,4 +40,13 @@ test("splitFrontmatter removes the properties block only", () => {
   assert.equal(splitFrontmatter("---\n---\n").body, "");
   assert.equal(splitFrontmatter("No block\n---\n").body, "No block\n---\n");
   assert.equal(splitFrontmatter("---\nunclosed\n").body, "---\nunclosed\n");
+});
+
+test("the first line of a day is plain words", () => {
+  assert.equal(firstLine("\n\n- 08:00 Walked to the river with [[Ana Pop|Ana]].\n- later"), "08:00 Walked to the river with Ana.");
+  assert.equal(firstLine("## Morning\n"), "Morning");
+  assert.equal(firstLine("- [x] **Read** about [[Iron#Uses]] and [a link](https://x.test)"), "Read about Iron and a link");
+  assert.equal(firstLine("<script>x</script>"), "<script>x</script>"); // text: the view escapes it
+  assert.equal(firstLine("a".repeat(200)).length, 120);
+  assert.equal(firstLine("\n  \n"), "");
 });

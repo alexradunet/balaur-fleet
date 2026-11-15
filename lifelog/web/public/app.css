@@ -11,7 +11,7 @@
 .rail{--text:var(--rail-ink); --text-strong:var(--rail-accent); --text-muted:var(--rail-ink); --text-link:var(--rail-accent); --rule:var(--outline);
   color:var(--text); background-color:var(--rail); background-image:url(/static/pictures/wood.png),var(--rail-shade),var(--rail-foot-shade),var(--grain-ground);
   background-size:252px 480px,auto,auto,4px 4px; background-repeat:repeat,no-repeat,no-repeat,repeat; image-rendering:pixelated}
-.sheet,.alert,.toast,.reading-tile,.margin ul.plain,.margin .props,.scroll{--text:var(--ink); --text-strong:var(--ink); --text-muted:var(--muted); --text-link:var(--link); --rule:var(--edge);
+.sheet,.alert,.toast,.reading-tile,.margin ul.plain,.margin .props,.scroll,.month-box{--text:var(--ink); --text-strong:var(--ink); --text-muted:var(--muted); --text-link:var(--link); --rule:var(--edge);
   color:var(--text); background-color:var(--surface); background-image:var(--grain-ink); background-size:4px 4px; border:2px solid var(--edge)}
 
 /* The shell: the rail, then the column of the page, in a frame that is centred on a wide screen. Under 900 px the
@@ -261,8 +261,8 @@ ul.days{list-style:none; margin:0; padding:0; display:grid; grid-template-column
 a.reading-tile{text-decoration:none;
   &:hover{border-color:var(--accent-ink); text-decoration:none}}
 .metric-tiles{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
-/* The span of a chart: three tabs; the current one is gold on a carved well. */
-nav.spans{display:flex; gap:2px; align-self:flex-start; padding:3px; background:var(--surface-deep); border:2px solid var(--edge); box-shadow:var(--well);
+/* Tabs: the span of a chart, the period of the calendar; the current one is gold on a carved well. */
+nav.tabs{display:flex; gap:2px; align-self:flex-start; padding:3px; background:var(--surface-deep); border:2px solid var(--edge); box-shadow:var(--well);
   & :is(a,span){padding:6px var(--space-3); font:400 13px/18px var(--mono); color:var(--link)}
   & a:hover{background:var(--surface); text-decoration:none}
   & [aria-current]{background:var(--accent-soft); color:var(--accent-ink); font-weight:500}}
@@ -277,6 +277,63 @@ form.editor{align-items:stretch;
   & textarea{min-block-size:calc(14 * 26px + 2 * 10px + 2 * 2px); font:400 15px/26px var(--mono)}}
 .actions{display:flex; flex-wrap:wrap; align-items:center; gap:var(--space-2)}
 .alert pre.theirs{max-block-size:40vh; overflow:auto}
+
+/* The calendar of a month (A5): parchment cells on a slab of wood; a written day is tinted with its first line;
+   today has the gold edge and the notch. On a narrow column a cell keeps its number and its tint. */
+.calendar-box{--text:var(--rail-ink); --text-strong:var(--rail-accent); --text-muted:var(--rail-ink); --text-link:var(--rail-accent); --rule:var(--outline);
+  padding:var(--space-2); color:var(--text); background-color:var(--rail); background-image:url(/static/pictures/wood.png),var(--grain-ground);
+  background-size:252px 480px,4px 4px; image-rendering:pixelated; border:2px solid var(--outline); box-shadow:var(--bevel-up)}
+table.calendar{inline-size:100%; min-inline-size:320px; table-layout:fixed; border-collapse:separate; border-spacing:3px; image-rendering:auto;
+  & th{padding:var(--space-1) var(--space-2); text-align:start; border-block-end:0; font:400 12px/16px var(--mono); color:var(--rail-ink)}
+  & thead th:first-child,& tbody th{inline-size:2.4em; text-align:center}
+  & tbody th{vertical-align:middle; & a{color:var(--rail-accent)}}
+  & td{position:relative; padding:0; vertical-align:top; background-color:var(--surface); border:2px solid var(--edge);
+    &:empty{background:none; border-color:transparent}
+    &>a{display:flex; flex-direction:column; gap:2px; aspect-ratio:1; overflow:hidden; padding:6px var(--space-2); color:var(--ink);
+      &:hover{background:var(--surface-deep); text-decoration:none}}
+    &.written{background-color:var(--accent-soft);
+      & .n{color:var(--accent-ink)}}
+    &[aria-current=date]{border-color:var(--accent-ink); box-shadow:inset 0 0 0 1px var(--accent-ink);
+      &::after{content:""; position:absolute; inset-block-start:4px; inset-inline-end:4px; inline-size:7px; block-size:7px; background:var(--accent-ink); pointer-events:none}}}
+  & .n{font:500 13px/18px var(--mono); color:var(--muted)}
+  & .first{font-size:12px; line-height:16px; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical}
+  & .meta{margin-block-start:auto; font:400 11px/14px var(--mono); color:var(--muted)}
+  & tbody tr:hover{background:none}}
+@container column (max-width:567px){
+  table.calendar td>a{padding:4px} table.calendar :is(.first,.meta){display:none}
+  table.calendar th{padding:var(--space-1); text-align:center}}
+
+/* The year: twelve small months, four, two or one across by the width of the column. */
+.year{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:var(--space-4)}
+@container column (max-width:867px){.year{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container column (max-width:319px){.year{grid-template-columns:minmax(0,1fr)}}
+.month-box{display:flex; flex-direction:column; gap:var(--space-2); padding:var(--space-3) 10px; box-shadow:var(--parch-bevel)}
+.month-head{display:flex; align-items:baseline; justify-content:space-between; gap:var(--space-2);
+  & a{font-size:14px; font-weight:700; color:var(--ink)}
+  & .meta{font:400 12px/16px var(--mono); color:var(--muted)}}
+table.month{border-collapse:separate; border-spacing:2px; table-layout:fixed; font:400 12px/16px var(--mono); text-align:center;
+  & th,& td{padding:0; border:0; text-align:center}
+  & thead th{font-weight:400; font-size:12px; text-transform:none; color:var(--muted); padding:2px 0; border:0}
+  & tbody tr:hover{background:none}
+  & a{display:block; padding:3px 0; color:var(--ink);
+    &:hover{background:var(--surface-deep); text-decoration:none}
+    &.written{background:var(--accent-soft); color:var(--accent-ink); font-weight:500}
+    &[aria-current=date]{box-shadow:inset 0 0 0 2px var(--accent-ink)}}}
+
+/* A week: a row a day; today's row is lit by a gold bar at its start. */
+ul.week-days>li{display:flex; flex-direction:column; gap:var(--space-1); padding:var(--space-3) var(--space-2);
+  &[aria-current=date]{box-shadow:inset 3px 0 0 var(--accent-ink); padding-inline-start:var(--space-4)}
+  & .day-link{display:flex; flex-wrap:wrap; align-items:baseline; gap:var(--space-1) var(--space-3); color:var(--text);
+    &:hover{text-decoration:none; & .weekday{text-decoration:underline}}}
+  & .weekday{font-weight:700; color:var(--link)}
+  & .first{overflow-wrap:anywhere}
+  & .dated{font-size:14px; line-height:20px; color:var(--muted)}}
+ul.chips{display:flex; flex-wrap:wrap; gap:var(--space-1) var(--space-2); margin:0; padding:0; list-style:none;
+  &>li{margin:0}
+  & a{display:inline-flex; align-items:baseline; gap:4px; padding:2px var(--space-2); font-size:13px; line-height:18px;
+    background:var(--surface-deep); border:1px solid var(--edge); color:var(--ink);
+    &:hover{border-color:var(--accent-ink); text-decoration:none}}
+  & .value{font-family:var(--mono)}}
 
 /* The motions, each only when the system does not ask for less: a toast that opens drops 3 px and settles; the
    phone's top bar takes its drop once the page has scrolled under it. */
@@ -311,4 +368,6 @@ form.editor{align-items:stretch;
 @layer utilities{
 /* hidden hides, also where a component sets display (the offline queue, app.js). */
 [hidden]{display:none!important}
+/* Words for a screen reader alone. */
+.sr{position:absolute; inline-size:1px; block-size:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap}
 }
