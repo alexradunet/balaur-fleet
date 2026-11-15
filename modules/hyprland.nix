@@ -35,6 +35,13 @@ let
   # made from this list. [ mods key description dispatcher argument ]
   binds = [
     [
+      "SUPER SHIFT"
+      "Return"
+      "Browser"
+      "exec"
+      "firefox"
+    ]
+    [
       "SUPER"
       "Return"
       "Terminal"
@@ -394,6 +401,11 @@ in
         '';
       };
       target = "hyprland-session.target";
+      cursor = {
+        name = "Adwaita";
+        package = pkgs.adwaita-icon-theme;
+        size = 24;
+      };
     in
     {
       # The session's own services start with Hyprland and stop with it.
@@ -417,7 +429,14 @@ in
             "eDP-1, preferred, auto, 1.666667"
             ", preferred, auto, auto"
           ];
-          env = [ "XCURSOR_SIZE,24" ];
+          # The cursor (home.pointerCursor, below), said to Hyprland itself as well:
+          # greetd starts it without a login shell, so home-manager's session
+          # variables do not reach it.
+          env = [
+            "XCURSOR_THEME,${cursor.name}"
+            "XCURSOR_SIZE,${toString cursor.size}"
+            "HYPRCURSOR_SIZE,${toString cursor.size}"
+          ];
 
           input = {
             # US and Romanian (standard); Alt+Shift switches.
@@ -492,11 +511,37 @@ in
         pkgs.hyprshot
         pkgs.hyprpicker
         pkgs.playerctl
-        pkgs.btop
         # What the bar's buttons open: sound, Bluetooth.
         pkgs.wiremix
         pkgs.bluetui
       ];
+
+      # One cursor everywhere: Hyprland, GTK apps and Electron apps (Orca, Obsidian).
+      # Without it each falls back to its own, in its own size.
+      home.pointerCursor = cursor // {
+        gtk.enable = true;
+        hyprcursor.enable = true;
+      };
+      # Writes the GTK settings files the cursor lands in.
+      gtk.enable = true;
+
+      # Tokyo Night in the terminal and in btop too, with the bar's font. No title
+      # bar: Hyprland places and closes the windows.
+      programs.ghostty = {
+        enable = true;
+        settings = {
+          theme = "TokyoNight";
+          font-family = "JetBrainsMono Nerd Font";
+          font-size = 11;
+          window-padding-x = 10;
+          window-padding-y = 10;
+          window-decoration = false;
+        };
+      };
+      programs.btop = {
+        enable = true;
+        settings.color_theme = "tokyo-night";
+      };
 
       # The launcher, and the service that feeds it (apps, files, calculator...).
       services.elephant.enable = true;
