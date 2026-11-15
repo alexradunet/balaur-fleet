@@ -61,7 +61,10 @@ in
             echo "${cfg.dir} is not mounted: not syncing" >&2
             exit 1
           fi
+          # Folders too, empty ones included: without it, a sync removes every empty
+          # folder in Proton (a vault's template folders) and never makes new ones.
           exec rclone sync ${lib.escapeShellArg cfg.dir} ${lib.escapeShellArg cfg.remote} \
+            --create-empty-src-dirs \
             --config ${lib.escapeShellArg rcloneConfig} \
             --backup-dir ${lib.escapeShellArg deleted}/"$(date +%F_%H%M)" \
             --exclude ${lib.escapeShellArg "/${cfg.deletedFolder}/**"} \
