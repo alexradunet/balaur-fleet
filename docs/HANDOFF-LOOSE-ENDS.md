@@ -31,9 +31,6 @@ Left:
   pairing still connects; the BIOS's UMA frame buffer set to 2 GB (`local-llm` fits).
 - **qBittorrent in a container** (decided, not done): `torrents` runs systemd-sandboxed
   on the server; the plan is a NixOS container with its own network, built next to it.
-- **The tablet's old data** (needs sudo there): /var/lib/hass, /var/lib/lifelog,
-  /var/lib/jellyfin and /srv/media are copies of what the server has; delete them to
-  give the Duet its disk back.
 - **The lifelog check's 8 warnings** (the user's data): repeated readings in
   `metrics/Mood/2026.import.csv`; fix them or delete `_check.md` to acknowledge.
 - The Harry Potter remux has DTS-X audio, which the living-room Samsung cannot play over
@@ -68,12 +65,6 @@ read-only, as it did on the pc: `sudo chmod 2775` it.
 And from the session that made the machines alike: `locale` shows `LC_TIME=ro_RO.UTF-8`,
 `gsettings get org.gnome.desktop.input-sources sources` lists `us` and `ro+std` (unless
 it was set by hand before) and `lpstat -r` says the scheduler runs.
-
-### 4. Keep an eye on the tablet's disk
-
-64% used at the last look (275 of 459 GB, 2026-11-10); the Syncthing volume reserves 200 GiB up front and now
-also keeps 30 days of replaced and deleted files inside that cap. qBittorrent
-downloads into what is left.
 
 ### 7. Home Assistant and the TV (2026-11-10)
 
@@ -183,5 +174,3 @@ working tree (one commit; `git log` says which). Once they are deployed:
   home-manager's `xdg.mimeApps`, which would take over `mimeapps.list`, where Claude
   Code keeps its own `claude-cli` association.
 - **A sleeping builder costs about five seconds** (`ConnectTimeout` in fleet.nix).
-- **Download directories are per machine**: `/srv/media` on the tablet is not the synced
-  volume.
