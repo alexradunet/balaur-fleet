@@ -155,7 +155,8 @@ in
                 echo "<4>no history yet: waiting for a copy of the old keeper's in $import" >&2
                 exit 0
               fi
-              git clone -q --mirror "$import" "$gitdir"
+              # The copy belongs to the owner, not to this user: trusted for this clone.
+              git -c safe.directory="$import" clone -q --mirror "$import" "$gitdir"
               git --git-dir "$gitdir" config --unset remote.origin.mirror || true
               git --git-dir "$gitdir" remote remove origin
               git --git-dir "$gitdir" symbolic-ref HEAD refs/heads/live
