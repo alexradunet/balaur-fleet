@@ -176,7 +176,12 @@ def probe(e):
             set_state(e["name"], False, "loading its model")
         else:
             set_state(e["name"], True, "ready")
-    except Exception as ex:  # off, asleep, stopped for a game, ...
+    except OSError as ex:
+        if str(ex) == "HTTP 503":  # llama-server while it loads the model
+            set_state(e["name"], False, "loading its model")
+        else:  # off, asleep, stopped for a game, ...
+            set_state(e["name"], False, f"{type(ex).__name__}: {ex}")
+    except Exception as ex:
         set_state(e["name"], False, f"{type(ex).__name__}: {ex}")
 
 

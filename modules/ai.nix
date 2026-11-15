@@ -3,7 +3,7 @@
 #   http://tablet:4000/v1     OpenAI-compatible, no key needed (tailnet only)
 #   https://ai.<domain>       the page: tiers, route, remote model, last requests
 #
-#   model `balaur`          the page's route; by default the pc's GPU when it can
+#   model `balaur`          the page's route; by default the local model when it can
 #                           answer now, else Mistral
 #   model `balaur-local`    only the fleet's GPU
 #   model `balaur-remote`   only Mistral, even when the GPU is free
@@ -13,7 +13,7 @@
 #
 #   ai-gateway   the entryway itself (ai/router.py, stdlib Python), on one machine:
 #                the tablet, the always-on one. The local tier is every machine with
-#                the `strata` aspect, found in the registry, so a second GPU machine
+#                `local-llm` or `strata`, found in the registry, so a second GPU machine
 #                joins by itself. Each is probed every few seconds and skipped when
 #                it is off, loading, stopped for a game, or busy answering someone
 #                else (Strata answers one at a time), so falling back costs nothing.
@@ -83,18 +83,27 @@ in
       keySecret = "assistant-llm-key"; # the fleet's Mistral key (named for the voice assistant it was first for)
       domain = config.balaur.web.domain or null;
 
-      # The fleet's GPU machines. Reading another host's config is lazy and only
-      # touches its `balaur.strata`, so hosts reading each other is no loop.
+      # The fleet's local models: every machine with `local-llm` (llama.cpp on an
+      # iGPU) or `strata` (a discrete card). Reading another host's config is lazy
+      # and only touches its `balaur.local-llm`/`balaur.strata`, so hosts reading
+      # each other is no loop.
       hostConfig = h: if h == me then config else nixosConfigs.${h}.config;
-      gpuHosts = lib.filter (h: (h == me || nixosConfigs ? ${h}) && (hostConfig h).balaur ? strata) (
-        lib.attrNames fleet
-      );
+      localPort =
+        h:
+        let
+          b = (hostConfig h).balaur;
+        in
+        if b ? local-llm then b.local-llm.port else b.strata.port;
+      gpuHosts = lib.filter (
+        h:
+        (h == me || nixosConfigs ? ${h})
+        && ((hostConfig h).balaur ? local-llm || (hostConfig h).balaur ? strata)
+      ) (lib.attrNames fleet);
       local = map (h: {
         name = h;
-        url = "http://${
-          if h == me then "127.0.0.1" else fleet.${h}.address
-        }:${toString (hostConfig h).balaur.strata.port}/v1";
-        model = "strata"; # Strata serves whatever model it loaded, under any name
+        url = "http://${if h == me then "127.0.0.1" else fleet.${h}.address}:${toString (localPort h)}/v1";
+        # Both serve whatever model they loaded under the name asked for.
+        model = "local";
       }) gpuHosts;
 
       routerConfig = pkgs.writeText "balaur-ai.json" (
