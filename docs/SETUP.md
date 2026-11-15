@@ -188,29 +188,15 @@ nixos-rebuild switch --flake .#tablet --sudo --accept-flake-config
 
 (After that first switch the cache is part of the system config, so the flag is not needed.)
 
-**The sessions live on the Duet.** Its `dev-host` aspect runs the server of `herdr`
-([herdr.dev](https://herdr.dev)), the terminal workspace manager for agent sessions, from
-boot (`systemctl --user status herdr-server`), and the server owns every terminal and
-agent. The other machines are only screens:
+**The sessions live on the pc,** in Orca: its `orca-server` aspect runs `orca serve` from
+boot (`systemctl --user status orca-serve`), and that runtime owns every project,
+worktree, terminal and agent. The other machines' Orca apps are only windows onto it:
+pair one once from Orca's window on the pc (a pairing link, pasted on the client into
+**Settings → Remote Orca Servers → Add Server**), then make it the **Active Server**.
+Closing the laptop changes nothing on the pc; the agents keep working.
 
-```bash
-dev                     # on any machine of the fleet: attach to the sessions on the Duet
-cd ~/Projects/balaur-fleet
-claude                  # first run: follow the login prompt (open the URL on another device)
-pi                      # the OS agent, set up for the fleet's AI entryway (modules/agent.nix); nothing to log in to
-```
-
-`ctrl+b q` detaches (`ctrl+b ?` lists the keys); closing the terminal, the lid or the
-whole PC does the same, and the agents keep working. `dev` again, from that machine or
-another, shows them where they are. From a phone on the tailnet: `ssh alex@tablet` with
-a key the Duet accepts (`balaur.sshKeys` in `modules/hosts/tablet.nix`), then `dev`.
-
-The projects are cloned on the Duet, under `~/Projects`, and so are the logins (`claude`,
-`pi`, `gh auth login`). Once, so that herdr can bring the agents back after a reboot:
-`herdr integration install claude` and `herdr integration install pi`.
-
-A deploy never restarts the server, since that would end every pane; a new herdr
-starts with the next boot, or with `systemctl --user restart herdr-server`.
+The projects are cloned on the pc, and so are the logins (`claude`, `pi`,
+`gh auth login`, `orca account add --agent claude`).
 
 **Updating the agents** (they move fast):
 

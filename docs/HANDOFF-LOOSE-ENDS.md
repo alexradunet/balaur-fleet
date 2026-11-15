@@ -52,19 +52,6 @@ it was set by hand before) and `lpstat -r` says the scheduler runs.
 also keeps 30 days of replaced and deleted files inside that cap. qBittorrent
 downloads into what is left.
 
-### 6. The development sessions on the tablet (`dev-host`, 2026-11-10)
-
-`dev` from the pc attaches to herdr on the tablet and the panes outlive the client; herdr's
-Claude Code and pi integrations are installed there. Left:
-
-- **The phone** (needs the user): a key from its SSH app, as
-  `balaur.sshKeys = [ "ssh-ed25519 ..." ];` in `modules/hosts/tablet.nix`; then
-  `ssh alex@tablet` and `dev` from mobile data.
-- **The laptop**: `dev` there, once it is awake and on main.
-- **A reboot of the tablet**: see what herdr restores (the layout, and the agents through
-  the integrations). The old workspace `yoga-duet-7-home-server` points at a directory
-  that is gone and can be closed.
-
 ### 7. Home Assistant and the TV (2026-11-10)
 
 The voice assistant that switched the house's devices was removed on 2026-11-14. Left:
@@ -140,10 +127,6 @@ working tree (one commit; `git log` says which). Once they are deployed:
 - **`cups-browsed` runs on every machine** (the NixOS default with avahi).
   `services.printing.browsed.enable = false` would be leaner if no printer is found by
   browsing (needs the user).
-- **Long-lived herdr panes on the tablet keep a stale `LOCALE_ARCHIVE`** after a deploy that
-  changes the locales (`setlocale: LC_TIME: cannot change locale`). Restarting
-  `herdr-server` (`systemctl --user restart herdr-server`) or rebooting fixes it, at the
-  cost of the sessions.
 - **The Sunshine password is passed on the command line** at each session start (its only
   interface: `sunshine --creds`, in `sunshine.service`'s `ExecStartPre`), so it is briefly
   visible in `/proc` on the pc.

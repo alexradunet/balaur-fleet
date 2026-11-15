@@ -50,7 +50,7 @@ modules/
   hosts/pc.nix            pc = its aspects     + its own settings (builder, streaming, ...)
   hardware/yoga-duet-7.nix  the Duet's firmware and CPU bits (Intel)
   hardware/yoga-pro-7.nix   the laptop's firmware and CPU bits (AMD)
-  hardware/gmktec-evo-x1.nix, nvidia-egpu.nix  the pc: the mini-PC (AMD) and its docked NVIDIA card
+  hardware/gmktec-evo-x1.nix, nvidia-egpu.nix  the pc (the mini-PC, AMD); the NVIDIA card in a USB4 dock (the laptop)
   fleet.nix               the registry: every machine, its IPs and keys; SSH trust, remote builds
   auto-deploy.nix         every machine follows main: retries, roll back, `balaur-fleet-status`
   home.nix                home-manager: the admin's shell, git, gh, the same on every machine
@@ -73,14 +73,16 @@ modules/
   web.nix                 https://<domain>: the home page of every machine's web UIs, tailnet only (Caddy, DNS-challenge cert); the owner's devices get all of it, the household's the `household` services
   files.nix               Syncthing: a 200 GiB volume of its own at /srv/files, paired from the registry
   agent.nix               pi, the OS agent on every machine: the fleet's models, machines and services; `balaur-ask`; roles (`pi-NAME`, none yet)
-  dev.nix                 Claude Code + herdr (from numtide/llm-agents.nix, daily updates), gh, ripgrep; `dev` opens the sessions
-  dev-host.nix            the one machine that holds the development sessions: herdr's server, from boot
-  gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow); laptop and pc
-  wow-market.nix          WoW Market: what to craft, buy and sell in WoW: Forever, from Auctionator's scans; http://pc:8790 on the tailnet (pc)
-  steam.nix               Steam and GameMode, for a machine that plays locally (the pc)
-  game-streaming.nix      Sunshine on the host (the pc), Moonlight on the clients, over the tailnet
+  dev.nix                 Claude Code + Orca (from numtide/llm-agents.nix, daily updates), gh, ripgrep
+  orca-server.nix         Orca's runtime as a service from boot (the pc): the development sessions, for the other machines' Orca to pair with
+  remote-desktop.nix      GNOME over RDP with no monitor (the pc); `remote-desktop-client`: one click to it
+  local-llm.nix           llama.cpp on the iGPU (Nemotron 3.5 Lightning, the pc): the AI entryway's local tier
+  gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow); the laptop
+  wow-market.nix          WoW Market: what to craft, buy and sell in WoW: Forever, from Auctionator's scans; http://laptop:8790 on the tailnet (the laptop)
+  steam.nix               Steam and GameMode, for a machine that plays locally (none at the moment)
+  game-streaming.nix      Sunshine on a host, Moonlight on the clients, over the tailnet (none at the moment)
   ai.nix                  the fleet's AI entryway on the tablet (`ai-gateway`: local GPU first, Mistral second) and its clients (`ai`)
-  strata.nix              Strata: the local LLM on the pc's GPU, stopped while a game runs
+  strata.nix              Strata: a local LLM on a discrete NVIDIA card, stopped while a game runs (none at the moment)
   lifelog.nix             lifelog, the life log as files: the keeper on the tablet (`lifelog`) and its web app at https://life.<domain>, the folder, `lifelog` and Obsidian on the laptop and the pc (`lifelog-client`)
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
@@ -97,7 +99,7 @@ lifelog/                  the life log as markdown + CSV, synced by Syncthing, c
 |---|---|
 | Built-in screen | GNOME, logged in by itself as a household account (`balaur.tablet.user`, `balaur` on the tablet) that never locks. Apps run full screen; swipe up for the app switcher. The on-screen keyboard pops up on touch (English and Romanian), and the screen follows rotation. Dock: **Balaur**, **Firefox** (uBlock Origin), **Jellyfin**, **Gelly** (Jellyfin music). **AdGuard Home** and **qBittorrent** (and **Syncthing** with the `files` aspect) are installed as GNOME web apps. **Snapshot** shows the front camera. Admin tools sit in an **Admin** folder, with a **Developer terminal** that asks for the admin password. |
 | Screen on/off | GNOME blanks the screen after `balaur.camera.screenTimeout` (2 minutes by default, 15 on the tablet) idle, and never locks. Movement in front of the camera counts as activity: it keeps the screen on and wakes it (`0` = always on). The relay looks at 3 frames a second for this, and runs its full image pipeline only while an app uses the webcam (`balaur.camera.tuning.idleFps`). |
-| AI (aspects `ai-gateway`, `ai`, `strata`) | One entryway for every model call in the fleet: `http://tablet:4000/v1` (OpenAI-compatible; `OPENAI_BASE_URL` points there on every machine), with a page at **https://ai.balaur.space** to see the tiers and the last requests and to change the route and the remote model. Model `balaur` answers from the pc's RTX 5060 Ti (Strata, Qwen3.8-Flash-Next) when it is on, loaded and free, else from Mistral; `balaur-local` and `balaur-remote` pick one. Strata stops while a game runs on the pc. |
+| AI (aspects `ai-gateway`, `ai`, `local-llm`) | One entryway for every model call in the fleet: `http://tablet:4000/v1` (OpenAI-compatible; `OPENAI_BASE_URL` points there on every machine), with a page at **https://ai.balaur.space** to see the tiers and the last requests and to change the route and the remote model. Model `balaur` answers from the pc's Radeon 890M (`local-llm`: Nemotron 3.5 Lightning on llama.cpp) when it is up and free, else from Mistral; `balaur-local` and `balaur-remote` pick one. |
 | The Balaur app | **Home**: every service with its live state and a button that opens its app, and **People**: who of the household opens which service. GNOME's overview search finds the services too. Quick Settings has a **Scenes** menu with Home Assistant's scenes and scripts. |
 | Ad blocking (aspect `adblock`) | AdGuard Home as the LAN DNS server, with European upstreams (Quad9, DNS4EU) and Samsung TV ad/ACR-tracking rules. Set it as the router's DNS 1 (keep a public DNS 2 so the network survives the box being off). |
 

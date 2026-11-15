@@ -50,8 +50,8 @@ new commit, switches to its own configuration at that commit and fast-forwards i
 clone. So work from whichever machine you are at — laptop, pc or tablet — and
 deploying is `git push`. Skill `deploy` has the whole routine.
 
-- The development sessions live in herdr on the tablet (`dev-host`); `dev` on any machine
-  attaches to them, and a deploy does not restart them.
+- The development sessions live in Orca on the pc (`orca-server`); the other machines' Orca
+  apps pair with it, and the agents keep working while they sleep.
 - Each machine builds its own system, and the heavy builds go to the fleet's builders
   (the pc first; fleet.nix). So editing on the tablet is fine: the Duet only evaluates.
 - `balaur-fleet-status` shows every machine's deployed commit, state and failed units.

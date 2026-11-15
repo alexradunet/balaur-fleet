@@ -12,7 +12,7 @@ in
     description = "GMKtec NucBox EVO-X1: the home server, fleet builder";
     tailnetIp = "100.118.216.118";
     sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILAacHQ+NIgv8wtFGuzdu3jF52vZJtv9H9p8fqK6F6sb";
-    lanIp = null; # DHCP, was 192.168.50.215 on Wi-Fi; not reserved in the router
+    lanIp = "192.168.50.12"; # wired (eno1, c8:ff:bf:05:0a:44), reserved in the router
     userKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICC9pHQla6NLPAlOhbVp204calGMamI9kDCoTLWyUhaH" ];
     syncthingId = "PT5TONV-F2LVWWX-UDUINFG-GRL5DS5-QXBARW3-7LCUJDQ-PCDWATW-IG5PTQJ";
     # 12 cores / 24 threads against the laptop's 8 / 16, so the others send it their
