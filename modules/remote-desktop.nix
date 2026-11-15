@@ -6,9 +6,9 @@
 # Two logins: first the RDP one (the admin's name, the `rdp-password` entry of this
 # machine's sops file), then the account's own at the login screen.
 #
+#   the fleet:        `remote-desktop-client` (below): an app per host, one click
 #   Windows:          Remote Desktop Connection, to `pc` (the tailnet name)
 #   Android, iOS:     Microsoft's "Windows App"
-#   Linux:            GNOME Connections or Remmina
 #   the password:     sops decrypt --extract '["rdp-password"]' secrets/hosts/pc.yaml
 #
 # Port 3389 on the tailnet only (tailscale0 is trusted; nothing is opened on the
@@ -18,6 +18,19 @@
 # Declared here: the daemon's settings, in /etc/gnome-remote-desktop/grd.conf, and
 # its login, set again at every start from sops (it keeps its own copy; without a
 # TPM it can use, in a file in its home), so sops stays the one place to change it.
+#
+# remote-desktop-client: on a desktop, an app ("pc (Remote Desktop)") for every
+# machine of the fleet with `remote-desktop`, which opens its desktop in a window
+# (FreeRDP, resized with the window). The first click asks for that machine's RDP
+# password and keeps it in the GNOME Keyring; every later click just connects. The
+# client machine needs no secret of the server's: the laptop, which travels, is not
+# a recipient of the other machines' sops files. A wrong or changed password:
+# `balaur-rdp --forget <host>`, and the next click asks again.
+{ config, ... }:
+let
+  nixosConfigs = config.flake.nixosConfigurations;
+  fleet = config.fleet;
+in
 {
   flake.modules.nixos.remote-desktop =
     {
@@ -64,6 +77,12 @@
       };
     in
     {
+      options.balaur.remote-desktop.port = lib.mkOption {
+        type = lib.types.port;
+        default = 3389;
+        description = "The RDP port, on the tailnet.";
+      };
+
       config = lib.mkMerge [
         {
           services.gnome.gnome-remote-desktop.enable = true;
@@ -71,7 +90,7 @@
           environment.etc."gnome-remote-desktop/grd.conf".text = ''
             [RDP]
             enabled=true
-            port=3389
+            port=${toString config.balaur.remote-desktop.port}
             tls-cert=${tls}/rdp.crt
             tls-key=${tls}/rdp.key
           '';
@@ -106,5 +125,92 @@
           };
         })
       ];
+    };
+
+  flake.modules.nixos.remote-desktop-client =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      me = config.networking.hostName;
+      hosts = lib.filter (
+        h: h != me && nixosConfigs ? ${h} && nixosConfigs.${h}.config.balaur ? remote-desktop
+      ) (lib.attrNames fleet);
+      # host -> "<address>:<port> <user>", for the script.
+      target =
+        h:
+        let
+          c = nixosConfigs.${h}.config;
+        in
+        "${fleet.${h}.address}:${toString c.balaur.remote-desktop.port} ${c.balaur.user}";
+
+      rdp = pkgs.writeShellApplication {
+        name = "balaur-rdp";
+        runtimeInputs = [
+          pkgs.freerdp
+          pkgs.libsecret
+          pkgs.zenity
+        ];
+        text = ''
+          forget=0
+          if [ "''${1:-}" = --forget ]; then
+            forget=1
+            shift
+          fi
+          host=''${1:?usage: balaur-rdp [--forget] <host>}
+          case $host in
+          ${lib.concatMapStrings (h: ''
+            ${h}) read -r addr user <<<"${target h}" ;;
+          '') hosts}
+          *)
+            echo "no machine with remote-desktop called $host" >&2
+            exit 1
+            ;;
+          esac
+
+          if [ "$forget" = 1 ]; then
+            secret-tool clear service balaur-rdp host "$host"
+            echo "forgot the RDP password for $host"
+            exit 0
+          fi
+
+          password=$(secret-tool lookup service balaur-rdp host "$host" || true)
+          if [ -z "$password" ]; then
+            password=$(zenity --password --title="Remote Desktop: $host") || exit 0
+            [ -n "$password" ] || exit 0
+            printf '%s' "$password" |
+              secret-tool store --label="Remote Desktop: $host" service balaur-rdp host "$host"
+          fi
+
+          # The password on stdin, never in the process list. tofu: the server's
+          # self-signed certificate is trusted the first time and checked after.
+          printf '%s\n' "$password" | exec sdl-freerdp /v:"$addr" /u:"$user" /d: /from-stdin:force \
+            /cert:tofu +dynamic-resolution /sound /gfx /title:"$host" /wm-class:balaur-rdp-"$host" \
+            +auto-reconnect
+        '';
+      };
+    in
+    {
+      environment.systemPackages = [
+        rdp
+      ]
+      ++ map (
+        h:
+        pkgs.makeDesktopItem {
+          name = "balaur-rdp-${h}";
+          desktopName = "${h} (Remote Desktop)";
+          comment = "${h}'s desktop in a window, over the tailnet";
+          exec = "balaur-rdp ${h}";
+          icon = "org.gnome.Settings-remote-desktop-symbolic";
+          categories = [
+            "Network"
+            "RemoteAccess"
+          ];
+          startupWMClass = "balaur-rdp-${h}";
+        }
+      ) hosts;
     };
 }
