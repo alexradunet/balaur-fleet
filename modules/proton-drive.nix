@@ -189,7 +189,8 @@ in
             "_netdev"
             "nofail"
             # Mounted by root, with the admin's own key, for the admin. Owners pass
-            # through as they are: the admin has the same uid on every machine (base.nix).
+            # through as they are: the admin is the first normal user, uid 1000, on every
+            # machine (not pinned in base.nix; a machine where it differs needs uid=/gid=).
             # Not `idmap=user`: that maps them to whoever mounted, here root, and the
             # admin is then refused their own files.
             "IdentityFile=/home/${user}/.ssh/id_ed25519"
