@@ -12,7 +12,9 @@
 # Pairing is done once, from Orca's window on the server (it has no command): a
 # pairing link, pasted on the client into Settings -> Remote Orca Servers -> Add
 # Server; then Advanced -> Active Server makes it the default. The grants live in
-# the profile (~/.config/orca), which the window and the service share. The agents'
+# the profile (~/.config/orca), which the window and the service share. A phone
+# (Orca Mobile) pairs with a one-off `orca serve --mobile-pairing --pairing-address
+# <tailnet IP>` while this service is stopped (docs/SETUP.md). The agents'
 # logins are the server's (`orca account add --agent claude` there).
 #
 #   systemctl --user status orca-serve      journalctl --user -u orca-serve
