@@ -19,13 +19,12 @@ seven skills shared by Claude Code and pi.
 ### 0. After the move to `server` (2026-11-15)
 
 The EVO-X1 (`pc`) became `server` and took every service off the tablet, which is now only
-the household screen and camera; the RTX 5060 Ti went to the laptop (USB4 dock). Left:
+the household screen and camera; the RTX 5060 Ti went to the laptop (USB4 dock). The server
+is the owner's alone (the user, 2026-11-15): it is not shared with the household's Tailscale
+account, so its "household" services reach nobody else for now. Sharing it later is in
+modules/web.nix (Share, and the policy's `autogroup:shared` grant pointed at `server`).
+Left:
 
-- **The household's access** (needs the user): the household's devices reached the
-  services through the *tablet*, shared with their Tailscale account. Share **server**
-  instead (Machines > server > Share) and move the tailnet policy's grant for
-  `autogroup:shared` from `tablet` to `server` (tcp:80, tcp:443; modules/web.nix), or
-  they lose home.balaur.space and torrents.balaur.space.
 - **A reboot of the server** (with the smart socket and ethernet tests): Wake-on-LAN
   (`wakeonlan c8:ff:bf:05:0a:44` after `sudo poweroff`), power-on by the socket, the
   watchdog; `orca-serve` takes over from the desktop window and the laptop's Orca
