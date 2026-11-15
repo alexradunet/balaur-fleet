@@ -75,8 +75,8 @@ in
           # The life log's keeper, moved from the tablet (its history imported
           # 2026-11-15): the folder, its checked history and https://life.balaur.space.
           lifelog
-          # Home Assistant, moved from the tablet: it starts from the tablet's /var/lib/hass
-          # (balaur.home-assistant.importFrom below), https://home.balaur.space and :8123.
+          # Home Assistant, moved from the tablet (its state imported 2026-11-15):
+          # https://home.balaur.space and :8123.
           home-assistant
           # qBittorrent with FileList search, moved from the tablet: /srv/media.
           torrents
@@ -147,9 +147,6 @@ in
       balaur = {
         # The existing login on this machine; its password is kept as is.
         user = "alex";
-        # Home Assistant moves here from the tablet (2026-11-15): it waits for the
-        # tablet's state, which the owner writes into this folder.
-        home-assistant.importFrom = "/var/lib/hass-import/hass.tar";
         # Served to the home network (no login: dlna.nix): qBittorrent's movies and
         # shows (the categories), and a folder of the old disk.
         dlna.dirs = [

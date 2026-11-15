@@ -42,17 +42,14 @@ in
           ai
           # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
           agent
-          # This machine's own: the home's server, so it never sleeps.
+          # This machine's own: the household screen and its camera. It was the home's
+          # server until 2026-11-15 (the server took over); it still never sleeps.
           never-sleep
           always-on
-          # The fleet's AI entryway for every machine (http://tablet:4000/v1, page at
-          # https://ai.balaur.space): a GPU machine first, Mistral second.
-          ai-gateway
+          # Until its torrents seed from the server.
           torrents
-          media
+          # Until the server's own DNS forwarder stops asking it (a restart of tailscaled).
           adblock
-          web
-          home-assistant
           camera
         ])
         # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
@@ -142,26 +139,6 @@ in
       balaur.torrents = {
         filelistCredentialsFile = config.sops.templates."filelist.json".path;
         manageFilelistCredentials = false;
-      };
-
-      # https://balaur.space: its A record at Gandi points at this machine's tailnet
-      # address. The certificate's DNS challenge uses a Gandi personal access token
-      # (Domain > "Manage domain technical configurations", balaur.space only).
-      sops.secrets."gandi-token".sopsFile = config.balaur.secrets.hostFile;
-      sops.templates."gandi.env".content = ''
-        GANDIV5_PERSONAL_ACCESS_TOKEN=${config.sops.placeholder."gandi-token"}
-      '';
-      balaur.web = {
-        domain = "balaur.space";
-        dnsProvider = "gandiv5";
-        dnsCredentialsFile = config.sops.templates."gandi.env".path;
-        # The phone. With the fleet's machines, the devices that open everything; the
-        # tablet is shared with a second person, whose devices get the household's
-        # services only (modules/web.nix).
-        ownerAddresses = [ "100.79.180.82" ];
-        # The server has taken balaur.space over (2026-11-15); this Caddy stays only for
-        # what has not moved yet (the life log, Home Assistant) and goes with them.
-        inDns = false;
       };
     };
 }
