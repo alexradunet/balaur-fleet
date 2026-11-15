@@ -28,7 +28,7 @@
         nodejs
       ]);
 
-      # Fetch the pre-built agents instead of compiling them on the Duet.
+      # Fetch the pre-built agents instead of compiling them on each machine.
       nix.settings = {
         extra-substituters = [ "https://cache.numtide.com" ];
         extra-trusted-public-keys = [ "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=" ];

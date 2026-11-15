@@ -10,7 +10,7 @@
 #     which get it in `nix.buildMachines`.
 #
 # Machines reach each other at one address, `address`: the tailnet (MagicDNS) name,
-# e.g. `tablet`. Every machine runs Tailscale (the `network` aspect), and Tailscale
+# e.g. `server`. Every machine runs Tailscale (the `network` aspect), and Tailscale
 # connects directly over the LAN when both are at home, so home and away are one
 # route, one browser origin, one login. A machine reaches itself at 127.0.0.1.
 # LAN addresses (`lanIp`, mDNS `<name>.local`) are for devices outside the tailnet,
@@ -177,7 +177,8 @@ in
           "https://${s.subdomain}.${cfg.web.domain}${s.path}"
         else
           null;
-      # `tablet` installs a GNOME web app for each of these (tablet.nix).
+      # The `tablet` aspect installed a GNOME web app for each of these; no host has it
+      # since the tablet left the fleet (2026-11-15), so this is false everywhere.
       hasWebApp = s: cfg ? tablet && s.port != null && s.appIcon != null;
       # Whether a household device opens it (the People page): only what a machine
       # with `web` serves by name, to the `household` audience (web.nix).

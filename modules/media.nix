@@ -6,7 +6,7 @@
 #   ${storage.root}/media/photos      Jellyfin "Photos" (`sudo balaur-photos-login` adds it)
 #
 # Serving is a separate job from downloading, so it is a separate aspect: the
-# Duet does both, a laptop that only fetches things gets `torrents` alone.
+# tablet did both, a machine that only fetches things gets `torrents` alone.
 # Libraries and users are set in Jellyfin's own web UI and kept across rebuilds.
 {
   flake.modules.nixos.media =

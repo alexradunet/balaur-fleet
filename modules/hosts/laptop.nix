@@ -1,7 +1,7 @@
 # laptop: the Lenovo Yoga Pro 7 14APH8 the fleet is worked on from. A personal
 # machine, so it gets the shared base and a normal GNOME desktop, and none of the
-# Duet-only aspects: it sleeps when the lid shuts (no `always-on`), it is nobody's
-# household screen (no `tablet`), it has no Duet camera and runs no house services.
+# server's aspects: it sleeps when the lid shuts (no `never-sleep`), and it runs
+# no house services.
 # Machine-generated files (hardware-configuration.nix) live in hosts/laptop/.
 { inputs, config, ... }:
 let
@@ -16,9 +16,9 @@ in
     userKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBaXwupVG+t3PlhIRwjvcvyWE9NyzesTUU55qaC0buGd" ];
     syncthingId = "OIWJQ4H-XCGNO6G-YC34T53-KYOUVC6-WWYNUXF-U47H6QL-ULMIURW-BLZ7DQY";
     # torrentsPort: unset — this machine sends downloads, it does not take them.
-    # The cockpit is also the fleet's builder: 8 cores / 16 threads against the
-    # Duet's 4 / 8, and the Duet is busy being the living-room screen. 8 jobs
-    # leaves half the threads for whoever is actually using this laptop.
+    # It is also one of the fleet's builders, second to the server: 8 cores / 16
+    # threads against the server's 12 / 24. 8 jobs leaves half the threads for
+    # whoever is actually using this laptop.
     builder = {
       maxJobs = 8;
       speedFactor = 2;
@@ -62,8 +62,6 @@ in
           gaming
           # What to craft, buy and sell in WoW: Forever, from Auctionator's scans.
           wow-market
-          # One click to the server's desktop over RDP (an app per machine with `remote-desktop`).
-          remote-desktop-client
           # The server's /srv/proton (backed up to Proton Drive) as /mnt/proton, over SSHFS.
           proton-drive-client
         ])
@@ -92,6 +90,6 @@ in
       };
 
       # No FileList credentials here: searching happens in qBittorrent, which
-      # runs on the tablet. This machine only hands it magnets.
+      # runs on the server. This machine only hands it magnets.
     };
 }

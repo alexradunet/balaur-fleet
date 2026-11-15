@@ -37,7 +37,7 @@ buildNpmPackage {
   '';
 
   meta = {
-    description = "The life folder on the phone: the journal, pages, readings and search, served on the tablet";
+    description = "The life folder on the phone: the journal, pages, readings and search, served on the server";
     mainProgram = "lifelog-web";
     platforms = lib.platforms.linux;
   };

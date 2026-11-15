@@ -1,6 +1,6 @@
 # AI: one entryway for every model call in the fleet, local first, remote second.
 #
-#   http://tablet:4000/v1     OpenAI-compatible, no key needed (tailnet only)
+#   http://server:4000/v1     OpenAI-compatible, no key needed (tailnet only)
 #   https://ai.<domain>       the page: tiers, route, remote model, last requests
 #
 #   model `balaur`          the page's route; by default the local model when it can
@@ -12,7 +12,7 @@
 # Two aspects:
 #
 #   ai-gateway   the entryway itself (ai/router.py, stdlib Python), on one machine:
-#                the tablet, the always-on one. The local tier is every machine with
+#                the server, the always-on one. The local tier is every machine with
 #                `local-llm` or `strata`, found in the registry, so a second GPU machine
 #                joins by itself. Each is probed every few seconds and skipped when
 #                it is off, loading, stopped for a game, or busy answering someone
@@ -26,8 +26,8 @@
 #                ANTHROPIC_BASE_URL is deliberately left alone: Claude Code stays on
 #                Anthropic.
 #
-#   curl -s tablet:4000/health | jq        which tiers are up, and why not
-#   journalctl -u balaur-ai                 (on the tablet) which tier answered what
+#   curl -s server:4000/health | jq        which tiers are up, and why not
+#   journalctl -u balaur-ai                 (on the server) which tier answered what
 { config, ... }:
 let
   nixosConfigs = config.flake.nixosConfigurations;

@@ -4,7 +4,7 @@
 # 16 GB with its 62 GB of RAM. OpenAI-compatible /v1 (and Anthropic /v1/messages)
 # on :8090, tailnet only: the port is not opened on the LAN, the tailnet is trusted.
 #
-# It is the fleet's local inference tier: the `ai-gateway` aspect (on the tablet)
+# It is the fleet's local inference tier: the `ai-gateway` aspect (on the server)
 # finds this one in the registry and sends model `balaur` here first (ai.nix).
 #
 # Upstream ships three parts, and only the first is Nix's:

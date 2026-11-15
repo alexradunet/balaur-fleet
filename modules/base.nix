@@ -217,14 +217,14 @@ in
         boot.loader.systemd-boot = {
           enable = true;
           configurationLimit = 10;
-          # No editing the kernel command line at the boot menu: on the Duet anyone
-          # at the household screen could otherwise boot into a root shell
+          # No editing the kernel command line at the boot menu: anyone with a keyboard
+          # at the machine could otherwise boot into a root shell
           # (init=/bin/sh). Older generations stay one arrow key away.
           editor = false;
         };
         boot.loader.efi.canTouchEfiVariables = true;
 
-        # Quiet boot: the built-in screen is an appliance display, not a console.
+        # Quiet boot: a splash instead of kernel messages on the screen.
         boot.plymouth.enable = true;
         boot.consoleLogLevel = 0;
         boot.initrd.verbose = false;

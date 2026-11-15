@@ -4,7 +4,7 @@
 # bandwidth is enough for it. OpenAI-compatible /v1 and a chat page on :8090,
 # tailnet only: the port is not opened on the LAN, the tailnet is trusted.
 #
-# It is the fleet's local inference tier: the `ai-gateway` aspect (on the tablet)
+# It is the fleet's local inference tier: the `ai-gateway` aspect (on the server)
 # finds it in the registry and sends model `balaur` here first, Mistral second (ai.nix).
 #
 # The GPU has no memory of its own. It gets the BIOS's UMA carve-out (small: 2 GB)

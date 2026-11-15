@@ -3,8 +3,8 @@
 # It lives on a filesystem of its own: a preallocated image on the root disk,
 # with its own ext4, loop-mounted at ${storage.root}/files. That is the one thing
 # a plain directory cannot do — put a hard ceiling on how much the synced set can
-# grow. Without it a runaway sync fills the root filesystem, which on the Duet
-# would take the household screen and the media server with it.
+# grow. Without it a runaway sync fills the root filesystem, which would take the
+# machine and every service on it down with it.
 # Both machines' disks are filled by their root partition and ext4 cannot be
 # shrunk while mounted, so a real partition would mean booting each machine off
 # rescue media; this gets the same ceiling declaratively, and `rm` undoes it.
@@ -274,7 +274,7 @@ in
           # The folder is shared by the `media` group (2775): with systemd's
           # default 0022, every folder or file Syncthing brings from another machine
           # arrives without group write, and the admin cannot add to it there (a
-          # `photos` made on the tablet was read-only on the pc, now the server).
+          # `photos` made on the tablet was read-only on the server).
           serviceConfig.UMask = "0002";
         };
 

@@ -1,20 +1,21 @@
 # GNOME itself: the display manager, the session, its sound server, and the
 # fleet's canonical apps that every GNOME machine shares (browser, its add-ons,
 # terminal). Nothing here decides *how* the machine is used — that is the job of
-# the aspects built on top:
+# the aspect built on top:
 #
-#   tablet   the household screen on the Duet: auto-login, never locks, curated apps
 #   desktop  a personal machine: a normal login, a lock screen, the GNOME apps we keep
 #
-# Give a host `gnome` plus exactly one of those. (Aspects never import each
-# other: flake.modules has no dedup key, so the host lists both.)
+# Give a host `gnome` and `desktop`. (Aspects never import each other:
+# flake.modules has no dedup key, so the host lists both.) The other one, `tablet`
+# (the household screen on the Duet), left with the tablet on 2026-11-15; the
+# `cfg.tablet` and `cfg ? tablet` reads below and in fleet.nix stay harmless.
 #
-# Both get the fleet's own front end from here: the Balaur app (every service in
-# `balaur.services` with its live state, and the people; gnome/app) and the Shell
-# extension (gnome/shell-extension). So the ambient screen's settings are here
-# too: after a minute untouched, a full-screen clock, date, weather, the fleet's
-# machines and services, over the photos in the synced folder
-# (gnome/shell-extension/ambient.js).
+# Every GNOME machine gets the fleet's own front end from here: the Balaur app
+# (every service in `balaur.services` with its live state, and the people;
+# gnome/app) and the Shell extension (gnome/shell-extension). So the ambient
+# screen's settings are here too: after a minute untouched, a full-screen clock,
+# date, weather, the fleet's machines and services, over the photos in the synced
+# folder (gnome/shell-extension/ambient.js).
 #
 # GNOME's own search finds the home's services too (the app is a search
 # provider), and Quick Settings has a "Scenes" menu with Home Assistant's scenes
@@ -43,8 +44,8 @@ in
 
       # The Scenes menu reaches Home Assistant on its machine, as Home Assistant's
       # non-admin user for the screens (balaur.scenes). The token is readable by the
-      # group balaur-house, which the session's account is in (the household account
-      # on the tablet, the admin's on a desktop).
+      # group balaur-house, which the session's account is in (the admin's on a
+      # desktop; the household account on the old tablet).
       hass = cfg.scenes;
       houseToken = "home-assistant-agent-token";
       sessionUser = cfg.tablet.user or cfg.user;
@@ -199,11 +200,12 @@ in
 
           # GNOME's background services that no machine here uses: lean CPU, the same
           # on every GNOME machine. File indexing (localsearch) stays where it is
-          # useful, the desktops; `tablet` turns that off as well.
+          # useful, the desktops.
           services.gnome = {
             gnome-initial-setup.enable = false; # every machine is set up by this flake
             gnome-online-accounts.enable = false; # no online account is set up
-            # Over NixOS GNOME's own mkDefault true; `remote-desktop` turns it on.
+            # Over NixOS GNOME's own mkDefault true, at a priority an aspect can still
+            # override (the old `remote-desktop` did).
             gnome-remote-desktop.enable = lib.mkOverride 900 false;
             gnome-user-share.enable = false; # files move through Syncthing (`files`)
             gnome-browser-connector.enable = false; # the extensions come from the flake
@@ -212,7 +214,7 @@ in
           services.dleyna.enable = false; # DLNA discovery, likewise
 
           # The look and the keyboards, the same on every GNOME machine. Defaults, not
-          # locks: a personal machine's own settings win (`tablet` locks what it must).
+          # locks: a personal machine's own settings win.
           programs.dconf.profiles.user.databases = [
             {
               settings = {
@@ -257,7 +259,7 @@ in
             };
           };
           # Said outright (in /etc/xdg/mimeapps.list, under the user's own list), so
-          # GNOME Web on the tablet, or anything installed later, does not take over links.
+          # GNOME Web, or anything installed later, does not take over links.
           xdg.mime.defaultApplications = lib.genAttrs [
             "text/html"
             "x-scheme-handler/http"

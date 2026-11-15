@@ -44,7 +44,7 @@ the same kind first: a service (`media.nix`, `home-assistant.nix`), a program
   function: `{ config, ... }: let fleet = config.fleet; nixosConfigs =
   config.flake.nixosConfigurations; in { ... }` — see `ai.nix`, `adblock.nix`.
 - **Another aspect's options are optional.** `cfg.web.domain or null`, `config.balaur ?
-  tablet`, `options ? sops`. Never import another aspect; never assume it is there.
+  web`, `options ? sops`. Never import another aspect; never assume it is there.
 - **Two sides of a feature** (a server on one machine, a client on others) are two
   aspects in one file: `torrents` and `torrents-client`.
 - **Packages of our own** go in `pkgs/<name>.nix` and the overlay in
@@ -70,7 +70,7 @@ balaur.services = [{
   audience = "owner";       # the default; "household" also serves the people the machine is shared with
   unit = "thing.service";   # `user:<unit>` for a unit of the desktop session
   group = "Home";           # the Home page's section
-  appIcon = null;           # an icon here installs it as a GNOME web app on the tablet
+  appIcon = null;           # an icon for a GNOME web app, where an aspect installs one (none now)
 }];
 ```
 
@@ -82,7 +82,7 @@ instructions, and, with `subdomain`, behind `https://<subdomain>.balaur.space`.
 and say why in a comment. The services here have no logins: nothing is ever exposed
 to the internet.
 
-**Audience:** the tablet is shared with a second person, whose devices Caddy serves
+**Audience:** the server is shared with a second person, whose devices Caddy serves
 only the `household` entries (`modules/web.nix`). Leave a new service the owner's
 unless it has accounts of its own or the whole household is meant to run it.
 

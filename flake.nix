@@ -1,5 +1,5 @@
 {
-  description = "Balaur: one repo, many heads. The NixOS fleet at home, starting with the Yoga Duet 7 tablet server";
+  description = "Balaur: one repo, many heads. The NixOS fleet at home: a headless server and a GNOME laptop";
 
   inputs = {
     # Stable channel tarball (carries a flake.nix). Pinned by flake.lock.

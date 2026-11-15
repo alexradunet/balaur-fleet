@@ -3,7 +3,7 @@
 # `nixos-rebuild --target-host` round.
 #
 # Every few minutes a timer asks GitHub for main's commit (`git ls-remote`: one
-# small HTTPS request, no evaluation, so it costs nothing on the Duet). Only when
+# small HTTPS request, no evaluation, so it costs next to nothing). Only when
 # that commit is not the one this machine deployed does it build and switch to
 # this machine's configuration at exactly that commit. Heavy builds still go to
 # the fleet's builders (fleet.nix), and secrets decrypt with the machine's own

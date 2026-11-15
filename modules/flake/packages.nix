@@ -3,10 +3,9 @@
 # The packages are one overlay, `flake.overlays.default`. The `base` aspect puts
 # it into every machine's nixpkgs, so an aspect says `pkgs.balaur-app` instead of
 # calling pkgs/balaur-app.nix itself, and there is one definition of each.
-{ self, ... }:
+{ ... }:
 let
   overlay = final: _prev: {
-    duet-camera = final.callPackage ../../pkgs/duet-camera.nix { };
     # lifelog, the life log as files (lifelog/, modules/lifelog.nix).
     lifelog = final.callPackage ../../pkgs/lifelog.nix { };
     lifelog-web = final.callPackage ../../pkgs/lifelog-web.nix { };
@@ -21,7 +20,6 @@ in
     { pkgs, ... }:
     let
       inherit (pkgs.extend overlay)
-        duet-camera
         lifelog
         lifelog-web
         balaur-app
@@ -31,23 +29,17 @@ in
     {
       packages = {
         inherit
-          duet-camera
           lifelog
           lifelog-web
           balaur-app
           balaur-shell-extension
           ;
-        # The patched camera modules for the kernel the Duet actually boots (`nix build .#camera-modules` checks the patch still applies).
-        camera-modules =
-          self.nixosConfigurations.tablet.config.boot.kernelPackages.callPackage ../../pkgs/camera-modules.nix
-            { };
         default = balaur-app;
       };
 
-      # duet-camera, lifelog, lifelog-web, the app and the Shell extension run their tests while building.
+      # lifelog, lifelog-web, the app and the Shell extension run their tests while building.
       checks = {
         inherit
-          duet-camera
           lifelog
           lifelog-web
           balaur-app
@@ -117,7 +109,7 @@ in
           pkgs.gtk4
         ];
         shellHook = ''
-          echo "dev: camera/          go test ./..."
+          echo "dev: lifelog/         go test ./..."
           echo "     gnome/app/       nix build .#balaur-app && ./result/bin/balaur-app"
         '';
       };

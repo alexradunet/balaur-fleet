@@ -19,7 +19,8 @@
 # it gets the "household" services and a home page that lists only those, and a
 # 403 from the rest. A new device of the owner's is a stranger until it is listed.
 # A "private" service (the life log) is the owner's, and not this machine's own
-# address either: its screen is the household's, and its browser comes from there.
+# address either: a screen on this machine may be the household's, and its
+# browser comes from there.
 #
 # Caddy only decides between names on port 443. Which *ports* a shared user
 # reaches is the tailnet policy's to say (Tailscale's admin console, Access
@@ -28,10 +29,10 @@
 # policy lets a shared user reach every port, and most of what listens on them
 # has no login.
 #
-#   "hosts":  { "tablet": "<this machine's tailnetIp>" },
+#   "hosts":  { "server": "<this machine's tailnetIp>" },
 #   "grants": [
 #     { "src": ["autogroup:member"], "dst": ["*"],      "ip": ["*"] },
-#     { "src": ["autogroup:shared"], "dst": ["tablet"], "ip": ["tcp:80", "tcp:443"] }
+#     { "src": ["autogroup:shared"], "dst": ["server"], "ip": ["tcp:80", "tcp:443"] }
 #   ]
 #
 # (Port 80 is only Caddy's redirect to https.) Then Machines > this machine >

@@ -36,21 +36,20 @@ choice that is theirs (name, aspects, account).
      merging into an aspect of the same name): its aspects, `../../hosts/<hostname>/hardware-configuration.nix`,
      `networking.hostName`, `system.stateVersion`, `balaur.user`. List the aspects in the
      order the other hosts use: hardware, then what every machine has, then its own.
-   - Hardware specifics go in a `modules/hardware/<model>.nix` aspect (`yoga-duet-7.nix`
-     for Intel, `yoga-pro-7.nix` and `gmktec-evo-x1.nix` for AMD, `nvidia-egpu.nix`).
+   - Hardware specifics go in a `modules/hardware/<model>.nix` aspect (`yoga-pro-7.nix`
+     and `gmktec-evo-x1.nix`, both AMD; `nvidia-egpu.nix`).
 
 5. **Its aspects,** with the user. Every machine: `base fleet home network auto-deploy
    ai agent`, usually `dev files torrents-client`, and `secrets` once step 7
    is done.
    - `never-sleep` on a machine the others depend on (a server, a builder, a streaming
-     host); `always-on` as well on a laptop serving as one (lid, power key, battery).
-   - `ai` points everything at the fleet's AI entryway (`ai-gateway`, the tablet only):
+     host).
+   - `ai` points everything at the fleet's AI entryway (`ai-gateway`, the server only):
      model `balaur` is the fleet's local model first (`local-llm` on the server), Mistral second.
    - `agent` is pi, the OS agent. A role is pi with other instructions and only the
      tools it is given (`pi-NAME`).
-   - A screen: `gnome` plus exactly one of `tablet` or `desktop`. Not on a normal
-     laptop: `never-sleep` and `always-on`, `tablet` (the household account, no lock),
-     `camera` (the Duet's sensor).
+   - A screen: `gnome` and `desktop`. A server stays headless and gets `cockpit` for
+     its admin page. Not on a normal laptop: `never-sleep`.
    - Services, normally on one machine only: `media`, `adblock`, `home-assistant`,
      `lifelog` (the keeper), `web`, `torrents`, `backup`.
 

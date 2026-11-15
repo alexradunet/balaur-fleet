@@ -1,21 +1,24 @@
 # Roadmap
 
-Where the Duet is going next, as agreed on 2026-11-04. The direction holds for all of it:
+Where the fleet is going next, as agreed on 2026-11-04. The direction holds for all of it:
 **as GNOME-native as possible**. Use GNOME's own mechanism before writing code; everything
 GNOME-facing is GJS (`gnome/`).
 
 ## Done
 
-- Stock GNOME as a household tablet: auto-login `home`, no lock, on-screen keyboard (en + ro), rotation.
+- Stock GNOME as a household tablet on the Duet: auto-login `home`, no lock, on-screen keyboard (en + ro), rotation.
 - Voice assistant in the session: GJS daemon (PipeWire, wake word, Voxtral) + the fleet's pi in its home role.
 - Balaur app (libadwaita) and Shell extension.
 - Web UIs as GNOME web apps; Snapshot for the camera; camera movement keeps the screen awake.
 - Web dashboard, Samsung TV integration and the Go assistant removed; the GJS voice assistant ("Hey Jarvis") removed 2026-11-14.
 - Ambient screen (2026-11-04, Shell extension): after 1 min untouched, a clock, date, weather, the running
   timers and the next reminder (gone with the assistant) over a Jellyfin photo slideshow; a touch ends it, camera movement keeps it up.
-  Photos need a Jellyfin API key: `sudo balaur-photos-login` (docs/SETUP.md, Stage 12).
+  Photos need a Jellyfin API key: `sudo balaur-photos-login` (docs/SETUP.md, "The ambient screen").
 - Ambient screen, 2026-11-10: the machines (Tailscale) and services (systemd, or a probe on other machines)
   on the side; photos from `photos` in the Syncthing folder, so any machine can add them.
+- The tablet retired, 2026-11-15: the server took its services over and runs headless (Cockpit), the
+  laptop is the only GNOME machine. The household screen, the Duet camera and the always-on laptop settings
+  went with it; git history keeps them, and the Duet waits for a new purpose.
 
 ## Next
 

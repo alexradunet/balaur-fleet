@@ -43,21 +43,20 @@ in
           # Decrypts with its SSH host key, a recipient in .sops.yaml.
           secrets
           network
-          gnome
-          desktop
           dev
           files
           torrents-client
           auto-deploy
-          # The fleet's AI entryway (on the tablet), as a client.
+          # The fleet's AI entryway (ai-gateway, below), as a client.
           ai
           # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
           agent
           # This machine's own.
           # A mini-PC on mains power, a server and a builder: never suspend.
           never-sleep
-          # Its GNOME desktop over RDP, on the tailnet, with no monitor attached.
-          remote-desktop
+          # Headless (no GNOME, no RDP since 2026-11-15): its admin page is Cockpit,
+          # https://cockpit.balaur.space.
+          cockpit
           # /srv/proton (the second NVMe) mirrored to the whole of Proton Drive, hourly.
           proton-drive
           # Orca's runtime for the laptop's Orca to pair with, from boot (:6768, tailnet).
@@ -65,8 +64,8 @@ in
           # The fleet's local LLM, on the Radeon 890M (Nemotron 3.5 Lightning).
           local-llm
           # The fleet's AI entryway (http://server:4000/v1), moved from the tablet: the
-          # clients take the first machine that has it. The tablet's copy stays the
-          # page behind https://ai.balaur.space until the web front moves here too.
+          # clients take the first machine that has it. Its page is https://ai.balaur.space,
+          # behind this machine's web front.
           ai-gateway
           # The LAN's DNS server with ad and tracker blocking (AdGuard Home), moved from
           # the tablet: the router hands out 192.168.50.12 as the DNS server.
@@ -163,7 +162,7 @@ in
           manageFilelistCredentials = false;
         };
         # It stays at home, wired or on the home Wi-Fi: SSH and the Syncthing UI on
-        # the LAN as well, like the tablet.
+        # the LAN as well.
       };
     };
 }

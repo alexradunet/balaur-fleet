@@ -2,10 +2,10 @@
 # folder, synced by Syncthing between the owner's machines, with a checked
 # history in git. Two aspects, like `torrents` and `torrents-client`:
 #
-#   lifelog          the always-on machine (the tablet): the folder, and the
+#   lifelog          the always-on machine (the server): the folder, and the
 #                    keeper, which commits each settled state of the folder to
 #                    the branch `live` and moves the refs `checked` and `seen`.
-#   lifelog-client   the machines the owner writes on (laptop, server): the folder,
+#   lifelog-client   the machines the owner writes on (the laptop): the folder,
 #                    the `lifelog` command, Obsidian, and on one of them a
 #                    nightly mirror of the history.
 #
@@ -16,8 +16,8 @@
 # machine that has one of the two aspects. The design: lifelog/docs/design.md.
 #
 #   lifelog check /srv/life            the rules, by hand
-#   journalctl -u lifelog-keeper       (tablet) what the keeper did
-#   lifelog restore pages/X.md         (tablet) a file back from `checked`
+#   journalctl -u lifelog-keeper       (server) what the keeper did
+#   lifelog restore pages/X.md         (server) a file back from `checked`
 { config, ... }:
 let
   fleet = config.fleet;
@@ -233,7 +233,7 @@ in
               echo "$live" >"$lastrun"
               ;;
             *)
-              printf '# The check of the life folder\n\nThe check did not run at %s. On the tablet: journalctl -u lifelog-keeper\n' \
+              printf '# The check of the life folder\n\nThe check did not run at %s. On the server: journalctl -u lifelog-keeper\n' \
                 "$(date -Iseconds)" >"$report"
               publish
               exit 1
@@ -443,7 +443,7 @@ in
         mirrorFrom = lib.mkOption {
           type = lib.types.nullOr lib.types.str;
           default = null;
-          example = "tablet";
+          example = "server";
           description = "The keeper's machine to mirror the history from every night, or null for no mirror.";
         };
       };
