@@ -25,7 +25,9 @@
 # password and keeps it in the GNOME Keyring; every later click just connects. The
 # client machine needs no secret of the server's: the laptop, which travels, is not
 # a recipient of the other machines' sops files. A wrong or changed password:
-# `balaur-rdp --forget <host>`, and the next click asks again.
+# `balaur-rdp --forget <host>`, and the next click asks again. To copy it over
+# without typing it: `ssh pc "sops decrypt --extract '[\"rdp-password\"]' \
+#   ~/Projects/balaur-fleet/secrets/hosts/pc.yaml" | balaur-rdp --store pc`.
 { config, ... }:
 let
   nixosConfigs = config.flake.nixosConfigurations;
@@ -156,11 +158,18 @@ in
         ];
         text = ''
           forget=0
-          if [ "''${1:-}" = --forget ]; then
+          store=0
+          case ''${1:-} in
+          --forget)
             forget=1
             shift
-          fi
-          host=''${1:?usage: balaur-rdp [--forget] <host>}
+            ;;
+          --store)
+            store=1
+            shift
+            ;;
+          esac
+          host=''${1:?usage: balaur-rdp [--forget | --store] <host>  (--store reads the password on stdin)}
           case $host in
           ${lib.concatMapStrings (h: ''
             ${h}) read -r addr user <<<"${target h}" ;;
@@ -174,6 +183,11 @@ in
           if [ "$forget" = 1 ]; then
             secret-tool clear service balaur-rdp host "$host"
             echo "forgot the RDP password for $host"
+            exit 0
+          fi
+          if [ "$store" = 1 ]; then
+            secret-tool store --label="Remote Desktop: $host" service balaur-rdp host "$host"
+            echo "saved the RDP password for $host"
             exit 0
           fi
 
