@@ -54,6 +54,8 @@ in
           # This machine's own.
           # A mini-PC on mains power, a server and a builder: never suspend.
           never-sleep
+          # Its GNOME desktop over RDP, on the tailnet, with no monitor attached.
+          remote-desktop
           # The fleet's local LLM, on the Radeon 890M (Nemotron 3.5 Lightning).
           local-llm
           # The life log as files: the folder, `lifelog`, Obsidian, and the nightly mirror of
