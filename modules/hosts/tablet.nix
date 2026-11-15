@@ -50,7 +50,7 @@ in
           # Every machine's `dev` lands here: the sessions live on the one that never sleeps.
           dev-host
           # The fleet's AI entryway for every machine (http://tablet:4000/v1, page at
-          # https://ai.balaur.space): the pc's GPU first, Mistral second.
+          # https://ai.balaur.space): a GPU machine first, Mistral second.
           ai-gateway
           torrents
           media

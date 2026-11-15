@@ -49,7 +49,7 @@ in
           # client, so a magnet clicked here can be sent there.
           torrents-client
           auto-deploy
-          # The fleet's AI entryway on the tablet: the pc's GPU first, Mistral second.
+          # The fleet's AI entryway on the tablet (Mistral while no machine has a GPU).
           ai
           # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
           agent
