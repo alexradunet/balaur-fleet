@@ -1,4 +1,5 @@
-# Media server: Jellyfin, watching what the `torrents` aspect downloaded.
+# Media server: Jellyfin, watching what the `torrents` aspect downloaded. No machine
+# runs it since 2026-11-15: the server serves the media by DLNA (`dlna`) instead.
 #
 #   ${storage.root}/media/movies      Jellyfin "Movies" library
 #   ${storage.root}/media/shows       Jellyfin "Shows" library

@@ -5,9 +5,9 @@ is the body: one flake that configures every machine at home, each one a head wi
 own purpose. They share a common base and know about each other.
 
 The first head is **tablet**, a **Lenovo Yoga Duet 7 (13ITL6)** turned into an opinionated,
-fully declarative NixOS home server. The detachable-tablet laptop becomes an appliance:
-the built-in touchscreen is a household tablet running stock GNOME, everything on it is
-GNOME-native, and the battery is the UPS.
+fully declarative NixOS appliance: the built-in touchscreen is a household tablet running
+stock GNOME, everything on it is GNOME-native, and its camera wakes the screen. It was the
+home server until 2026-11-15, when **server** (below) took the services over.
 
 The second is **laptop**, a **Lenovo Yoga Pro 7 14APH8**: the personal machine. It shares
 the base and the admin's environment, and runs none of the house
@@ -68,7 +68,7 @@ modules/
   camera.nix              the Duet's front camera: patched kernel modules + RGB-IR relay, movement wakes the screen
   media.nix               Jellyfin: watches what `torrents` downloaded, /srv/media
   dlna.nix                MiniDLNA: folders served as they are to the players on the home network (the server)
-  torrents.nix            qBittorrent + FileList search (aspect `torrents`, the tablet only), and
+  torrents.nix            qBittorrent + FileList search (aspect `torrents`, the server), and
                           `balaur-torrent` + the magnet handler (aspect `torrents-client`, anywhere)
   adblock.nix             AdGuard Home: network-wide ad/tracker blocking on :53, UI on :3000
   home-assistant.nix      Home Assistant: devices and automations, https://home.<domain> and :8123
@@ -83,9 +83,9 @@ modules/
   wow-market.nix          WoW Market: what to craft, buy and sell in WoW: Forever, from Auctionator's scans; http://laptop:8790 on the tailnet (the laptop)
   steam.nix               Steam and GameMode, for a machine that plays locally (none at the moment)
   game-streaming.nix      Sunshine on a host, Moonlight on the clients, over the tailnet (none at the moment)
-  ai.nix                  the fleet's AI entryway on the tablet (`ai-gateway`: local GPU first, Mistral second) and its clients (`ai`)
+  ai.nix                  the fleet's AI entryway on the server (`ai-gateway`: local GPU first, Mistral second) and its clients (`ai`)
   strata.nix              Strata: a local LLM on a discrete NVIDIA card, stopped while a game runs (none at the moment)
-  lifelog.nix             lifelog, the life log as files: the keeper on the tablet (`lifelog`) and its web app at https://life.<domain>, the folder, `lifelog` and Obsidian on the laptop and the server (`lifelog-client`)
+  lifelog.nix             lifelog, the life log as files: the keeper on the server (`lifelog`) and its web app at https://life.<domain>, the folder, `lifelog` and Obsidian on the laptop and the server (`lifelog-client`)
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
 gnome/                    everything GNOME-facing, in GJS
@@ -137,5 +137,6 @@ Each directory under `gnome/` has a short README.
 
 ## Status
 
-Running on the Duet: GNOME, the Balaur app
-and Shell extension, camera wake, AdGuard Home and the media services. Next steps: [docs/ROADMAP.md](docs/ROADMAP.md).
+Running on the Duet: GNOME, the Balaur app and Shell extension, camera wake. On the server:
+the AI entryway and local model, AdGuard Home, the web front, qBittorrent and DLNA, the life
+log, Home Assistant, Orca and RDP. Next steps: [docs/ROADMAP.md](docs/ROADMAP.md).

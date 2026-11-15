@@ -1,15 +1,15 @@
 # Torrents: qBittorrent with FileList search. Two aspects, because running the
 # server and being able to send to it are different things:
 #
-#   torrents         runs qBittorrent. One machine is enough, and it is the Duet:
-#                    it is the always-on one, and the downloads belong next to
-#                    Jellyfin's libraries.
+#   torrents         runs qBittorrent. One machine is enough, and it is the server:
+#                    the always-on one, whose DLNA (`dlna`) serves the downloads
+#                    to the TV.
 #   torrents-client  just `balaur-torrent` and the magnet handler, for a machine
 #                    that sends downloads to one of the others.
 #
 #   ${storage.root}/media/downloads   anything without a category
-#   ${storage.root}/media/movies      category "movies"  -> Jellyfin "Movies"
-#   ${storage.root}/media/shows       category "shows"   -> Jellyfin "Shows"
+#   ${storage.root}/media/movies      category "movies"  (DLNA: video)
+#   ${storage.root}/media/shows       category "shows"   (DLNA: video)
 #
 # Search is qBittorrent's own Search tab; the FileList plugin (media-search/) is
 # installed on every start and reads its credentials from a JSON file named by
