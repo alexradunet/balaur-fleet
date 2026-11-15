@@ -48,8 +48,6 @@ in
           always-on
           # Until its torrents seed from the server.
           torrents
-          # Until the server's own DNS forwarder stops asking it (a restart of tailscaled).
-          adblock
           camera
         ])
         # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
