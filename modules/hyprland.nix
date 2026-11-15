@@ -317,6 +317,25 @@ in
       pkgs,
       ...
     }:
+    let
+      # What greetd runs: Hyprland, then, once it has exited, the session's
+      # services stopped. Nothing else stops them (the user manager outlives the
+      # login), and waybar and the rest would otherwise restart against a display
+      # that is gone until systemd gives up on them.
+      session = pkgs.writeShellApplication {
+        name = "balaur-hyprland-session";
+        runtimeInputs = [
+          config.programs.hyprland.package
+          pkgs.systemd
+        ];
+        text = ''
+          status=0
+          start-hyprland || status=$?
+          systemctl --user stop hyprland-session.target graphical-session.target || true
+          exit "$status"
+        '';
+      };
+    in
     {
       config = lib.mkMerge [
         {
@@ -339,7 +358,7 @@ in
               "--time"
               "--remember"
               "--asterisks"
-              "--cmd start-hyprland"
+              "--cmd ${lib.getExe session}"
             ];
           };
           security.pam.services.greetd.enableGnomeKeyring = true;
@@ -422,6 +441,14 @@ in
         configType = "hyprlang";
         # hyprland-session.target, and the session's variables for systemd units.
         systemd.enable = true;
+        # At every start, after the variables: forget what failed in the last session
+        # (a service that hit its restart limit would otherwise stay down), then
+        # restart the target as home-manager does by default.
+        systemd.extraCommands = [
+          "systemctl --user reset-failed"
+          "systemctl --user stop hyprland-session.target"
+          "systemctl --user start hyprland-session.target"
+        ];
 
         settings = {
           # The laptop's panel at 167% (as it was in GNOME); any other screen at its preferred mode.
