@@ -16,6 +16,30 @@ seven skills shared by Claude Code and pi.
 
 ## The list
 
+### 0. After the move to `server` (2026-11-15)
+
+The EVO-X1 (`pc`) became `server` and took every service off the tablet, which is now only
+the household screen and camera; the RTX 5060 Ti went to the laptop (USB4 dock). Left:
+
+- **The household's access** (needs the user): the household's devices reached the
+  services through the *tablet*, shared with their Tailscale account. Share **server**
+  instead (Machines > server > Share) and move the tailnet policy's grant for
+  `autogroup:shared` from `tablet` to `server` (tcp:80, tcp:443; modules/web.nix), or
+  they lose home.balaur.space and torrents.balaur.space.
+- **A reboot of the server** (with the smart socket and ethernet tests): Wake-on-LAN
+  (`wakeonlan c8:ff:bf:05:0a:44` after `sudo poweroff`), power-on by the socket, the
+  watchdog; `orca-serve` takes over from the desktop window and the laptop's Orca
+  pairing still connects; the BIOS's UMA frame buffer set to 2 GB (`local-llm` fits).
+- **qBittorrent in a container** (decided, not done): `torrents` runs systemd-sandboxed
+  on the server; the plan is a NixOS container with its own network, built next to it.
+- **The tablet's old data** (needs sudo there): /var/lib/hass, /var/lib/lifelog,
+  /var/lib/jellyfin and /srv/media are copies of what the server has; delete them to
+  give the Duet its disk back.
+- **The lifelog check's 8 warnings** (the user's data): repeated readings in
+  `metrics/Mood/2026.import.csv`; fix them or delete `_check.md` to acknowledge.
+- The Harry Potter remux has DTS-X audio, which the living-room Samsung cannot play over
+  DLNA (no sound): an AC3/EAC3 release plays.
+
 ### 1. Choose where backups go, then turn `backup` on (needs the user)
 
 `modules/backup.nix` is written and evaluates on the tablet, but no host has it: it needs
