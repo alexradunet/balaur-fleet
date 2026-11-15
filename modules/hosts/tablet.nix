@@ -46,8 +46,6 @@ in
           # server until 2026-11-15 (the server took over); it still never sleeps.
           never-sleep
           always-on
-          # Until its torrents seed from the server.
-          torrents
           camera
         ])
         # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
@@ -120,23 +118,5 @@ in
         fi
       '';
       system.activationScripts.users.deps = [ "renameHouseholdAccount" ];
-
-      # FileList's username and passkey are two entries in this machine's own sops
-      # file (secrets/hosts/tablet.yaml); the search plugin wants them as one JSON
-      # object, so sops renders it.
-      sops.secrets."filelist-username".sopsFile = config.balaur.secrets.hostFile;
-      sops.secrets."filelist-passkey".sopsFile = config.balaur.secrets.hostFile;
-      sops.templates."filelist.json" = {
-        owner = config.services.qbittorrent.user;
-        mode = "0400";
-        content = builtins.toJSON {
-          username = config.sops.placeholder."filelist-username";
-          passkey = config.sops.placeholder."filelist-passkey";
-        };
-      };
-      balaur.torrents = {
-        filelistCredentialsFile = config.sops.templates."filelist.json".path;
-        manageFilelistCredentials = false;
-      };
     };
 }
