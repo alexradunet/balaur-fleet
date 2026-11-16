@@ -61,7 +61,7 @@ modules/
   proton-drive.nix        rclone, hourly: /srv/proton (the server) mirrored to all of Proton Drive, one way, nothing lost there
                           and `proton-drive-client`: that folder as /mnt/proton on a desktop (SSHFS)
   never-sleep.nix         a machine on duty never sleeps (the server)
-  gnome.nix               GNOME itself: GDM, the session, PipeWire, the canonical apps (Firefox + its add-ons, Ghostty), the Balaur app + Shell extension, one look and keyboards (US + RO), the ambient screen's settings
+  gnome.nix               GNOME itself: GDM, the session, PipeWire, the canonical apps (Chromium + its add-ons, Ghostty), the Balaur app + Shell extension, one look and keyboards (US + RO), the ambient screen's settings
   desktop.nix             GNOME as a personal desktop: a normal login, the GNOME apps it drops
   media.nix               Jellyfin: watches what `torrents` downloaded, /srv/media
   dlna.nix                MiniDLNA: folders served as they are to the players on the home network (the server)

@@ -26,11 +26,11 @@ in
       config = lib.mkMerge [
         {
           # GNOME ships these; the fleet's desktops don't use them. What stays is the
-          # canonical set: Firefox (`gnome`), Ghostty (`gnome`), Showtime for video,
+          # canonical set: Chromium (`gnome`), Ghostty (`gnome`), Showtime for video,
           # Decibels for audio, Loupe, Papers, Nautilus, Text Editor, System Monitor,
           # Snapshot, Calculator, Disks.
           environment.gnome.excludePackages = with pkgs; [
-            # The browser is Firefox (the `gnome` aspect sets it up with policies).
+            # The browser is Chromium (the `gnome` aspect sets it up with policies).
             # (GNOME Web ran the service web apps on the tablet, which has left the fleet.)
             epiphany
             gnome-tour # a first-run walkthrough, on a machine already set up

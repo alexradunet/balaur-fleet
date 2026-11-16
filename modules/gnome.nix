@@ -93,7 +93,18 @@ in
           else
             null;
       };
-      # Firefox add-ons on every machine: add-on ID -> its addons.mozilla.org slug.
+      # The browser's add-ons on every machine, by their Chrome Web Store IDs.
+      chromiumExtensions = [
+        # The ads a network-level blocker cannot see (same-domain ones, e.g. YouTube).
+        # The Lite one: Chromium no longer runs the full uBlock Origin (Manifest V2).
+        "ddkjiahejlhfcafbddmgiahcphecmpfh" # uBlock Origin Lite
+        "ghmbeldphafepmbegfdlkpapadhbakde" # Proton Pass
+        "jplgfhpmjnbigmhklmmbgecoobifkmpa" # Proton VPN
+        "mnjggcdmjocbbbhaepdhchncahnbgone" # SponsorBlock
+        "eimadpbcbfnmbkopoojfekhnkhdbieeh" # Dark Reader
+      ];
+      # The same for Firefox, which stays installed until its bookmarks have moved
+      # (it is no longer the default): add-on ID -> its addons.mozilla.org slug.
       # The ID must match the add-on's manifest exactly, or Firefox skips the
       # entry without saying so.
       addons = {
@@ -240,8 +251,24 @@ in
             }
           ];
 
-          # Firefox is the browser on every GNOME machine here. The policies are the
-          # same everywhere: no telemetry, no first-run detours, and the add-ons above.
+          # Chromium is the browser on every GNOME machine here. The policies
+          # (/etc/chromium/policies) are the same everywhere: nothing reported to
+          # Google, no first-run detours or ad "privacy" prompts, and the add-ons above.
+          programs.chromium = {
+            enable = true; # the policies only; the package is below
+            extensions = chromiumExtensions;
+            extraOpts = {
+              MetricsReportingEnabled = false;
+              DefaultBrowserSettingEnabled = false;
+              PromotionalTabsEnabled = false;
+              PrivacySandboxPromptEnabled = false;
+              PrivacySandboxAdTopicsEnabled = false;
+              PrivacySandboxSiteEnabledAdsEnabled = false;
+              PrivacySandboxAdMeasurementEnabled = false;
+            };
+          };
+          # Firefox, the browser before it: kept, with its policies, until what it
+          # holds (bookmarks, history) has been moved. Then this block and `addons` go.
           programs.firefox = {
             enable = true;
             policies = {
@@ -264,12 +291,13 @@ in
             "text/html"
             "x-scheme-handler/http"
             "x-scheme-handler/https"
-          ] (_: "firefox.desktop");
+          ] (_: "chromium-browser.desktop");
 
           # The terminal is Ghostty everywhere (GTK4/libadwaita, GPU-rendered), so
           # Console goes. It is also what "Open in Terminal" and Terminal=true apps
           # launch, through xdg-terminal-exec.
           environment.systemPackages = [
+            pkgs.chromium
             pkgs.ghostty
             pkgs.balaur-app
             pkgs.balaur-shell-extension
