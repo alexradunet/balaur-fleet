@@ -24,6 +24,8 @@
 #       settings.json  that provider, `balaur.agent.model` as the default, the
 #                      skills and the extensions. A default saved from inside pi
 #                      does not stick.
+#       mcp.json       the house: Home Assistant's MCP server (what is exposed to
+#                      Assist there), on a machine with the `secrets` aspect
 #       AGENTS.md      who it is, every machine and service of the fleet, where the
 #                      configuration is and how a change reaches the machines, the
 #                      life log's rules. Made from the registry (fleet.nix) and each
@@ -75,6 +77,34 @@ in
 
       known = h: h == me || nixosConfigs ? ${h};
       hostConfig = h: if h == me then config else nixosConfigs.${h}.config;
+      # The house: Home Assistant's MCP server on the machine that runs it, with the
+      # token of its user for the screens (not an administrator). It offers what is
+      # exposed to Assist there, and nothing else.
+      useSops = options ? sops;
+      houseToken = "home-assistant-agent-token";
+      hassHosts = lib.filter (h: known h && (hostConfig h).services.home-assistant.enable) (
+        lib.attrNames fleet
+      );
+      hassHost = lib.head hassHosts;
+      house =
+        if hassHosts == [ ] || !useSops then
+          null
+        else
+          "http://${
+            if hassHost == me then "127.0.0.1" else fleet.${hassHost}.address
+          }:${toString (hostConfig hassHost).services.home-assistant.config.http.server_port}";
+      mcp = pkgs.writeText "pi-mcp.json" (
+        builtins.toJSON {
+          mcpServers.house = {
+            url = "${house}/api/mcp";
+            # Read when pi starts: the token stays out of the store and the settings.
+            headers.Authorization = "!echo Bearer $(cat ${config.sops.secrets.${houseToken}.path})";
+            description = "The house, through Home Assistant: the TV, the speakers, lights and switches, lists, as far as they are exposed to Assist there";
+            exposure = "direct";
+          };
+        }
+      );
+
       # The other machines that have an agent to ask.
       peers = lib.filter (h: h != me && known h && (hostConfig h).balaur ? agent) (lib.attrNames fleet);
 
@@ -298,7 +328,24 @@ in
         (the United States), the life log's text included: send what the question
         needs and no more.
 
-        ## Yourself on the other machines
+        ${
+          lib.optionalString (house != null) ''
+            ## The house
+
+            Home Assistant (`${house}`, on `${hassHost}`) is the house: the TV, the
+            speakers, lights and switches, the shopping list. Your tools named
+            `mcp__house__...` are its own (turn on and off, media, lists, the state of
+            things), for what the owner exposed to Assist there; `/mcp` shows whether
+            it is connected. The machines themselves are there too, as
+            `sensor.fleet_<machine>_...` (state, commit, disk, last backup).
+
+            Never switch off what powers a machine: the server is on a smart plug, and
+            switching it off takes the server, Home Assistant and you down with no way
+            back but a hand on the plug. If such a switch is ever offered to you, leave
+            it alone and tell the owner it is exposed.
+
+          ''
+        }## Yourself on the other machines
 
         `balaur-ask <machine> "<question>"` asks the agent of another machine and prints
         its answer. Use it for what only that machine can see: its journal, its units,
@@ -513,12 +560,26 @@ in
             extra-trusted-public-keys = [ "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=" ];
           };
         }
-        (lib.optionalAttrs (options ? home-manager) {
-          home-manager.users.${cfg.user}.home.file = {
-            ".pi/agent/models.json".source = models;
-            ".pi/agent/settings.json".source = settings;
-            ".pi/agent/AGENTS.md".source = instructions;
+        # The token of Home Assistant's user for the screens, readable by the admin
+        # through the group the GNOME machines already read it by (gnome.nix).
+        (lib.optionalAttrs useSops {
+          sops.secrets.${houseToken} = lib.mkIf (house != null) {
+            group = "balaur-house";
+            mode = "0640";
           };
+          users.groups.balaur-house = { };
+          users.users.${cfg.user}.extraGroups = [ "balaur-house" ];
+        })
+        (lib.optionalAttrs (options ? home-manager) {
+          home-manager.users.${cfg.user}.home.file =
+            lib.optionalAttrs (house != null) {
+              ".pi/agent/mcp.json".source = mcp;
+            }
+            // {
+              ".pi/agent/models.json".source = models;
+              ".pi/agent/settings.json".source = settings;
+              ".pi/agent/AGENTS.md".source = instructions;
+            };
         })
       ];
     };
