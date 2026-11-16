@@ -161,6 +161,8 @@ in
       balaur = {
         # The existing login on this machine; its password is kept as is.
         user = "alex";
+        # The phone the fleet's rules in Home Assistant tell (home-assistant.nix).
+        home-assistant.notify = [ "mobile_app_samsung_phone" ];
         backup = {
           repository = "/srv/proton/restic-backup";
           passwordFile = config.sops.secrets."restic-password".path;

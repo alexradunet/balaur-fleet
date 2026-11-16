@@ -35,6 +35,11 @@ df -h / /srv/files; free -h; uptime
 Most of `/var/lib/<service>` and `/run/secrets` need root; the admin has sudo with a
 password, an agent has none. Say what you could not read rather than guessing.
 
+The same, kept by Home Assistant (https://home.balaur.space): every machine reports
+every five minutes into `sensor.fleet_<host>_state`, `_commit`, `_disk_used`,
+`_last_report`, `_last_backup` and `binary_sensor.fleet_<host>_reboot_needed`
+(`journalctl -u balaur-fleet-report` on the machine; home-assistant.nix).
+
 ## Known shapes
 
 - **Behind main.** `trying <rev> (attempt n/3)`: read the auto-deploy journal on that

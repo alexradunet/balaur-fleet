@@ -14,6 +14,11 @@
 # added later needs nothing here). It is sent with the token of Home Assistant's
 # user for the screens, which is not an administrator.
 #
+# And how the machine is, every five minutes, for Home Assistant's fleet entities
+# and the rules made of them (home-assistant.nix): `balaur-fleet-report` sends its
+# state, failed units, deployed commit, disks, a waiting reboot and its last good
+# backup to the machine's webhook there.
+#
 # What it cannot say: that this machine is off, or that Home Assistant itself is
 # down. A unit that stops with success (status 0) is not a failure either; such a
 # service needs `Restart=always` (torrents.nix).
@@ -108,6 +113,46 @@ in
         '';
       };
 
+      # How this machine is, as JSON, to its webhook in Home Assistant.
+      report = pkgs.writeShellApplication {
+        name = "balaur-fleet-report";
+        runtimeInputs = [
+          pkgs.curl
+          pkgs.jq
+          pkgs.coreutils
+          pkgs.systemd
+        ];
+        text = ''
+          state=$(systemctl is-system-running || true)
+          failed=$(systemctl --failed --plain --no-legend | cut -d' ' -f1 | jq -R . | jq -cs .)
+          # auto-deploy's own record, where the machine has it.
+          deploy=/var/lib/balaur-auto-deploy
+          deployed=$(cat $deploy/deployed 2>/dev/null || true)
+          trying=$(cat $deploy/tried 2>/dev/null || true)
+          if [ "$trying" = "$deployed" ]; then trying=; fi
+          reboot=false
+          for part in kernel kernel-modules initrd; do
+            if [ "$(readlink -f /run/booted-system/$part)" != "$(readlink -f /run/current-system/$part)" ]; then
+              reboot=true
+            fi
+          done
+          # Real filesystems only: {"/": 61, "/srv/media": 17}
+          disks=$(df --output=target,pcent -t ext4 -t btrfs -t xfs -t f2fs | tail -n +2 \
+            | jq -R 'split(" ") | map(select(. != "")) | {(.[0]): (.[1] | rtrimstr("%") | tonumber)}' | jq -cs 'add // {}')
+          # The last good backup, on a machine that makes one.
+          backup_at=
+          if [ "$(systemctl show restic-backups-balaur -P Result 2>/dev/null)" = success ]; then
+            at=$(systemctl show restic-backups-balaur --timestamp=unix -P InactiveEnterTimestamp 2>/dev/null || true)
+            if [ -n "$at" ]; then backup_at=$(date -d "$at" -Iseconds); fi
+          fi
+          jq -cn --arg state "$state" --argjson failed "$failed" --arg deployed "$deployed" --arg trying "$trying" \
+            --argjson reboot "$reboot" --argjson disks "$disks" --arg backup_at "$backup_at" \
+            '{state: $state, failed: $failed, deployed: $deployed, trying: $trying, reboot: $reboot, disks: $disks}
+             + (if $backup_at == "" then {} else {backup_at: $backup_at} end)' \
+            | curl -fsS --max-time 15 -H "Content-Type: application/json" -d @- ${url}/api/webhook/balaur-fleet-${me}
+        '';
+      };
+
       # smartd runs it as root, with its message in the environment.
       disk = pkgs.writeShellApplication {
         name = "balaur-notify-disk";
@@ -125,6 +170,9 @@ in
           > $out/lib/systemd/system/service.d/10-balaur-notify.conf
         printf '[Unit]\nOnFailure=\n' \
           > "$out/lib/systemd/system/balaur-notify-failure@.service.d/10-not-itself.conf"
+        mkdir $out/lib/systemd/system/balaur-fleet-report.service.d
+        printf '[Unit]\nOnFailure=\n' \
+          > $out/lib/systemd/system/balaur-fleet-report.service.d/10-not-told.conf
       '';
     in
     {
@@ -193,6 +241,38 @@ in
               RestrictNamespaces = true;
               LockPersonality = true;
               SystemCallArchitectures = "native";
+            };
+          };
+
+          systemd.services.balaur-fleet-report = {
+            description = "Tell Home Assistant how this machine is";
+            after = [ "network-online.target" ];
+            wants = [ "network-online.target" ];
+            serviceConfig = {
+              Type = "oneshot";
+              ExecStart = lib.getExe report;
+              DynamicUser = true;
+              CapabilityBoundingSet = "";
+              NoNewPrivileges = true;
+              PrivateTmp = true;
+              PrivateDevices = true;
+              ProtectHome = true;
+              ProtectSystem = "strict";
+              ProtectKernelTunables = true;
+              ProtectKernelModules = true;
+              ProtectControlGroups = true;
+              RestrictNamespaces = true;
+              LockPersonality = true;
+              SystemCallArchitectures = "native";
+            };
+            # (A report that fails tells nobody: the drop-ins above. A laptop away
+            # from the tailnet, Home Assistant restarting: the next one is in five minutes.)
+          };
+          systemd.timers.balaur-fleet-report = {
+            wantedBy = [ "timers.target" ];
+            timerConfig = {
+              OnBootSec = "1min";
+              OnUnitInactiveSec = "5min";
             };
           };
 

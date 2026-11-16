@@ -346,5 +346,88 @@ in
               assert "balaur-notify-failure@" in machine.succeed("systemctl show -P OnFailure fake-hass")
         '';
       };
+
+      # Not a check: it builds Home Assistant, which no cache has with our set of
+      # integrations, so on GitHub it would cost a quarter of an hour on every push.
+      # By hand, after a change to home-assistant.nix or the report in notify.nix:
+      #
+      #   nix build -L .#heavy-tests.fleet-in-home-assistant
+      #
+      # The real Home Assistant with the fleet's sensors and rules: the machine's own
+      # report is taken, a disk over 90 % and a backup three days old are told, and
+      # nothing in its log complains about what is declared here.
+      legacyPackages.heavy-tests.fleet-in-home-assistant = pkgs.testers.runNixOSTest {
+        name = "fleet-in-home-assistant";
+        node.pkgsReadOnly = false;
+
+        # `server`: a machine of the registry, so it has a webhook and sensors.
+        nodes.server =
+          { pkgs, lib, ... }:
+          {
+            imports = [
+              machine
+              aspects.home-assistant
+              aspects.notify
+              aspects.backup
+            ];
+            virtualisation.memorySize = 3072;
+            services.smartd.enable = lib.mkForce false;
+            balaur.notify.tokenFile = "${pkgs.writeText "token" "unused"}";
+            balaur.backup = {
+              repository = "/var/backup-test";
+              passwordFile = "${pkgs.writeText "password" "test"}";
+            };
+            # What is told lands in a file instead of on a phone.
+            balaur.home-assistant.notify = [ "test" ];
+            # At this level it says when it is up, and when a webhook is not known.
+            services.home-assistant.config.logger.default = "info";
+            services.home-assistant.extraComponents = [ "command_line" ];
+            services.home-assistant.config.command_line = [
+              {
+                notify = {
+                  name = "test";
+                  command = "cat >> /var/lib/hass/told; echo >> /var/lib/hass/told";
+                };
+              }
+            ];
+          };
+
+        testScript = ''
+          import json
+
+          def report(**fields):
+              body = json.dumps({"state": "running", "failed": [], "deployed": "0123456789abcdef", "trying": "",
+                                 "reboot": False, "disks": {"/": 50}, **fields})
+              server.succeed(f"curl -fsS -H 'Content-Type: application/json' -d '{body}' "
+                             "http://127.0.0.1:8123/api/webhook/balaur-fleet-server")
+
+          server.wait_for_unit("home-assistant.service")
+          server.wait_for_open_port(8123)
+          # It answers 200 to a webhook it has not made yet: wait until it is all up.
+          server.wait_until_succeeds("journalctl -u home-assistant | grep -q 'Home Assistant initialized'", timeout=180)
+
+          with subtest("the machine's own report is taken"):
+              server.succeed("systemctl start balaur-fleet-report")
+              server.fail("journalctl -u home-assistant --since -5s | grep -q 'unregistered webhook'")
+
+          with subtest("a disk over 90 % is told"):
+              report()
+              report(disks={"/": 50, "/srv/full": 95})
+              server.wait_until_succeeds("grep -q '/srv/full' /var/lib/hass/told", timeout=60)
+
+          with subtest("a backup three days old is told, a fresh one is not"):
+              report(backup_at=server.succeed("date -Iseconds").strip())
+              server.sleep(70)
+              server.fail("grep -q 'nightly backup' /var/lib/hass/told")
+              report(backup_at=server.succeed("date -d '3 days ago' -Iseconds").strip())
+              server.wait_until_succeeds("grep -q 'nightly backup' /var/lib/hass/told", timeout=150)
+
+          with subtest("Home Assistant has no complaint about what is declared"):
+              journal = server.succeed("journalctl -u home-assistant --no-pager")
+              bad = [line for line in journal.splitlines()
+                     if "ERROR" in line and any(w in line.lower() for w in ("template", "fleet", "webhook", "automation"))]
+              assert not bad, "\n".join(bad)
+        '';
+      };
     };
 }

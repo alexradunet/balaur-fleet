@@ -10,6 +10,32 @@
 #
 # An integration missing from `extraComponents` shows in the UI but fails to set
 # up ("No module named ..."): add it here and push.
+#
+# The fleet in Home Assistant, declared here and not clicked together. Every machine
+# of the registry sends how it is every five minutes (`balaur-fleet-report`,
+# notify.nix) to a webhook of its own, and that fills its entities:
+#
+#   sensor.fleet_<host>_state            running, degraded, ... (attribute: the failed units)
+#   sensor.fleet_<host>_commit           the deployed commit (attribute: the one it is trying)
+#   sensor.fleet_<host>_disk_used        the fullest filesystem, in % (attribute: each one)
+#   sensor.fleet_<host>_last_report      when it last said anything
+#   sensor.fleet_<host>_last_backup      when its backup last succeeded (a machine with `backup`)
+#   binary_sensor.fleet_<host>_reboot_needed   a new kernel waits for a reboot
+#
+# and three rules tell the owner (`balaur.home-assistant.notify`) about what is not
+# a failed unit: a disk over 90 %, no good backup for a day and a half, a reboot
+# that has waited a day. A failed unit is told at once by the machine itself
+# (notify.nix). More rules, dashboards and the house's own automations are made in
+# the UI as before.
+#
+# The webhooks take no login: whoever is on the home network or the tailnet could
+# send a false report (and nothing else). They are not for the internet, like the
+# rest of this.
+{ config, ... }:
+let
+  fleet = config.fleet;
+  nixosConfigs = config.flake.nixosConfigurations;
+in
 {
   flake.modules.nixos.home-assistant =
     {
@@ -22,6 +48,127 @@
       port = 8123;
       hass = config.services.home-assistant;
       importFrom = config.balaur.home-assistant.importFrom;
+      cfg = config.balaur.home-assistant;
+      me = config.networking.hostName;
+      hostConfig = h: if h == me then config else nixosConfigs.${h}.config;
+      hasBackup = h: (h == me || nixosConfigs ? ${h}) && (hostConfig h).balaur ? backup;
+
+      # ---- the fleet's entities: one webhook and one set of sensors per machine ----
+      id = h: lib.replaceStrings [ "-" ] [ "_" ] h;
+      machine = h: {
+        trigger = [
+          {
+            trigger = "webhook";
+            webhook_id = "balaur-fleet-${h}";
+            allowed_methods = [ "POST" ];
+            # The laptop reports over the tailnet, which Home Assistant does not
+            # count as local.
+            local_only = false;
+          }
+        ];
+        sensor = [
+          {
+            name = "Fleet ${h} state";
+            unique_id = "balaur_fleet_${id h}_state";
+            icon = "mdi:server";
+            state = "{{ trigger.json.state }}";
+            attributes.failed_units = "{{ trigger.json.failed | default([]) | join(', ') }}";
+          }
+          {
+            name = "Fleet ${h} commit";
+            unique_id = "balaur_fleet_${id h}_commit";
+            icon = "mdi:source-commit";
+            state = "{{ (trigger.json.deployed | default('unknown', true))[:7] }}";
+            attributes.trying = "{{ trigger.json.trying | default('') }}";
+          }
+          {
+            name = "Fleet ${h} disk used";
+            unique_id = "balaur_fleet_${id h}_disk_used";
+            icon = "mdi:harddisk";
+            unit_of_measurement = "%";
+            state_class = "measurement";
+            state = "{{ trigger.json.disks.values() | max }}";
+            attributes.filesystems = "{{ trigger.json.disks | tojson }}";
+          }
+          {
+            name = "Fleet ${h} last report";
+            unique_id = "balaur_fleet_${id h}_last_report";
+            device_class = "timestamp";
+            state = "{{ now().isoformat() }}";
+          }
+        ]
+        ++ lib.optional (hasBackup h) {
+          name = "Fleet ${h} last backup";
+          unique_id = "balaur_fleet_${id h}_last_backup";
+          device_class = "timestamp";
+          # Kept as it was while the last run is not a good one.
+          state = "{{ trigger.json.backup_at | default(this.state if as_datetime(this.state) is not none else none, true) }}";
+        };
+        binary_sensor = [
+          {
+            name = "Fleet ${h} reboot needed";
+            unique_id = "balaur_fleet_${id h}_reboot_needed";
+            icon = "mdi:restart-alert";
+            state = "{{ trigger.json.reboot | default(false) }}";
+          }
+        ];
+      };
+
+      # ---- the rules ----
+      tell =
+        title: message:
+        [
+          {
+            action = "persistent_notification.create";
+            data = { inherit title message; };
+          }
+        ]
+        ++ map (service: {
+          action = "notify.${service}";
+          data = { inherit title message; };
+        }) cfg.notify;
+      rules =
+        h:
+        [
+          {
+            id = "balaur_fleet_${id h}_disk";
+            alias = "Fleet: ${h}'s disk is nearly full";
+            trigger = [
+              {
+                trigger = "numeric_state";
+                entity_id = "sensor.fleet_${id h}_disk_used";
+                above = 90;
+              }
+            ];
+            action = tell "${h}: a disk is nearly full" "{{ state_attr('sensor.fleet_${id h}_disk_used', 'filesystems') }} (% used)";
+          }
+          {
+            id = "balaur_fleet_${id h}_reboot";
+            alias = "Fleet: ${h} waits for a reboot";
+            trigger = [
+              {
+                trigger = "state";
+                entity_id = "binary_sensor.fleet_${id h}_reboot_needed";
+                to = "on";
+                "for" = "24:00:00";
+              }
+            ];
+            action = tell "${h}: reboot it" "A new kernel has waited for a reboot since yesterday.";
+          }
+        ]
+        ++ lib.optional (hasBackup h) {
+          id = "balaur_fleet_${id h}_backup";
+          alias = "Fleet: ${h} has no recent backup";
+          trigger = [
+            {
+              trigger = "template";
+              value_template = "{{ as_datetime(states('sensor.fleet_${id h}_last_backup')) is not none and (now() - as_datetime(states('sensor.fleet_${id h}_last_backup'))).total_seconds() > ${
+                toString (cfg.backupStaleHours * 3600)
+              } }}";
+            }
+          ];
+          action = tell "${h}: no backup since {{ as_datetime(states('sensor.fleet_${id h}_last_backup')) | as_local | as_timestamp | timestamp_custom('%A %H:%M') }}" "The nightly backup has not succeeded for ${toString cfg.backupStaleHours} hours: journalctl -u restic-backups-balaur";
+        };
 
       # A Home Assistant moving in from another machine: started with nothing of
       # its own, it would run onboarding and become a new, empty house. So until
@@ -47,6 +194,17 @@
       };
     in
     {
+      options.balaur.home-assistant.notify = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        example = [ "mobile_app_phone" ];
+        description = "Home Assistant's notify services the fleet's rules tell (a phone with the companion app is `mobile_app_<its name>`), besides Home Assistant's own notifications.";
+      };
+      options.balaur.home-assistant.backupStaleHours = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 36;
+        description = "Hours without a good backup, on a machine with the `backup` aspect, before the owner is told.";
+      };
       options.balaur.home-assistant.importFrom = lib.mkOption {
         type = lib.types.nullOr lib.types.str;
         default = null;
@@ -96,7 +254,9 @@
               "tuya" # found on the network
               "homekit_controller"
               "dlna_dmr"
-              "jellyfin"
+              "netatmo" # the thermostat
+              "roborock" # the vacuum, set up in the Roborock app
+              "xiaomi_miio" # the same vacuum, if it is in Xiaomi's Mi Home app instead
               "qbittorrent"
               "adguard"
               "syncthing"
@@ -128,6 +288,9 @@
                   "::1"
                 ];
               };
+              # The fleet's machines as entities, and the rules about them (above).
+              template = map machine (lib.attrNames fleet);
+              "automation fleet" = lib.concatMap rules (lib.attrNames fleet);
               # What the UI's editors write; a generated configuration.yaml cannot hold it.
               "automation ui" = "!include automations.yaml";
               "scene ui" = "!include scenes.yaml";

@@ -50,7 +50,9 @@ that fails and fix it.
    also the tests that boot machines: `nix build -L --no-link
    .#checks.x86_64-linux.web-gate` (and `.torrents`, `.notify`; under a minute each
    once built; `modules/flake/tests.nix`). `nix flake check` without `--no-build` builds them
-   all, as GitHub Actions does.
+   all, as GitHub Actions does. One test is not a check, because it builds Home
+   Assistant: after a change to `home-assistant.nix` or the report in `notify.nix`,
+   `nix build -L .#heavy-tests.fleet-in-home-assistant` (two minutes here).
 
 7. **What evaluation cannot show** — a service that starts, a page that answers, a
    secret that decrypts — is checked after deploying (skill `deploy`). Say which of
