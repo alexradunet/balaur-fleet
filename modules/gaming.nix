@@ -18,6 +18,12 @@
 # Add-ons are kept by instawow, not declared here: picking one should not need a
 # rebuild.
 #
+# CurseForge, the official app (Overwolf's Linux build, an AppImage), is there as
+# well, for browsing and updating add-ons in a window. It does not find a game in a
+# Wine prefix by itself: the first time, add World of Warcraft by hand and point it
+# at ~/.local/share/battlenet/prefix/drive_c/Program Files (x86)/World of Warcraft.
+# Use it or `wow-addons` for an add-on, not both: each only knows what it installed.
+#
 # One small user service: GNOME counts only keyboards, mice and touch as activity,
 # and games on Proton do not ask it to stay awake, so on a controller the screen
 # blanked and locked mid-game. `balaur-gamepad-awake` holds GNOME's idle inhibitor
@@ -119,6 +125,37 @@
         propagatedBuildInputs = old.propagatedBuildInputs ++ [ instawowPython.pkgs.wcwidth ];
       });
 
+      # Not in nixpkgs. Versions: curseforge.overwolf.com/electron/linux/latest-linux.yml
+      # (Forever is known from 1.324). The app updates itself on other systems; here
+      # the store is read-only, so a new version is a new `version` and `hash`.
+      curseforge =
+        let
+          pname = "curseforge";
+          version = "1.326.0-42377";
+          src = pkgs.fetchurl {
+            url = "https://curseforge.overwolf.com/electron/linux/CurseForge-${version}.AppImage";
+            hash = "sha256-hy0GpwDqKi3ujEdA1aBRA/DBbHyWn1jMoiw2TErBAjo=";
+          };
+          contents = pkgs.appimageTools.extractType2 { inherit pname version src; };
+        in
+        pkgs.appimageTools.wrapType2 {
+          inherit pname version src;
+          # The desktop file carries the curseforge:// handler ("Install" on the website).
+          extraInstallCommands = ''
+            install -m 444 -D ${contents}/curseforge.desktop -t $out/share/applications
+            substituteInPlace $out/share/applications/curseforge.desktop \
+              --replace-fail 'Exec=AppRun --no-sandbox' 'Exec=curseforge'
+            cp -r ${contents}/usr/share/icons $out/share
+          '';
+          meta = {
+            description = "CurseForge, the add-on manager (World of Warcraft, Minecraft)";
+            homepage = "https://www.curseforge.com";
+            license = lib.licenses.unfree;
+            mainProgram = "curseforge";
+            platforms = [ "x86_64-linux" ];
+          };
+        };
+
       wowAddons = pkgs.writeShellApplication {
         name = "wow-addons";
         runtimeInputs = [
@@ -196,6 +233,7 @@
         })
         instawow
         wowAddons
+        curseforge
       ];
     };
 }
