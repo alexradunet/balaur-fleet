@@ -162,17 +162,17 @@ in
         '';
       };
 
-      # For every service at once: a drop-in for the unit type. And none for the
-      # notifier itself, which would otherwise report its own failure, forever.
+      # For every service at once: a drop-in for the unit type. That includes the
+      # notifier and the report, and a drop-in cannot take a dependency away again
+      # (systemd.unit(5)). So those two never fail instead: their commands' exit
+      # status is ignored (`-`), and curl gives up long before systemd would. A
+      # notifier that could fail would be told about by a notifier, and so on; and a
+      # failed unit during a switch makes auto-deploy count the deploy as failed
+      # (2026-11-17: the report ran while Home Assistant restarted in the same switch).
       dropIns = pkgs.runCommand "balaur-notify-drop-ins" { } ''
-        mkdir -p $out/lib/systemd/system/service.d "$out/lib/systemd/system/balaur-notify-failure@.service.d"
+        mkdir -p $out/lib/systemd/system/service.d
         printf '[Unit]\nOnFailure=balaur-notify-failure@%%n.service\n' \
           > $out/lib/systemd/system/service.d/10-balaur-notify.conf
-        printf '[Unit]\nOnFailure=\n' \
-          > "$out/lib/systemd/system/balaur-notify-failure@.service.d/10-not-itself.conf"
-        mkdir $out/lib/systemd/system/balaur-fleet-report.service.d
-        printf '[Unit]\nOnFailure=\n' \
-          > $out/lib/systemd/system/balaur-fleet-report.service.d/10-not-told.conf
       '';
     in
     {
@@ -219,7 +219,7 @@ in
             description = "Tell the owner that %i failed";
             serviceConfig = {
               Type = "oneshot";
-              ExecStart = "${lib.getExe failed} %i";
+              ExecStart = "-${lib.getExe failed} %i"; # `-`: never failed itself (above)
               LoadCredential = "token:${toString cfg.tokenFile}";
               DynamicUser = true;
               StateDirectory = "balaur-notify"; # when each unit was last told about
@@ -250,7 +250,7 @@ in
             wants = [ "network-online.target" ];
             serviceConfig = {
               Type = "oneshot";
-              ExecStart = lib.getExe report;
+              ExecStart = "-${lib.getExe report}"; # `-`: never failed (above)
               DynamicUser = true;
               CapabilityBoundingSet = "";
               NoNewPrivileges = true;
@@ -265,8 +265,8 @@ in
               LockPersonality = true;
               SystemCallArchitectures = "native";
             };
-            # (A report that fails tells nobody: the drop-ins above. A laptop away
-            # from the tailnet, Home Assistant restarting: the next one is in five minutes.)
+            # (A laptop away from the tailnet, Home Assistant restarting: the next
+            # report is in five minutes.)
           };
           systemd.timers.balaur-fleet-report = {
             wantedBy = [ "timers.target" ];

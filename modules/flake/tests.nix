@@ -336,14 +336,25 @@ in
               machine.wait_until_succeeds("journalctl -u 'balaur-notify-failure@*' | grep -q 'already said'", timeout=30)
               assert len(sent()) == 2, sent()
 
-          with subtest("with Home Assistant down the notifier fails, and tells nobody about itself"):
+          with subtest("with Home Assistant down nothing fails, and the unit is told about the next time"):
               machine.succeed("systemctl stop fake-hass && rm -rf /var/lib/private/balaur-notify/*")
               machine.fail("systemctl start boom")
-              machine.wait_until_succeeds("systemctl is-failed 'balaur-notify-failure@boom.service.service'", timeout=30)
-              on_failure = machine.succeed("systemctl show -P OnFailure 'balaur-notify-failure@boom.service.service'")
-              assert on_failure.strip() == "", f"the notifier would report itself: {on_failure}"
-              # Every other service has it (the drop-in is for the unit type).
-              assert "balaur-notify-failure@" in machine.succeed("systemctl show -P OnFailure fake-hass")
+              machine.wait_until_succeeds("journalctl -u 'balaur-notify-failure@*' | grep -q 'took nothing'", timeout=30)
+              machine.sleep(2)
+              # Not the notifier (a failed notifier would be told about by a notifier),
+              # and so no failed unit but the one that did fail.
+              failed = machine.succeed("systemctl --failed --plain --no-legend | cut -d' ' -f1").split()
+              assert failed == ["boom.service"], failed
+              machine.succeed("systemctl start fake-hass")
+              machine.wait_for_open_port(8123)
+              machine.fail("systemctl start boom")
+              machine.wait_until_succeeds("test $(wc -l < /tmp/sent) -ge 4", timeout=30)
+
+          with subtest("a report that cannot be sent fails nothing either"):
+              machine.succeed("systemctl stop fake-hass")
+              machine.succeed("systemctl start balaur-fleet-report")
+              failed = machine.succeed("systemctl --failed --plain --no-legend | cut -d' ' -f1").split()
+              assert failed == ["boom.service"], failed
         '';
       };
 
