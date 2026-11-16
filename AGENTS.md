@@ -57,6 +57,11 @@ deploying is `git push`. Skill `deploy` has the whole routine.
 - `balaur-fleet-status` shows every machine's deployed commit, state and failed units.
 - A commit that fails is retried after 15 minutes and an hour, then left until the
   next push; a switch that loses GitHub is rolled back. Push a fix rather than wait.
+- Only a commit signed by one of the admin's SSH keys is deployed (the registry's
+  `userKeys`). git signs by itself on every machine (home.nix), so there is nothing
+  to do, but never commit with `--no-gpg-sign` or from GitHub's web page: the
+  machines refuse that commit ("not signed") until a signed one is on top of it.
+  `git log --show-signature -1` shows it.
 - Other agents and the user may be pushing too: `git pull --rebase` before `git push`,
   never force-push, and never commit or revert changes in the working tree you did
   not make.

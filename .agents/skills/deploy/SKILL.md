@@ -27,6 +27,8 @@ Deploying is committing and pushing; the work is in following it through.
    On a machine (or `ssh <host>`): `journalctl -u balaur-auto-deploy -n 50` says what
    it did; `sudo systemctl start balaur-auto-deploy` checks at once.
 
+   A machine that says `not signed by an admin key` refused the commit: it was made
+   without a signature (`git log --show-signature -1`). Push a signed commit on top.
 5. **When a machine fails.** The status shows `trying <rev> (attempt n/3)` and the unit
    is failed. Read its journal, fix, and push the fix: a new commit is tried at once.
    A switch after which the machine could not reach GitHub was rolled back by itself.

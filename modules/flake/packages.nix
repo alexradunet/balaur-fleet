@@ -11,6 +11,8 @@ let
     lifelog-web = final.callPackage ../../pkgs/lifelog-web.nix { };
     balaur-app = final.callPackage ../../pkgs/balaur-app.nix { };
     balaur-shell-extension = final.callPackage ../../pkgs/balaur-shell-extension.nix { };
+    # Is this commit signed by one of these keys? What auto-deploy asks before a switch.
+    balaur-verify-commit = final.callPackage ../../pkgs/balaur-verify-commit.nix { };
   };
 in
 {
@@ -24,6 +26,7 @@ in
         lifelog-web
         balaur-app
         balaur-shell-extension
+        balaur-verify-commit
         ;
     in
     {
@@ -33,6 +36,7 @@ in
           lifelog-web
           balaur-app
           balaur-shell-extension
+          balaur-verify-commit
           ;
         default = balaur-app;
       };
@@ -52,6 +56,53 @@ in
           find modules pkgs -name '*.nix' -exec nixfmt --check {} +
           touch $out
         '';
+
+        # auto-deploy switches only to a commit an admin key signed (auto-deploy.nix):
+        # a signed commit passes; an unsigned one, one signed by another key and one
+        # that is not there do not. With keys and a repository made here.
+        signed-commits =
+          pkgs.runCommand "balaur-signed-commits"
+            {
+              nativeBuildInputs = [
+                balaur-verify-commit
+                pkgs.gitMinimal
+                pkgs.openssh
+              ];
+            }
+            ''
+              export HOME=$TMPDIR
+              cd $TMPDIR
+              ssh-keygen -q -t ed25519 -N "" -C admin -f admin
+              ssh-keygen -q -t ed25519 -N "" -C stranger -f stranger
+              echo "fleet namespaces=\"git\" $(cat admin.pub)" > signers
+
+              git init -q -b main src
+              git -C src config user.name test
+              git -C src config user.email test@example.org
+              git -C src config gpg.format ssh
+              # As GitHub does: any commit can be asked for by its id.
+              git -C src config uploadpack.allowAnySHA1InWant true
+              commit() { git -C src commit -q --allow-empty -m "$1" "''${@:2}"; git -C src rev-parse HEAD; }
+              verify() { balaur-verify-commit $PWD/signers file://$PWD/src "$1" $PWD/verify.git; }
+
+              signed=$(git -C src -c user.signingkey=$PWD/admin.pub commit -q --allow-empty -S -m "by the admin" && git -C src rev-parse HEAD)
+              verify "$signed"
+
+              unsigned=$(commit "by nobody")
+              if verify "$unsigned"; then echo "an unsigned commit passed" >&2; exit 1; fi
+
+              other=$(git -C src -c user.signingkey=$PWD/stranger.pub commit -q --allow-empty -S -m "by a stranger" && git -C src rev-parse HEAD)
+              if verify "$other"; then echo "a commit signed by another key passed" >&2; exit 1; fi
+
+              # An unsigned commit under a signed one: the signed one is deployed (it
+              # is the tree its signer saw), the one under it is not.
+              again=$(git -C src -c user.signingkey=$PWD/admin.pub commit -q --allow-empty -S -m "by the admin again" && git -C src rev-parse HEAD)
+              verify "$again"
+              if verify "$unsigned"; then echo "the unsigned commit passed, later" >&2; exit 1; fi
+
+              if verify 0000000000000000000000000000000000000001; then echo "a commit that is not there passed" >&2; exit 1; fi
+              touch $out
+            '';
 
         # The Python that ships as it is, from modules/ (no package of its own, so no
         # build that would run a test): each file compiles, and the AI entryway's

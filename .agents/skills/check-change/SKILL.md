@@ -41,12 +41,15 @@ that fails and fix it.
    expected. A build also runs shellcheck on every `writeShellApplication`.
 
 6. **The checks for real.** `nix build --no-link .#checks.x86_64-linux.formatting
-   .#checks.x86_64-linux.skills .#checks.x86_64-linux.python` cost seconds (`python`:
-   the Python under `modules/` compiles, and `modules/ai/test_router.py` passes). The
+   .#checks.x86_64-linux.skills .#checks.x86_64-linux.python
+   .#checks.x86_64-linux.signed-commits` cost seconds (`python`: the Python under
+   `modules/` compiles, and `modules/ai/test_router.py` passes; `signed-commits`:
+   what auto-deploy accepts as a signed commit). The
    package checks (`lifelog`, `lifelog-web`, `balaur-app`, ...) build with their
-   packages. After a change to `web`, `base` or the registry, also the test that
-   boots machines: `nix build -L --no-link .#checks.x86_64-linux.web-gate` (minutes;
-   `modules/flake/tests.nix`). `nix flake check` without `--no-build` builds them
+   packages. After a change to `web`, `torrents`, `notify`, `base` or the registry,
+   also the tests that boot machines: `nix build -L --no-link
+   .#checks.x86_64-linux.web-gate` (and `.torrents`, `.notify`; under a minute each
+   once built; `modules/flake/tests.nix`). `nix flake check` without `--no-build` builds them
    all, as GitHub Actions does.
 
 7. **What evaluation cannot show** — a service that starts, a page that answers, a
