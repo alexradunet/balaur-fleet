@@ -1,7 +1,9 @@
 # Every machine switches to whatever lands on main (modules/auto-deploy.nix), so a
 # commit that does not evaluate would be tried by all of them. This says so first:
-# it evaluates every host and runs the cheap checks. It reports; it does not gate
-# the deploy (AGENTS.md, "Checking a change").
+# it evaluates every host and builds every check: the packages with their tests,
+# the Python tests, formatting, the skills, and the tests that boot machines
+# (modules/flake/tests.nix). It reports; it does not gate the deploy (AGENTS.md,
+# "Checking a change").
 name: check
 
 on:
@@ -23,8 +25,9 @@ jobs:
           extra_nix_config: |
             extra-substituters = https://cache.numtide.com
             extra-trusted-public-keys = niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=
-      # Every nixosConfigurations.* evaluates, and every check and package
-      # derivation can be instantiated. Builds nothing.
+      # Every nixosConfigurations.* evaluates, first and by itself: the step that
+      # says whether the machines can follow this commit at all. Builds nothing.
       - run: nix flake check --no-build
-      # The checks that cost seconds, built for real.
-      - run: nix build --no-link .#checks.x86_64-linux.formatting .#checks.x86_64-linux.skills
+      # Then every check, built for real. The hosts' systems are not built: each
+      # machine builds its own.
+      - run: nix flake check -L

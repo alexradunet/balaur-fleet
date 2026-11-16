@@ -40,9 +40,14 @@ that fails and fix it.
    Read the closure diff: every added, removed or upgraded package should be one you
    expected. A build also runs shellcheck on every `writeShellApplication`.
 
-6. **Cheap checks for real.** `nix build --no-link .#checks.x86_64-linux.formatting
-   .#checks.x86_64-linux.skills`; the package checks (`lifelog`, `lifelog-web`, `balaur-app`,
-   ...) build with their packages.
+6. **The checks for real.** `nix build --no-link .#checks.x86_64-linux.formatting
+   .#checks.x86_64-linux.skills .#checks.x86_64-linux.python` cost seconds (`python`:
+   the Python under `modules/` compiles, and `modules/ai/test_router.py` passes). The
+   package checks (`lifelog`, `lifelog-web`, `balaur-app`, ...) build with their
+   packages. After a change to `web`, `base` or the registry, also the test that
+   boots machines: `nix build -L --no-link .#checks.x86_64-linux.web-gate` (minutes;
+   `modules/flake/tests.nix`). `nix flake check` without `--no-build` builds them
+   all, as GitHub Actions does.
 
 7. **What evaluation cannot show** — a service that starts, a page that answers, a
    secret that decrypts — is checked after deploying (skill `deploy`). Say which of
