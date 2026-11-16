@@ -246,8 +246,10 @@ in
 
         You answer through the fleet's AI entryway, `${aiUrl}`: the model `balaur` is the
         fleet's GPU when it is free and a remote API otherwise, `balaur-local` and
-        `balaur-remote` are one of the two, and `balaur-mistral` and `balaur-claude`
-        are one remote API by name. `curl -s ${lib.removeSuffix "/v1" aiUrl}/health` shows
+        `balaur-remote` are one of the two, and ${
+          lib.concatMapStringsSep ", " (r: "`balaur-${r.name}`") (cfg.ai.remotes or [ ])
+        }
+        are each one remote API by name. `curl -s ${lib.removeSuffix "/v1" aiUrl}/health` shows
         which are up.
 
         ## The configuration

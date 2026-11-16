@@ -54,7 +54,9 @@ in
       remote = "https://github.com/${cfg.repo}.git";
 
       # One line about this machine, for balaur-fleet-status (here or over SSH):
-      #   <deployed rev> <system state> <trying rev or -> <attempts> <failed units, comma-separated or ->
+      #   <deployed rev> <system state> <trying rev or -> <attempts> <failed units, comma-separated or -> <reboot or ->
+      # `reboot`: the kernel, its modules or the initrd of the deployed system are not
+      # the ones it booted with. A switch cannot change those; only a reboot does.
       deployState = pkgs.writeShellApplication {
         name = "balaur-deploy-state";
         runtimeInputs = [
@@ -69,7 +71,13 @@ in
           if [ "$tried" = "$deployed" ]; then tried=-; attempts=0; fi
           state=$(systemctl is-system-running || true)
           failed=$(systemctl --failed --plain --no-legend | cut -d' ' -f1 | paste -sd, -)
-          echo "$deployed $state $tried $attempts ''${failed:--}"
+          reboot=-
+          for part in kernel kernel-modules initrd; do
+            if [ "$(readlink -f /run/booted-system/$part)" != "$(readlink -f /run/current-system/$part)" ]; then
+              reboot=reboot
+            fi
+          done
+          echo "$deployed $state $tried $attempts ''${failed:--} $reboot"
         '';
       };
 
@@ -207,7 +215,9 @@ in
               printf '%-8s %s\n' "$h" "no answer (asleep, off the tailnet, or no auto-deploy yet)"
               continue
             fi
-            read -r deployed state tried attempts failed <<<"$line"
+            # (A machine not yet on this commit says nothing about a reboot.)
+            read -r deployed state tried attempts failed reboot <<<"$line"
+            if [ "''${reboot:-}" = reboot ]; then failed="$failed (reboot it: a new kernel waits)"; fi
             mark=""
             if [ -n "$main" ] && [ "$deployed" = "$main" ]; then mark=" ok"; fi
             trying=-

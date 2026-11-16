@@ -32,7 +32,8 @@
         modesetting.enable = true;
         package = config.boot.kernelPackages.nvidiaPackages.stable;
         # A desktop card on mains power: no runtime suspend to fine-tune. The
-        # suspend/resume hooks stay off with it; this machine never sleeps (host).
+        # suspend/resume hooks stay off with it, so the laptop must not suspend with
+        # the dock attached (above): unplug it first.
         powerManagement.enable = false;
         nvidiaSettings = true;
       };
