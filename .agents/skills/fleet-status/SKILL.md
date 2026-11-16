@@ -39,9 +39,8 @@ password, an agent has none. Say what you could not read rather than guessing.
 
 - **Behind main.** `trying <rev> (attempt n/3)`: read the auto-deploy journal on that
   machine; the build error is in it. Push a fix. `no answer`: asleep or off the tailnet.
-- **AI.** `curl -s server:4000/health | jq` shows each tier and why it is down. Strata
-  on a GPU machine is stopped on purpose while a game runs (`strata-yield`: it looks for
-  `reaper`, `wineserver`, `umu-run`), and starts a minute after; loading takes minutes.
+- **AI.** `curl -s server:4000/health | jq` shows each tier and why it is down. The local
+  model (`local-llm` on the server) takes minutes to load after a start.
 - **A web UI.** On the machine: `curl -sI http://127.0.0.1:<port>`. Through the domain:
   `curl -sI https://<subdomain>.balaur.space` (Caddy and the wildcard certificate on
   the server: `systemctl status caddy acme-balaur.space`).

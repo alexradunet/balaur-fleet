@@ -109,7 +109,7 @@ and WebP (not HEIC: export those as JPEG). Each is decoded at about the screen's
 thread.
 
 Without the synced folder (`balaur.ambient.photos.dir = null`), the slideshow uses Jellyfin's photo
-libraries instead, on a machine that runs Jellyfin (the `media` aspect): an API key from the Jellyfin web UI
+libraries instead, on a machine that runs Jellyfin (`services.jellyfin`; the `media` aspect that set it up is in git history): an API key from the Jellyfin web UI
 (Dashboard → API Keys → **+**) given to `sudo balaur-photos-login`, which also adds a **Photos** library
 for `/srv/media/photos`.
 

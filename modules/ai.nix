@@ -22,10 +22,10 @@
 #
 #   ai-gateway   the entryway itself (ai/router.py, stdlib Python), on one machine:
 #                the server, the always-on one. The local tier is every machine with
-#                `local-llm` or `strata`, found in the registry, so a second GPU machine
-#                joins by itself. Each is probed every few seconds and skipped when
-#                it is off, loading, stopped for a game, or busy answering someone
-#                else (Strata answers one at a time), so falling back costs nothing.
+#                `local-llm`, found in the registry, so a second GPU machine joins
+#                by itself. Each is probed every few seconds and skipped when it is
+#                off, loading, or busy answering someone else, so falling back costs
+#                nothing.
 #                The page's changes live in /var/lib/private/balaur-ai/settings.json,
 #                over the defaults below.
 #   ai           the clients, on every machine: finds the gateway in the registry
@@ -108,25 +108,17 @@ in
       domain = config.balaur.web.domain or null;
 
       # The fleet's local models: every machine with `local-llm` (llama.cpp on an
-      # iGPU) or `strata` (a discrete card). Reading another host's config is lazy
-      # and only touches its `balaur.local-llm`/`balaur.strata`, so hosts reading
-      # each other is no loop.
+      # iGPU). Reading another host's config is lazy and only touches its
+      # `balaur.local-llm`, so hosts reading each other is no loop.
       hostConfig = h: if h == me then config else nixosConfigs.${h}.config;
-      localPort =
-        h:
-        let
-          b = (hostConfig h).balaur;
-        in
-        if b ? local-llm then b.local-llm.port else b.strata.port;
-      gpuHosts = lib.filter (
-        h:
-        (h == me || nixosConfigs ? ${h})
-        && ((hostConfig h).balaur ? local-llm || (hostConfig h).balaur ? strata)
-      ) (lib.attrNames fleet);
+      localPort = h: (hostConfig h).balaur.local-llm.port;
+      gpuHosts = lib.filter (h: (h == me || nixosConfigs ? ${h}) && (hostConfig h).balaur ? local-llm) (
+        lib.attrNames fleet
+      );
       local = map (h: {
         name = h;
         url = "http://${if h == me then "127.0.0.1" else fleet.${h}.address}:${toString (localPort h)}/v1";
-        # Both serve whatever model they loaded under the name asked for.
+        # It serves the model it loaded under the name asked for.
         model = "local";
       }) gpuHosts;
 

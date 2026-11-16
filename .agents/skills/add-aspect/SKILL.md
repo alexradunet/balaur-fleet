@@ -7,8 +7,8 @@ description: Add a feature or service to the Balaur fleet as a new aspect (a fil
 
 An aspect is one file, `modules/<name>.nix`, named after the feature, not a machine.
 import-tree loads it; a host turns it on by listing it. Read two existing aspects of
-the same kind first: a service (`media.nix`, `home-assistant.nix`), a program
-(`gaming.nix`), a client/server pair (`torrents.nix`, `game-streaming.nix`), hardware
+the same kind first: a service (`dlna.nix`, `home-assistant.nix`), a program
+(`gaming.nix`), a client/server pair (`torrents.nix`, `lifelog.nix`), hardware
 (`modules/hardware/*.nix`).
 
 ## The file
@@ -53,7 +53,7 @@ the same kind first: a service (`media.nix`, `home-assistant.nix`), a program
   with `lib.getExe`. Not `writeShellScript`, not `"${pkgs.x}/bin/x"` paths in text.
 - **Services:** prefer the NixOS module. For our own units, `DynamicUser` or a system
   user, `StateDirectory`, `LoadCredential` for secrets, and the hardening the service
-  tolerates (`ai.nix` and `strata.nix` are examples); check with
+  tolerates (`ai.nix` and `local-llm.nix` are examples); check with
   `systemd-analyze security <unit>` on the machine.
 - **Secrets** come from sops (skill `secrets`), never from the store.
 - **Comments** explain why, in full sentences, like the rest of the repository.

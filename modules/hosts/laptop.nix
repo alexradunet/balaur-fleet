@@ -87,6 +87,10 @@ in
         files.guiOnLan = false;
       };
 
+      # On networks nobody here owns it does not announce its name (mDNS); nothing
+      # dials `laptop.local` (the fleet uses the tailnet name).
+      services.avahi.publish.enable = false;
+
       # No FileList credentials here: searching happens in qBittorrent, which
       # runs on the server. This machine only hands it magnets.
     };

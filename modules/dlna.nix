@@ -3,7 +3,8 @@
 #
 # It serves the files as they are, with no transcoding and no library to curate:
 # next to nothing on the CPU, and the player must know the format. Jellyfin
-# (`media`) is the server for what should be transcoded or kept as a library.
+# (the `media` aspect, removed 2026-11-16; git history keeps it) is the server for
+# what should be transcoded or kept as a library.
 #
 # DLNA has no login: whoever is on the home network can browse and play what is
 # listed in `balaur.dlna.dirs`. The machine with this aspect stays at home.

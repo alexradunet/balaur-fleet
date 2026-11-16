@@ -25,8 +25,10 @@
           enable = true;
           nssmdns4 = true;
           openFirewall = true;
+          # A machine that roams sets publish.enable = false: it still finds
+          # <name>.local, but does not announce itself on every Wi-Fi it joins.
           publish = {
-            enable = true;
+            enable = lib.mkDefault true;
             addresses = true;
           };
         };
