@@ -46,7 +46,7 @@ AGENTS.md                 the agents' instructions (CLAUDE.md imports it)
 .agents/skills/           the agents' procedures, one folder each (linked from .claude/skills/)
 .github/workflows/        CI: every host evaluates, formatting and skills checked
 modules/
-  flake/                  flake wiring: the packages overlay, checks, formatter, dev shell
+  flake/                  flake wiring: the packages overlay, checks (tests.nix: the tests that boot machines), formatter, dev shell
   hosts/laptop.nix        laptop = its aspects + its own settings (account, roaming, ...)
   hosts/server.nix        server = its aspects + its own settings (builder, web, ...)
   hardware/yoga-pro-7.nix   the laptop's firmware and CPU bits (AMD)
