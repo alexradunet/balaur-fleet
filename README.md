@@ -77,7 +77,6 @@ modules/
   cockpit.nix             Cockpit, the web admin page of a headless machine (the server)
   local-llm.nix           llama.cpp on the iGPU (Nemotron 3.5 Lightning, the server): the AI entryway's local tier
   gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow) and the CurseForge app; the laptop
-  wow-market.nix          WoW Market: what to craft, buy and sell in WoW: Forever, from Auctionator's scans; http://laptop:8790 on the tailnet (the laptop)
   steam.nix               Steam and GameMode, for a machine that plays locally (none at the moment)
   game-streaming.nix      Sunshine on a host, Moonlight on the clients, over the tailnet (none at the moment)
   ai.nix                  the fleet's AI entryway on the server (`ai-gateway`: local GPU first, then a remote API: Mistral or Claude, also as `balaur-mistral` and `balaur-claude`) and its clients (`ai`)

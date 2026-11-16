@@ -60,8 +60,6 @@ in
           # WoW, on the RTX 5060 Ti in its USB4 dock when it is plugged in.
           nvidia-egpu
           gaming
-          # What to craft, buy and sell in WoW: Forever, from Auctionator's scans.
-          wow-market
           # The server's /srv/proton (backed up to Proton Drive) as /mnt/proton, over SSHFS.
           proton-drive-client
         ])
