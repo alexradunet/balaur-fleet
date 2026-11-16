@@ -28,8 +28,10 @@
 #     sops file): the dashboard refuses any name but loopback's unless it is
 #     declared as its public address, and a public address always turns its
 #     login on. That suits what is behind it: a shell and the life log.
-#   - The owner's own `hermes` in a terminal shares that state (the group
-#     `hermes`), but runs as the owner, outside the service's sandbox.
+#   - `hermes` in the owner's terminal is the same agent: it runs as the user
+#     `hermes` too (through sudo, without a password, for the admin alone), with
+#     the service's state and environment. Hermes refuses a state directory that
+#     another user owns, so the admin sharing it through a group does not work.
 #
 # It needs the `ai` aspect; the life log and the web address are optional.
 { inputs, ... }:
@@ -53,6 +55,36 @@
       domain = cfg.web.domain or null;
       svc = config.services.hermes-agent;
       workspace = "${svc.stateDir}/workspace";
+
+      # `hermes` for the owner's terminal: the agent as its own user, with what
+      # the units give it (their environment, their tools, the workspace).
+      asService = pkgs.writeShellApplication {
+        name = "hermes-as-service";
+        text = ''
+          export HERMES_HOME=${svc.stateDir}/.hermes HERMES_MANAGED=true HOME=${svc.stateDir}
+          ${lib.optionalString (life != null) "export LIFELOG_FOLDER=${life}"}
+          PATH=${
+            lib.makeBinPath (
+              [
+                svc.package
+                pkgs.bash
+                pkgs.coreutils
+                pkgs.git
+              ]
+              ++ svc.extraPackages
+            )
+          }:/run/current-system/sw/bin
+          umask 0007
+          cd ${workspace}
+          exec hermes "$@"
+        '';
+      };
+      command = pkgs.writeShellApplication {
+        name = "hermes";
+        text = ''
+          exec /run/wrappers/bin/sudo -u ${svc.user} ${lib.getExe asService} "$@"
+        '';
+      };
 
       instructions = ''
         # Hermes, the owner's personal agent
@@ -141,8 +173,6 @@
             # The lean build: the agent, the dashboard and the WhatsApp bridge, without
             # the libraries of the platforms and clouds nobody here uses (0.8 GiB less).
             package = inputs.hermes-agent.packages.${pkgs.stdenv.hostPlatform.system}.minimal;
-            # `hermes` for the owner's terminal, on the service's state.
-            addToSystemPackages = true;
             workingDirectory = workspace;
             documents."AGENTS.md" = instructions;
             extraPackages = lib.optional (life != null) pkgs.lifelog;
@@ -169,8 +199,20 @@
             };
           };
 
-          # The owner's terminal shares the service's state.
-          users.users.${cfg.user}.extraGroups = [ svc.group ];
+          # The admin, and nobody else, may be `hermes` for that one command.
+          environment.systemPackages = [ command ];
+          security.sudo.extraRules = [
+            {
+              users = [ cfg.user ];
+              runAs = svc.user;
+              commands = [
+                {
+                  command = lib.getExe asService;
+                  options = [ "NOPASSWD" ];
+                }
+              ];
+            }
+          ];
 
           balaur.services = [
             {
