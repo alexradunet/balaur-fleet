@@ -51,7 +51,7 @@ in
           auto-deploy
           # The fleet's AI entryway on the server: its local model first, Mistral second.
           ai
-          # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
+          # The Balaur agent (`balaur`): pi with the fleet's instructions and the life log as its memory.
           agent
           # This machine's own.
           # The life log as files: the folder, `lifelog`, Obsidian, and the nightly mirror of

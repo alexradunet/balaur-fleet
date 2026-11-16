@@ -25,7 +25,7 @@ Every machine follows `main` on GitHub by itself (`auto-deploy`): a push is a de
 ## For agents
 
 [AGENTS.md](AGENTS.md) is the repository's instructions for every agent: Claude Code
-(through `CLAUDE.md`, which imports it) and pi, the fleet's OS agent. The procedures —
+(through `CLAUDE.md`, which imports it) and the Balaur agent (pi), the owner's agent on every machine. The procedures —
 checking a change, deploying, adding an aspect or a machine, secrets, updating inputs,
 diagnosing a machine — are [Agent Skills](https://agentskills.io) in `.agents/skills/`,
 linked into `.claude/skills/` for Claude Code and given to pi through its settings.
@@ -71,8 +71,7 @@ modules/
   home-assistant.nix      Home Assistant: devices and automations, https://home.<domain> and :8123
   web.nix                 https://<domain>: the home page of every machine's web UIs, tailnet only (Caddy, DNS-challenge cert); the owner's devices get all of it, the household's the `household` services
   files.nix               Syncthing: a 200 GiB volume of its own at /srv/files, paired from the registry
-  agent.nix               pi, the OS agent on every machine: the fleet's models, machines and services; `balaur-ask`; roles (`pi-NAME`, none yet)
-  companion.nix           the owner's personal agent on the server (`companion`): pi with full tools for the owner and this machine, its memory the life log's page `Companion`; set in `balaur.companion`
+  agent.nix               the Balaur agent on every machine (`balaur`): pi with the fleet's models, machines and services, the life log as its memory; `balaur-ask`; set in `balaur.agent`
   dev.nix                 Claude Code + Orca (from numtide/llm-agents.nix, daily updates), gh, ripgrep
   orca-server.nix         Orca's runtime as a service from boot (the server): the development sessions, for the other machines' Orca to pair with
   cockpit.nix             Cockpit, the web admin page of a headless machine (the server)

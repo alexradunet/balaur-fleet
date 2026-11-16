@@ -1,5 +1,5 @@
 # Code directly on the box: agent harnesses plus the small tools they lean on.
-# (pi, the OS agent, is its own aspect: agent.nix.)
+# (pi, the engine of the Balaur agent, is its own aspect: agent.nix.)
 # The agents come from numtide/llm-agents.nix (updated daily, binary-cached),
 # not nixpkgs, which lags upstream by months. Bump them with:
 #   nix flake update llm-agents && nixos-rebuild switch --flake .#$(hostname) --sudo

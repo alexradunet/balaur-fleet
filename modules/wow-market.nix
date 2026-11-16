@@ -9,7 +9,7 @@
 # in front, since `web` proxies only its own machine's services and the laptop has no
 # `web`): which crafts of a profession pay over selling their materials, listings
 # below vendor price, enchanting essences, and items cheaper or dearer than their
-# median over the past scans. GET /api/report is the same as JSON, for the OS agent.
+# median over the past scans. GET /api/report is the same as JSON, for the Balaur agent.
 #
 # Item names and recipes are the installed build's own game tables, fetched from
 # wago.tools once per build (Forever's differ from Classic Era's), so a patch needs

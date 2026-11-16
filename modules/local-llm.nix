@@ -95,7 +95,7 @@
         contextSize = lib.mkOption {
           type = lib.types.ints.positive;
           default = 131072;
-          description = "Context window in tokens. The OS agents assume 128k (agent.nix).";
+          description = "Context window in tokens. The Balaur agent assumes 128k (agent.nix).";
         };
         model = {
           url = lib.mkOption {

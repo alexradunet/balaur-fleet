@@ -1,40 +1,47 @@
-# The OS agent: pi (pi.dev), the same on every machine, set up to know the fleet.
+# The Balaur agent: the owner's one agent, the same on every machine. It is pi
+# (pi.dev) with the fleet's models, instructions made here and a memory in the life
+# log. It looks after the owner, and after the machines as a part of the owner:
+# their notes and their days, the services, the configuration, the debugging.
 #
-#   pi                         the agent, in a terminal (start it in the fleet's clone
-#                              to work on this configuration)
-#   pi -p "question"           one answer, then exit
+#   balaur                     the agent, in a terminal
+#   balaur -p "question"       one answer, then exit
+#   balaur -c                  continue the last conversation in this directory
 #   balaur-ask HOST "question" ask the agent on another machine, which answers from
 #                              what it sees there (its journal, units, hardware)
+#   pi                         the engine alone: the same agent without its memory
 #
-# What the aspect gives the admin account, in ~/.pi/agent (pi's own directory;
-# its logins and sessions stay there too, unmanaged):
+# How it is made, and nothing more than this:
 #
-#   models.json    the fleet's AI entryway (ai.nix) as the provider `balaur`, with
-#                  the entryway's names: balaur, balaur-local, balaur-remote, and one
-#                  for each remote API (balaur-mistral, balaur-claude)
-#   settings.json  that provider and `balaur.agent.model` as the default, and the
-#                  repository's skills (.agents/skills, shared with Claude Code). It
-#                  is read-only: a default saved from inside pi does not stick.
-#   AGENTS.md      who it is, every machine and service of the fleet, where the
-#                  configuration is and how a change reaches the machines. Made
-#                  from the registry (fleet.nix) and each host's `balaur.services`,
-#                  so a new machine or service is known to every agent after a push.
+#   - pi's own directory, ~/.pi/agent (its logins and sessions stay there too,
+#     unmanaged), gets three read-only files:
+#       models.json    the fleet's AI entryway (ai.nix) as the provider `balaur`,
+#                      with the entryway's names: balaur, balaur-local,
+#                      balaur-remote, and one for each remote API
+#       settings.json  that provider, `balaur.agent.model` as the default, the
+#                      skills and the extensions. A default saved from inside pi
+#                      does not stick.
+#       AGENTS.md      who it is, every machine and service of the fleet, where the
+#                      configuration is and how a change reaches the machines, the
+#                      life log's rules. Made from the registry (fleet.nix) and each
+#                      host's `balaur.services`, so a new machine or service is
+#                      known to every agent after a push.
+#   - Its memory, on a machine with the life folder (lifelog.nix): the page
+#     `pages/Balaur.md`, which `balaur` puts into every session's instructions, and
+#     the pages that are `part-of` it. The folder is synced, so it is one memory
+#     for every machine; the owner reads and corrects it like any other page, and
+#     the keeper versions it.
+#   - pi's own tools (shell, files), without asking, as the admin account. sudo
+#     still wants the password and the admin is not a trusted Nix user (base.nix),
+#     so root is reached through a pushed commit, not directly.
 #
-# Roles: the same pi with another directory (~/.pi/roles/NAME) is another agent,
-# with its own instructions and only the tools it is given; pi's shell and file
-# tools are off there. `pi-NAME` opens one.
-#
-#   There is no role yet.
+# All of it is set here and in `balaur.agent`: the model, more instructions,
+# skills, extensions, any other pi setting.
 #
 # Agents reach each other the way everything in the fleet does: SSH over the
 # tailnet, with the admin keys the registry already authorizes. Nothing listens,
 # nothing runs while nobody asks. An asked agent reports and changes nothing; a
 # fix is a commit pushed by the one who asked, which every machine then follows
 # (auto-deploy.nix). One hop only: an asked agent cannot ask a third.
-#
-# pi runs its tools (shell, files) without asking, as the admin account. sudo
-# still wants the password and the admin is not a trusted Nix user (base.nix), so
-# root is reached through a pushed commit, not directly.
 #
 # It needs the `ai` aspect, and `home` to write the files.
 { inputs, config, ... }:
@@ -53,9 +60,13 @@ in
     }:
     let
       cfg = config.balaur;
+      a = cfg.agent;
       me = config.networking.hostName;
       pi = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.pi;
       aiUrl = cfg.ai.url or (throw "the `agent` aspect needs the `ai` aspect on ${me}");
+      # The life folder, on a machine with a lifelog aspect: the agent's memory.
+      life = cfg.lifelog-folder or null;
+      memory = "${life}/pages/Balaur.md";
 
       known = h: h == me || nixosConfigs ? ${h};
       hostConfig = h: if h == me then config else nixosConfigs.${h}.config;
@@ -107,23 +118,18 @@ in
         }
       );
 
+      # pi finds a project's skills by itself only in a project the user trusted in
+      # an interactive session, so `balaur -p` (balaur-ask) would go without the
+      # repository's; a path in the settings needs no trust.
       settings = pkgs.writeText "pi-settings.json" (
-        builtins.toJSON {
-          defaultProvider = "balaur";
-          defaultModel = cfg.agent.model;
-        }
-      );
-      # The OS agent's own: the same, and the repository's skills (.agents/skills,
-      # shared with Claude Code). pi finds a project's skills by itself only in a
-      # project the user trusted in an interactive session, so `pi -p` (balaur-ask)
-      # would go without them; a path in the settings needs no trust. Not given to
-      # the roles: they have no shell, and the skills are about the configuration.
-      agentSettings = pkgs.writeText "pi-agent-settings.json" (
-        builtins.toJSON {
-          defaultProvider = "balaur";
-          defaultModel = cfg.agent.model;
-          skills = [ "${cfg.agent.clone}/.agents/skills" ];
-        }
+        builtins.toJSON (
+          {
+            defaultProvider = "balaur";
+            defaultModel = a.model;
+            inherit (a) skills extensions;
+          }
+          // a.settings
+        )
       );
 
       machine =
@@ -138,7 +144,7 @@ in
           ${e.description}
           Address: `${if h == me then "127.0.0.1" else e.address}`${
             lib.optionalString (h != me && e.tailnetIp != null) " (tailnet ${e.tailnetIp})"
-          }.${lib.optionalString (lib.elem h peers) " Its agent: `balaur-ask ${h} \"...\"`."}
+          }.${lib.optionalString (lib.elem h peers) " The agent there: `balaur-ask ${h} \"...\"`."}
 
           ${lib.concatMapStrings (
             s:
@@ -149,14 +155,80 @@ in
         '';
 
       instructions = pkgs.writeText "pi-AGENTS.md" ''
-        # The OS agent of ${me}
+        # The Balaur agent, on ${me}
 
-        You are the agent of this operating system: NixOS on `${me}`, one machine of a
-        small home fleet (the Balaur fleet) that one flake configures. You look after
-        the machines, their services and that configuration. Each machine has an agent
-        like you, with the same instructions.
+        You are the Balaur agent: the one agent of the owner of these machines (user
+        `${cfg.user}`), here on `${me}`. You are the same agent on every machine of
+        their small home fleet (the Balaur fleet), with the same instructions and the
+        same memory. The machines are a part of the owner, so everything on them is
+        your work: their notes, their days, their health and plans, and just as much
+        what runs on the machines, how they are configured and what is wrong with
+        them. Be brief and plain; say what you did, how you checked it and what you
+        are not sure of.
 
-        ## The machines and what runs on them
+        ${
+          lib.optionalString (life != null) ''
+            ## Your memory
+
+            You start every conversation knowing only these instructions and the page
+            `${memory}`, which is added to them. That page is your memory, and you keep
+            it:
+
+            - When you learn something that will matter again (a fact about the owner, a
+              preference, a correction, how they want a thing done, a fault of a machine
+              and its cure), write it there before the conversation ends. A corrected
+              mistake is worth a line.
+            - Keep the page short enough to read every time: the facts and one line per
+              longer note. A longer note (a procedure you worked out, a project, a
+              topic) is a page of its own in `pages/`, with the frontmatter
+              `part-of: "[[Balaur]]"`, and a link to it from the memory page:
+              `[[Title]]`. Read such a page when its line says it fits the question.
+            - A procedure page says when to use it and the steps that worked. Fix it
+              when a step fails; that is how you improve.
+            - The owner reads and edits these pages too. What they wrote there wins.
+            - The folder is synced between the machines, so it is one memory. You have
+              no other.
+
+            ## The life log
+
+            `${life}` is the owner's life log: plain files, synced between their
+            machines and their phone. It is the record of their life, so read it
+            before you answer a question about them, and write to it with care.
+
+            - `journal/2026-11-14.md`: a day page; the filename is the day.
+            - `pages/`, `people/`, `places/`: one markdown page each. The filename is
+              the title, and links are by title: `[[Ferritin]]`.
+            - `metrics/weight.md`: a metric's page (frontmatter: `unit`, `min`, `max`,
+              `daily`). Its readings are CSV files in `metrics/weight/`, one per year
+              and writer, with the header `day,taken_at,value,source`.
+            - `files/<year>/`: extracted text of documents, next to a small image.
+            - `_check.md`: the checker's report, when it has something to say. It is
+              for the owner to read and delete; tell them about it, never delete it.
+
+            How to write:
+
+            - A reading: `lifelog add -machine ${me} -source balaur METRIC VALUE`
+              (`-day 2026-11-14` for another day). Never type into another writer's
+              CSV, except to correct a line the owner asked you to correct.
+            - A new page: `lifelog new KIND TITLE < text` (KIND is `pages`, `people`
+              or `places`). `lifelog index` lists what exists.
+            - A note for a day: append to that day's page in `journal/`.
+            - A rename: move the file, then `lifelog rename-links OLD NEW`.
+            - After you wrote, run `lifelog check ${life}` and fix what it reports
+              about your change. The keeper (on the server) commits every settled
+              state, so a page comes back with `lifelog restore PATH`, but do not lean
+              on that: never delete a page or a CSV, and never empty one, unless the
+              owner asked for exactly that.
+            - Titles: no `# ^ [ ] |` characters; two pages cannot share a title, also
+              not in another case (`Iron`, `iron`).
+
+            It holds health data and private notes. Nothing from it goes anywhere but
+            to the owner: not into a web request, not to another service, not into a
+            message to another person, and never into the fleet's repository, which
+            is public.
+
+          ''
+        }## The machines and what runs on them
 
         ${lib.concatMapStrings machine (lib.attrNames fleet)}
         The addresses of the web pages, as this machine reaches them, are in
@@ -175,11 +247,11 @@ in
         ## The configuration
 
         Everything on these machines is declared in one repository, cloned at
-        `${cfg.agent.clone}` on this machine. Nothing is installed or configured by
+        `${a.clone}` on this machine. Nothing is installed or configured by
         hand: a change is a change to that repository.
 
-        - Work in that clone. Its `AGENTS.md` (loaded when you start there) has the
-          repository's rules; they are yours too.
+        - Work in that clone. Before you change it, read its `AGENTS.md` (loaded by
+          itself when you start there): the repository's rules are yours too.
         - Its procedures are skills, which you have: `fleet-status` to find out how a
           machine is doing, `check-change` before a commit, `deploy` to ship it, and
           `add-aspect`, `add-machine`, `secrets`, `update-inputs`. Load the one that
@@ -188,59 +260,83 @@ in
           the module in `modules/`).
         - Deploying is `git commit` and `git push`. Every machine checks `main` every few
           minutes and switches to it by itself (`journalctl -u balaur-auto-deploy`).
-        - The repository is public. Never commit a secret, a key, a token or personal data.
+        - What you want for yourself (a tool, a skill, another instruction) is a
+          change to `modules/agent.nix` or a host's `balaur.agent`, like any other.
+        - The repository is public. Never commit a secret, a key, a token or personal
+          data: not in a file, a commit message or an issue.
         - `sudo` asks for a password you do not have. Do not work around it: what needs
           root belongs in the configuration.
+        - Say what you are about to do before something that is hard to undo
+          (deleting data, a push that changes how a service runs).
 
-        ${rolesNote}## The other agents
+        ## Yourself on the other machines
 
         `balaur-ask <machine> "<question>"` asks the agent of another machine and prints
         its answer. Use it for what only that machine can see: its journal, its units,
         its hardware, its disk. Say what you already know and what you want back. For
         one plain command, `ssh <machine> <command>` is quicker.
 
-        When another agent asks you (its question says so), find out and report: what
-        you ran, what you saw, what you conclude. Change nothing and commit nothing; the
-        one who asked makes the change, so two agents never write to the repository at
-        once. You cannot ask a third machine from there.
+        When the agent of another machine asks you (its question says so), find out
+        and report: what you ran, what you saw, what you conclude. Change nothing and
+        commit nothing; the one who asked makes the change, so two agents never write
+        to the repository at once. You cannot ask a third machine from there.
+        ${lib.optionalString (a.instructions != "") "\n${a.instructions}"}
       '';
 
-      # ---- roles ----
-      # A role is the same pi with a directory of its own (~/.pi/roles/NAME): other
-      # instructions, other tools, the same models. `pi-NAME` opens it, with pi's
-      # own tools (shell, files) off: a role has only the tools it is given here.
-      roles = { };
-      roleDir = name: ".pi/roles/${name}";
-      roleFiles = name: r: {
-        "${roleDir name}/models.json".source = models;
-        "${roleDir name}/settings.json".source = settings;
-        "${roleDir name}/AGENTS.md".text = r.instructions;
-        "${roleDir name}/mcp.json".text = builtins.toJSON { mcpServers = r.mcp; };
+      # The memory's first state: `balaur` writes it when the page is not there.
+      seed = pkgs.writeText "Balaur.md" ''
+        What the Balaur agent (`balaur` in a terminal) knows and how it works. It
+        reads this page at the start of every conversation and keeps it itself;
+        correct it freely. Longer notes are pages of their own, part of this one.
+
+        ## About you
+
+        ## How you want me to work
+
+        ## The machines
+
+        ## Procedures
+
+        ## Open threads
+      '';
+
+      balaur = pkgs.writeShellApplication {
+        name = "balaur";
+        runtimeInputs = [ pkgs.lifelog ];
+        text = ''
+          # The Balaur agent: pi with the fleet's instructions${
+            lib.optionalString (life != null) " and its memory, a page of the life log"
+          } (agent.nix).
+          ${
+            if life == null then
+              ''
+                exec ${pi}/bin/pi "$@"
+              ''
+            else
+              ''
+                # What it writes in the life folder stays writable by the folder's group
+                # (the keeper, the web page, Syncthing).
+                umask 0002
+                args=()
+                if [ -d ${lib.escapeShellArg life}/pages ]; then
+                  if [ ! -e ${lib.escapeShellArg memory} ]; then
+                    lifelog new -folder ${lib.escapeShellArg life} pages Balaur < ${seed} >&2 || true
+                  fi
+                  if [ -r ${lib.escapeShellArg memory} ]; then
+                    args=(--append-system-prompt ${lib.escapeShellArg memory})
+                  fi
+                fi
+                exec ${pi}/bin/pi "''${args[@]}" "$@"
+              ''
+          }
+        '';
       };
-      roleCommand =
-        name: _:
-        pkgs.writeShellApplication {
-          name = "pi-${name}";
-          text = ''
-            # pi in its ${name} role (agent.nix).
-            export PI_CODING_AGENT_DIR="$HOME/${roleDir name}"
-            exec ${pi}/bin/pi --no-builtin-tools "$@"
-          '';
-        };
-      rolesNote = lib.optionalString (roles != { }) ''
-        ## Other roles on this machine
 
-        ${
-          lib.concatMapStringsSep ", " (n: "`pi-${n}`") (lib.attrNames roles)
-        }: pi with other instructions and tools, opened by the user
-        on purpose. What they work with (the life log) is not yours to read or change.
-
-      '';
       ask = pkgs.writeShellApplication {
         name = "balaur-ask";
         runtimeInputs = [ pkgs.openssh ];
         text = ''
-          # Ask the OS agent of another machine: one question, one answer.
+          # Ask the Balaur agent on another machine: one question, one answer.
           usage() { echo "usage: balaur-ask MACHINE QUESTION...   (machines: ${lib.concatStringsSep ", " peers})" >&2; exit 2; }
           [ $# -ge 2 ] || usage
           if [ -n "''${BALAUR_ASKED_BY:-}" ]; then
@@ -261,7 +357,7 @@ in
 
           $*"
           # In the fleet's clone when it is there, so the agent has the repository at hand.
-          remote=$(printf 'cd %q 2>/dev/null; BALAUR_ASKED_BY=%q exec pi -p --no-session %q' "$dir" ${lib.escapeShellArg me} "$question")
+          remote=$(printf 'cd %q 2>/dev/null; BALAUR_ASKED_BY=%q exec balaur -p --no-session %q' "$dir" ${lib.escapeShellArg me} "$question")
           # -n: the question is the arguments, never this command's input.
           exec ssh -n -o BatchMode=yes -o ConnectTimeout=5 "$address" "$remote"
         '';
@@ -271,9 +367,9 @@ in
       options.balaur.agent = {
         model = lib.mkOption {
           type = lib.types.str;
-          default = "balaur";
+          default = "balaur-mistral";
           example = "balaur-claude";
-          description = "The entryway's model pi starts with (ai.nix): `balaur`, `balaur-local`, `balaur-remote`, or `balaur-<remote API>`.";
+          description = "The entryway's model the agent starts with (ai.nix): `balaur`, `balaur-local`, `balaur-remote`, or `balaur-<remote API>`. It reads the life log, so this is where the life log's text goes.";
         };
         clone = lib.mkOption {
           type = lib.types.str;
@@ -285,15 +381,41 @@ in
           defaultText = lib.literalMD "auto-deploy's clone, else `~/Projects/balaur-fleet` of the admin";
           description = "The checkout of the fleet's repository the agent works in.";
         };
+        instructions = lib.mkOption {
+          type = lib.types.lines;
+          default = "";
+          example = "Answer in Romanian.";
+          description = "More instructions, added after the aspect's own (markdown).";
+        };
+        skills = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ "${a.clone}/.agents/skills" ];
+          defaultText = lib.literalMD "the repository's skills (`.agents/skills` in the clone, shared with Claude Code)";
+          description = "Skill files or directories it has (Agent Skills: a folder with a `SKILL.md`).";
+        };
+        extensions = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ ];
+          example = lib.literalExpression ''[ "''${./agent/remind.ts}" ]'';
+          description = "pi extensions it loads (TypeScript files or directories): its own tools and commands.";
+        };
+        settings = lib.mkOption {
+          type = (pkgs.formats.json { }).type;
+          default = { };
+          example = {
+            defaultThinkingLevel = "high";
+          };
+          description = "Any other key of pi's settings.json (docs.pi.dev/latest/settings); these win over the ones above.";
+        };
       };
 
       config = lib.mkMerge [
         {
           environment.systemPackages = [
             pi
+            balaur
             ask
-          ]
-          ++ lib.mapAttrsToList roleCommand roles;
+          ];
 
           # Nix owns the version, and nothing reports home.
           environment.sessionVariables = {
@@ -310,10 +432,9 @@ in
         (lib.optionalAttrs (options ? home-manager) {
           home-manager.users.${cfg.user}.home.file = {
             ".pi/agent/models.json".source = models;
-            ".pi/agent/settings.json".source = agentSettings;
+            ".pi/agent/settings.json".source = settings;
             ".pi/agent/AGENTS.md".source = instructions;
-          }
-          // lib.concatMapAttrs roleFiles roles;
+          };
         })
       ];
     };

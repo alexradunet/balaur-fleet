@@ -74,7 +74,7 @@ balaur.services = [{
 }];
 ```
 
-That puts it on the Balaur app's Home page, the web home page, the OS agents'
+That puts it on the Balaur app's Home page, the web home page, the Balaur agent's
 instructions, and, with `subdomain`, behind `https://<subdomain>.balaur.space`.
 
 **Firewall:** the tailnet (`tailscale0`) is trusted already. Open a port on the LAN

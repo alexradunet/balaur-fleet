@@ -3,7 +3,7 @@
 **Open work is in GitHub issues** (`gh issue list`): one per item, labelled `needs-you` (the user), `to-check` (built, not yet seen working), `security`. Close an issue when it is done and verified; open one for what a session leaves undone.
 
 These are the instructions for every agent that works on this repository: Claude Code
-(`CLAUDE.md` imports this file) and pi, the fleet's OS agent (it reads this file
+(`CLAUDE.md` imports this file) and the Balaur agent, the owner's own agent on every machine (pi; it reads this file
 itself). The procedures are skills in `.agents/skills/`, listed at the end; load the
 one that fits before you start.
 

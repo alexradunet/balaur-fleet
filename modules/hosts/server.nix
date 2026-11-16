@@ -49,7 +49,7 @@ in
           auto-deploy
           # The fleet's AI entryway (ai-gateway, below), as a client.
           ai
-          # pi, the OS agent: knows the fleet, asks the other machines' agents (balaur-ask).
+          # The Balaur agent (`balaur`): pi with the fleet's instructions and the life log as its memory.
           agent
           # This machine's own.
           # A mini-PC on mains power, a server and a builder: never suspend.
@@ -76,8 +76,6 @@ in
           # The life log's keeper, moved from the tablet (its history imported
           # 2026-11-15): the folder, its checked history and https://life.balaur.space.
           lifelog
-          # The owner's personal agent (`companion`): pi with the life log as its memory.
-          companion
           # Home Assistant, moved from the tablet (its state imported 2026-11-15):
           # https://home.balaur.space and :8123.
           home-assistant
