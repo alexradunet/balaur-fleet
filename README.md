@@ -72,7 +72,7 @@ modules/
   web.nix                 https://<domain>: the home page of every machine's web UIs, tailnet only (Caddy, DNS-challenge cert); the owner's devices get all of it, the household's the `household` services
   files.nix               Syncthing: a 200 GiB volume of its own at /srv/files, paired from the registry
   agent.nix               pi, the OS agent on every machine: the fleet's models, machines and services; `balaur-ask`; roles (`pi-NAME`, none yet)
-  companion.nix           the owner's personal agent on the server (`companion`): pi with full tools, its memory the life log's page `Companion`
+  companion.nix           the owner's personal agent on the server (`companion`): pi with full tools for the owner and this machine, its memory the life log's page `Companion`; set in `balaur.companion`
   dev.nix                 Claude Code + Orca (from numtide/llm-agents.nix, daily updates), gh, ripgrep
   orca-server.nix         Orca's runtime as a service from boot (the server): the development sessions, for the other machines' Orca to pair with
   cockpit.nix             Cockpit, the web admin page of a headless machine (the server)

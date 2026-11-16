@@ -1,6 +1,7 @@
 # The owner's personal agent: pi (pi.dev) again, with a directory, instructions and
-# a memory of its own. The OS agent (agent.nix) looks after the machines; this one
-# looks after the owner.
+# a memory of its own. It looks after the owner, and this machine as a part of
+# the owner: its services, its configuration, its debugging. The OS agent
+# (agent.nix, plain `pi`) stays what the other machines' agents ask.
 #
 #   companion                  the agent, in a terminal on this machine
 #                              (`ssh server`, or a terminal in Orca)
@@ -16,11 +17,17 @@
 #     which the command puts into every session's instructions, and the pages
 #     that are `part-of` it. So the owner reads and corrects what it knows at
 #     the life log's own page, and the keeper versions it like every other page.
-#     It learns by writing those pages, never by installing software.
 #   - pi's own tools (shell, files) as the admin, started in the life folder.
-#     sudo still wants the password, so root is not within its reach.
+#     It knows the fleet as the OS agent does (that agent's briefing is added to
+#     its instructions, and it has the repository's skills), and changes the
+#     machine the way everyone does: a commit to the repository. sudo still
+#     wants the password, so root is reached through a pushed commit only.
 #
-# It needs the `agent` aspect (pi's models) and a lifelog aspect (the folder).
+# All of it is set here and in `balaur.companion` (the model, more instructions,
+# skills, extensions, any other pi setting): pi's files for it are read-only.
+#
+# It needs the `agent` aspect (pi's models, the fleet's briefing) and a lifelog
+# aspect (the folder).
 { inputs, ... }:
 {
   flake.modules.nixos.companion =
@@ -39,11 +46,20 @@
       dir = ".pi/companion";
       memory = "${life}/pages/Companion.md";
 
+      c = cfg.companion;
+      clone = cfg.agent.clone or (throw "the `companion` aspect needs the `agent` aspect on ${me}");
+      # The OS agent's briefing (agent.nix): the machines, the services, the rules.
+      briefing = ".pi/agent/AGENTS.md";
+
       settings = pkgs.writeText "companion-settings.json" (
-        builtins.toJSON {
-          defaultProvider = "balaur";
-          defaultModel = cfg.companion.model;
-        }
+        builtins.toJSON (
+          {
+            defaultProvider = "balaur";
+            defaultModel = c.model;
+            inherit (c) skills extensions;
+          }
+          // c.settings
+        )
       );
 
       # The memory's first state: the command writes it when the page is not there.
@@ -87,8 +103,7 @@
         - A procedure page says when to use it and the steps that worked. Fix it
           when a step fails; that is how you improve.
         - The owner reads and edits these pages too. What they wrote there wins.
-        - You have no other memory. Do not install software or change this
-          machine's configuration to extend yourself: say what you are missing.
+        - You have no other memory.
 
         ## The life log
 
@@ -129,14 +144,32 @@
 
         ## This machine
 
-        Your shell runs as the owner, on the home server of a small fleet that one
-        repository configures (`${
-          cfg.agent.clone or "~/Projects/balaur-fleet"
-        }`). You may look at anything the owner can.
-        The machines and their configuration are the OS agent's work (`pi`, started
-        in that repository), not yours: do not commit there, and do not work around
-        `sudo`, which asks for a password you do not have. Outside the life log, ask
-        before you change or delete something you did not create.
+        `${me}` is the owner's home server, and you treat it as a part of the owner:
+        what runs on it, how it is configured and what is wrong with it are your
+        work as much as their notes are. Your shell runs as the owner.
+
+        - Your instructions also hold the briefing of this machine's OS agent
+          ("The OS agent of ${me}"): the machines, the services, the models, how a
+          change is made. All of it applies to you; you do that work too.
+        - The configuration is the repository at `${clone}`. Before you change it,
+          read its `AGENTS.md` and load the skill that fits (`fleet-status`,
+          `check-change`, `deploy`, `add-aspect`, `secrets`, `update-inputs`).
+          Nothing is installed or configured by hand: a change is a commit there,
+          pushed, which every machine follows.
+        - Debug by looking first: `balaur-fleet-status`, `systemctl status`,
+          `journalctl -u <unit>`, then the module in `modules/`.
+        - What you want for yourself (a tool, a skill, another instruction) is a
+          change to `modules/companion.nix` or the host's `balaur.companion`, like
+          any other.
+        - That repository is public and the life log is private: nothing from the
+          life log, and no secret, ever goes into a commit, a commit message or
+          an issue.
+        - `sudo` asks for a password you do not have. Do not work around it: what
+          needs root belongs in the configuration.
+        - Say what you are about to do before something that is hard to undo
+          (deleting data, a push that changes how a service runs), and report what
+          you did and how you checked it.
+        ${lib.optionalString (c.instructions != "") "\n${c.instructions}"}
       '';
 
       companion = pkgs.writeShellApplication {
@@ -154,16 +187,48 @@
           if [ ! -e ${lib.escapeShellArg memory} ]; then
             lifelog new pages Companion < ${seed} >&2
           fi
-          exec ${pi}/bin/pi --append-system-prompt ${lib.escapeShellArg memory} "$@"
+          args=(--append-system-prompt ${lib.escapeShellArg memory})
+          if [ -r "$HOME/${briefing}" ]; then
+            args=(--append-system-prompt "$HOME/${briefing}" "''${args[@]}")
+          fi
+          exec ${pi}/bin/pi "''${args[@]}" "$@"
         '';
       };
     in
     {
-      options.balaur.companion.model = lib.mkOption {
-        type = lib.types.str;
-        default = "balaur-mistral";
-        example = "balaur-claude";
-        description = "The entryway's model the companion starts with (ai.nix). It reads the life log, so this is where the life log's text goes.";
+      options.balaur.companion = {
+        model = lib.mkOption {
+          type = lib.types.str;
+          default = "balaur-mistral";
+          example = "balaur-claude";
+          description = "The entryway's model the companion starts with (ai.nix). It reads the life log, so this is where the life log's text goes.";
+        };
+        instructions = lib.mkOption {
+          type = lib.types.lines;
+          default = "";
+          example = "Answer in Romanian.";
+          description = "More instructions, added after the aspect's own (markdown).";
+        };
+        skills = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ "${clone}/.agents/skills" ];
+          defaultText = lib.literalMD "the repository's skills (`.agents/skills` in the agent's clone)";
+          description = "Skill files or directories it has (Agent Skills: a folder with a `SKILL.md`).";
+        };
+        extensions = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ ];
+          example = lib.literalExpression ''[ "''${./companion/remind.ts}" ]'';
+          description = "pi extensions it loads (TypeScript files or directories): its own tools and commands.";
+        };
+        settings = lib.mkOption {
+          type = (pkgs.formats.json { }).type;
+          default = { };
+          example = {
+            defaultThinkingLevel = "high";
+          };
+          description = "Any other key of pi's settings.json (docs.pi.dev/latest/settings); these win over the ones above.";
+        };
       };
 
       config = lib.mkMerge [
