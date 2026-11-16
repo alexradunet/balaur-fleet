@@ -62,6 +62,9 @@ in
           gaming
           # The server's /srv/proton (backed up to Proton Drive) as /mnt/proton, over SSHFS.
           proton-drive-client
+          # A failed unit or its disk in trouble is told to the owner's phone, through
+          # the server's Home Assistant (over the tailnet, so from anywhere).
+          notify
         ])
         # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
         # .agents/skills). It must be `git add`ed or flakes cannot see it.

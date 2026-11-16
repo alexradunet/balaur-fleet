@@ -60,7 +60,7 @@ modules/
   backup.nix              restic, nightly, of the state only one machine has (the server: into /srv/proton, which Proton Drive copies)
   proton-drive.nix        rclone, hourly: /srv/proton (the server) mirrored to all of Proton Drive, one way, nothing lost there
                           and `proton-drive-client`: that folder as /mnt/proton on a desktop (SSHFS)
-  notify.nix              a failed unit or an ailing disk (smartd) is told to the owner through Home Assistant: its notifications, and the phones with its app (the server)
+  notify.nix              a failed unit or an ailing disk (smartd) is told to the owner through Home Assistant: its notifications, and the phones with its app
   never-sleep.nix         a machine on duty never sleeps (the server)
   gnome.nix               GNOME itself: GDM, the session, PipeWire, the canonical apps (Chromium + its add-ons, Ghostty), the Balaur app + Shell extension, one look and keyboards (US + RO), the ambient screen's settings
   desktop.nix             GNOME as a personal desktop: a normal login, the GNOME apps it drops
