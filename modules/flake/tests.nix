@@ -8,6 +8,23 @@
 { config, ... }:
 let
   aspects = config.flake.modules.nixos;
+
+  # A machine of the fleet, as far as a test needs one: `base`, without what only
+  # makes it slower to build and boot.
+  machine =
+    { lib, ... }:
+    {
+      imports = [ aspects.base ];
+      nixpkgs.hostPlatform = "x86_64-linux";
+      system.stateVersion = "26.05";
+      boot.plymouth.enable = lib.mkForce false;
+      boot.consoleLogLevel = lib.mkForce 7; # the test reads the console; base quiets it
+      services.printing.enable = lib.mkForce false;
+      services.fwupd.enable = lib.mkForce false;
+      documentation.enable = false;
+      # Nobody logs in to a test machine; this quiets base's warning about it.
+      balaur.ssh.passwordAuth = true;
+    };
 in
 {
   perSystem =
@@ -168,6 +185,166 @@ in
                 status, _ = get(server, "owner", at="127.0.0.1")
                 assert status == 403, f"loopback got {status}"
           '';
+      };
+
+      # qBittorrent (modules/torrents.nix) comes back whatever stopped it, a lock
+      # left by a power cut included, and stays down without its downloads' disk.
+      checks.torrents = pkgs.testers.runNixOSTest {
+        name = "torrents";
+        node.pkgsReadOnly = false;
+
+        nodes.machine = {
+          imports = [
+            machine
+            aspects.torrents
+          ];
+          # The downloads' disk, as on the server: its own filesystem, `nofail`.
+          virtualisation.fileSystems."/srv/media" = {
+            device = "tmpfs";
+            fsType = "tmpfs";
+            options = [ "nofail" ];
+          };
+        };
+        # The same machine with that disk missing.
+        nodes.nodisk = {
+          imports = [
+            machine
+            aspects.torrents
+          ];
+          virtualisation.fileSystems."/srv/media" = {
+            device = "/dev/disk/by-label/absent";
+            fsType = "ext4";
+            options = [
+              "nofail"
+              "x-systemd.device-timeout=5s"
+            ];
+          };
+        };
+
+        testScript = ''
+          lock = "/var/lib/qBittorrent/qBittorrent/config/lockfile"
+          version = "curl -fsS --max-time 5 http://127.0.0.1:8080/api/v2/app/version"
+
+          start_all()
+          machine.wait_for_unit("qbittorrent.service")
+          machine.wait_until_succeeds(version, timeout=60)
+
+          with subtest("it starts with the lock of a run that was cut off"):
+              # The lock as qBittorrent wrote it, but naming a process that runs
+              # (after a power cut its old process id is somebody else's).
+              machine.succeed(f"cp -p {lock} /tmp/lock && sed -i '1s/.*/1/' /tmp/lock")
+              machine.succeed("systemctl stop qbittorrent")
+              machine.succeed(f"cp -p /tmp/lock {lock}")
+              machine.succeed("systemctl start qbittorrent")
+              machine.wait_until_succeeds(version, timeout=60)
+
+          with subtest("killed, it comes back by itself"):
+              machine.succeed("systemctl kill -s KILL qbittorrent")
+              machine.wait_until_succeeds(version, timeout=60)
+              machine.succeed("systemctl is-active qbittorrent")
+
+          with subtest("without the downloads' disk it stays down"):
+              nodisk.wait_for_unit("multi-user.target")
+              nodisk.fail("mountpoint -q /srv/media")
+              nodisk.wait_until_fails("systemctl is-active qbittorrent srv-media.mount", timeout=60)
+              nodisk.fail(version)
+        '';
+      };
+
+      # A failed unit is told to Home Assistant (modules/notify.nix): once per unit,
+      # with its last log lines, and the notifier's own failure tells nobody, so it
+      # cannot go round. Home Assistant is a small server that keeps what it is sent.
+      checks.notify = pkgs.testers.runNixOSTest {
+        name = "notify";
+        node.pkgsReadOnly = false;
+
+        nodes.machine =
+          { pkgs, ... }:
+          {
+            imports = [
+              machine
+              aspects.notify
+            ];
+            balaur.notify = {
+              url = "http://127.0.0.1:8123";
+              tokenFile = "${pkgs.writeText "token" "the-token"}";
+            };
+            services.smartd.enable = pkgs.lib.mkForce false; # no drives to watch here
+
+            systemd.services.fake-hass = {
+              wantedBy = [ "multi-user.target" ];
+              serviceConfig.ExecStart = "${pkgs.python3}/bin/python3 ${pkgs.writeText "fake-hass.py" ''
+                import json
+                from http.server import BaseHTTPRequestHandler, HTTPServer
+
+
+                class H(BaseHTTPRequestHandler):
+                    def answer(self, body):
+                        data = json.dumps(body).encode()
+                        self.send_response(200 if self.headers.get("Authorization") == "Bearer the-token" else 401)
+                        self.send_header("Content-Length", str(len(data)))
+                        self.end_headers()
+                        self.wfile.write(data)
+
+                    def do_GET(self):  # /api/services
+                        self.answer([{"domain": "notify", "services": {"notify": {}, "mobile_app_phone": {}}}])
+
+                    def do_POST(self):
+                        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                        with open("/tmp/sent", "a") as f:
+                            f.write(json.dumps({"path": self.path, **body}) + "\n")
+                        self.answer([])
+
+
+                HTTPServer(("127.0.0.1", 8123), H).serve_forever()
+              ''}";
+              serviceConfig.PrivateTmp = false;
+            };
+            systemd.services.boom = {
+              description = "A unit that fails";
+              serviceConfig.Type = "oneshot";
+              script = ''
+                echo "the reason it failed"
+                exit 1
+              '';
+            };
+          };
+
+        testScript = ''
+          import json
+
+          def sent():
+              out = machine.succeed("cat /tmp/sent 2>/dev/null || true")
+              return [json.loads(line) for line in out.splitlines()]
+
+          machine.wait_for_unit("fake-hass.service")
+          machine.wait_for_open_port(8123)
+
+          with subtest("a failed unit is told, to the notifications and to the phone"):
+              machine.fail("systemctl start boom")
+              machine.wait_until_succeeds("test $(wc -l < /tmp/sent) -ge 2", timeout=30)
+              told = sent()
+              paths = sorted(m["path"] for m in told)
+              assert paths == ["/api/services/notify/mobile_app_phone",
+                               "/api/services/persistent_notification/create"], paths
+              for m in told:
+                  assert m["title"] == "machine: boom.service failed", m
+                  assert "the reason it failed" in m["message"], m
+
+          with subtest("the same unit failing again is not told twice"):
+              machine.fail("systemctl start boom")
+              machine.wait_until_succeeds("journalctl -u 'balaur-notify-failure@*' | grep -q 'already said'", timeout=30)
+              assert len(sent()) == 2, sent()
+
+          with subtest("with Home Assistant down the notifier fails, and tells nobody about itself"):
+              machine.succeed("systemctl stop fake-hass && rm -rf /var/lib/private/balaur-notify/*")
+              machine.fail("systemctl start boom")
+              machine.wait_until_succeeds("systemctl is-failed 'balaur-notify-failure@boom.service.service'", timeout=30)
+              on_failure = machine.succeed("systemctl show -P OnFailure 'balaur-notify-failure@boom.service.service'")
+              assert on_failure.strip() == "", f"the notifier would report itself: {on_failure}"
+              # Every other service has it (the drop-in is for the unit type).
+              assert "balaur-notify-failure@" in machine.succeed("systemctl show -P OnFailure fake-hass")
+        '';
       };
     };
 }

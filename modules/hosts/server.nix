@@ -59,6 +59,12 @@ in
           cockpit
           # /srv/proton (the second NVMe) mirrored to the whole of Proton Drive, hourly.
           proton-drive
+          # A failed unit or a disk in trouble is told to the owner, through Home Assistant.
+          notify
+          # The state only this machine has (Home Assistant, AdGuard, qBittorrent, the
+          # life log's history), nightly, into /srv/proton: so on the second disk, and
+          # in Proton Drive an hour later (balaur.backup below).
+          backup
           # Orca's runtime for the laptop's Orca to pair with, from boot (:6768, tailnet).
           orca-server
           # The fleet's local LLM, on the Radeon 890M (Qwen3.6 35B-A3B).
@@ -150,9 +156,17 @@ in
       };
       systemd.tmpfiles.rules = [ "d /srv/proton 0750 alex users - -" ];
 
+      sops.secrets."restic-password".sopsFile = config.balaur.secrets.hostFile;
+
       balaur = {
         # The existing login on this machine; its password is kept as is.
         user = "alex";
+        backup = {
+          repository = "/srv/proton/restic-backup";
+          passwordFile = config.sops.secrets."restic-password".path;
+          # proton-drive's sync runs as the admin and must read it.
+          owner = "alex";
+        };
         # Served to the home network (no login: dlna.nix): qBittorrent's movies and
         # shows (the categories).
         dlna.dirs = [

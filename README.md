@@ -57,13 +57,13 @@ modules/
   secrets.nix             sops-nix: shared and per-machine secrets, decrypted with each machine's host key
   base.nix                boot, admin account, SSH, Nix, housekeeping, locale + timezone, printing; the `balaur.services` registry
   network.nix             NetworkManager, Tailscale (+ SSH), <host>.local (mDNS)
-  backup.nix              restic, nightly and off-site, of the state only one machine has (waits for a repository)
+  backup.nix              restic, nightly, of the state only one machine has (the server: into /srv/proton, which Proton Drive copies)
   proton-drive.nix        rclone, hourly: /srv/proton (the server) mirrored to all of Proton Drive, one way, nothing lost there
                           and `proton-drive-client`: that folder as /mnt/proton on a desktop (SSHFS)
+  notify.nix              a failed unit or an ailing disk (smartd) is told to the owner through Home Assistant: its notifications, and the phones with its app (the server)
   never-sleep.nix         a machine on duty never sleeps (the server)
   gnome.nix               GNOME itself: GDM, the session, PipeWire, the canonical apps (Chromium + its add-ons, Ghostty), the Balaur app + Shell extension, one look and keyboards (US + RO), the ambient screen's settings
   desktop.nix             GNOME as a personal desktop: a normal login, the GNOME apps it drops
-  media.nix               Jellyfin: watches what `torrents` downloaded, /srv/media
   dlna.nix                MiniDLNA: folders served as they are to the players on the home network (the server)
   torrents.nix            qBittorrent + FileList search (aspect `torrents`, the server), and
                           `balaur-torrent` + the magnet handler (aspect `torrents-client`, anywhere)
@@ -77,10 +77,7 @@ modules/
   cockpit.nix             Cockpit, the web admin page of a headless machine (the server)
   local-llm.nix           llama.cpp on the iGPU (Qwen3.6 35B-A3B, the server): the AI entryway's local tier
   gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow) and the CurseForge app; the laptop
-  steam.nix               Steam and GameMode, for a machine that plays locally (none at the moment)
-  game-streaming.nix      Sunshine on a host, Moonlight on the clients, over the tailnet (none at the moment)
   ai.nix                  the fleet's AI entryway on the server (`ai-gateway`: local GPU first, then a remote API: Mistral or Claude, also as `balaur-mistral` and `balaur-claude`) and its clients (`ai`)
-  strata.nix              Strata: a local LLM on a discrete NVIDIA card, stopped while a game runs (none at the moment)
   shorts.nix              Proof in Pictures: the humanshorts project's videos ready to post, each with its cover and caption, at https://shorts.<domain> (the server)
   lifelog.nix             lifelog, the life log as files: the keeper on the server (`lifelog`) and its web app at https://life.<domain>, the folder, `lifelog` and Obsidian on the laptop (`lifelog-client`)
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
