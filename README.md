@@ -80,7 +80,7 @@ modules/
   wow-market.nix          WoW Market: what to craft, buy and sell in WoW: Forever, from Auctionator's scans; http://laptop:8790 on the tailnet (the laptop)
   steam.nix               Steam and GameMode, for a machine that plays locally (none at the moment)
   game-streaming.nix      Sunshine on a host, Moonlight on the clients, over the tailnet (none at the moment)
-  ai.nix                  the fleet's AI entryway on the server (`ai-gateway`: local GPU first, Mistral second) and its clients (`ai`)
+  ai.nix                  the fleet's AI entryway on the server (`ai-gateway`: local GPU first, then a remote API: Mistral or Claude, also as `balaur-mistral` and `balaur-claude`) and its clients (`ai`)
   strata.nix              Strata: a local LLM on a discrete NVIDIA card, stopped while a game runs (none at the moment)
   shorts.nix              Proof in Pictures: the humanshorts project's videos ready to post, each with its cover and caption, at https://shorts.<domain> (the server)
   lifelog.nix             lifelog, the life log as files: the keeper on the server (`lifelog`) and its web app at https://life.<domain>, the folder, `lifelog` and Obsidian on the laptop (`lifelog-client`)

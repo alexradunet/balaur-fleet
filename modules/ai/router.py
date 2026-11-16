@@ -1,28 +1,39 @@
 """balaur-ai: the fleet's AI entryway, an OpenAI-compatible server with a page.
 
-One address for every program on every machine, and three model names:
+One address for every program on every machine, and these model names:
 
-  balaur          as the page's route says; by default local first: the fleet's
-                  own GPUs (Strata on the pc) when one is up, loaded and not already
-                  answering someone else, otherwise the remote API (Mistral).
-  balaur-local    only the fleet's GPUs (fails when none is up).
-  balaur-remote   only the remote API, even when a local one is up.
+  balaur            as the page's route says; by default local first: the fleet's
+                    own GPUs when one is up, loaded and not already answering
+                    someone else, otherwise the remote API the page chose.
+  balaur-local      only the fleet's GPUs (fails when none is up).
+  balaur-remote     only that remote API, even when a local one is up.
+  balaur-<remote>   one remote API by its name (balaur-mistral, balaur-claude),
+                    with the model the page chose for it.
+  <remote>/<model>  one remote API with a model of its own ("claude/claude-haiku-5-5").
 
-Any other model name goes to the remote API unchanged ("mistral-small-latest").
+Any other model name goes unchanged to the remote API whose models start that
+way ("claude-sonnet-5-5" to Claude), else to the first one ("mistral-small-latest").
+
+The remote APIs are OpenAI-compatible ones, each with its key and its dialect:
+what is trimmed from a request on the way there. Claude is reached through the
+Claude API's OpenAI compatibility layer (https://api.anthropic.com/v1): no prompt
+caching there, and no thinking in the answers.
 
 Each local endpoint is probed in the background (GET /health), so a machine that
 is off, asleep, gaming or still loading its model is skipped at once instead of
 timed out on. A request that fails on a local endpoint before its answer starts
 is retried on the next tier, so a caller never sees the difference.
 
-Requests bound for the remote API are trimmed to what Mistral accepts: unknown
-fields dropped, `developer` messages sent as `system`, `max_completion_tokens`
-renamed, and tool-call ids (Mistral wants exactly nine letters or digits)
-rewritten consistently, so a conversation begun on a local model can carry on
-remotely.
+Requests bound for Mistral are trimmed to what it accepts: unknown fields
+dropped, `developer` messages sent as `system`, `max_completion_tokens` renamed,
+and tool-call ids (Mistral wants exactly nine letters or digits) rewritten
+consistently, so a conversation begun on a local model can carry on remotely.
+Requests bound for Claude lose what its current models answer with a 400:
+`temperature` and `top_p`, a forced `tool_choice` (sent as "auto"), `n` other
+than 1, and a `response_format` that is not a strict JSON schema.
 
 The page (GET /) shows the tiers and the last requests, and changes the route,
-the remote model and which GPUs are used. Those changes are kept in
+the remote API and each one's model, and which GPUs are used. Those changes are kept in
 $STATE_DIRECTORY/settings.json, over the defaults the config file gives; "Reset"
 deletes it. No login: like the fleet's other services it is for the tailnet only.
 A request from a web page of another site (its Origin) is refused, so a page
@@ -47,7 +58,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 CFG = json.load(open(sys.argv[1]))
 NAME = CFG["name"]  # "balaur"
 LOCAL = CFG["local"]  # [{"name", "url", "model"}], in order of preference
-REMOTE = CFG["remote"]  # {"url", "model", "keyCredential"}
+# [{"name", "label", "url", "model", "keyCredential", "dialect", "prefixes"}]; the first is
+# the default, and takes the model names no other one claims.
+REMOTES = CFG["remotes"]
+BY_NAME = {r["name"]: r for r in REMOTES}
 CONNECT_TIMEOUT = CFG.get("connectTimeout", 3)
 READ_TIMEOUT = CFG.get("readTimeout", 600)
 PROBE_INTERVAL = CFG.get("probeInterval", 10)
@@ -61,7 +75,9 @@ ORIGINS = set(CFG.get("origins", [])) | {"localhost", "127.0.0.1"}
 SETTINGS_FILE = os.path.join(os.environ.get("STATE_DIRECTORY", "."), "settings.json")
 
 ROUTES = ("local-first", "remote", "local")
-DEFAULTS = {"route": "local-first", "remoteModel": REMOTE["model"], "localEnabled": {e["name"]: True for e in LOCAL}}
+DEFAULTS = {"route": "local-first", "remote": REMOTES[0]["name"],
+            "remoteModels": {r["name"]: r["model"] for r in REMOTES},
+            "localEnabled": {e["name"]: True for e in LOCAL}}
 
 # What Mistral's chat completions accept; everything else is dropped on the way there.
 REMOTE_FIELDS = {
@@ -96,8 +112,15 @@ def load_settings():
         return s
     if saved.get("route") in ROUTES:
         s["route"] = saved["route"]
-    if isinstance(saved.get("remoteModel"), str) and saved["remoteModel"].strip():
-        s["remoteModel"] = saved["remoteModel"].strip()
+    if saved.get("remote") in BY_NAME:
+        s["remote"] = saved["remote"]
+    # `remoteModel`: what the page saved when Mistral was the only remote API.
+    models = dict(saved.get("remoteModels") or {})
+    if "remoteModel" in saved:
+        models.setdefault(REMOTES[0]["name"], saved["remoteModel"])
+    for k, v in models.items():
+        if k in BY_NAME and isinstance(v, str) and v.strip():
+            s["remoteModels"][k] = v.strip()
     for k, v in (saved.get("localEnabled") or {}).items():
         if k in s["localEnabled"] and isinstance(v, bool):
             s["localEnabled"][k] = v
@@ -201,17 +224,22 @@ def busy(e):
         return False  # no /status (not Strata): just try it
 
 
-def remote_key():
-    path = os.path.join(os.environ.get("CREDENTIALS_DIRECTORY", ""), REMOTE["keyCredential"])
+def remote_key(r):
+    path = os.path.join(os.environ.get("CREDENTIALS_DIRECTORY", ""), r["keyCredential"])
     try:
         return open(path).read().strip()
     except OSError:
         return ""
 
 
-def remote_models():
-    """The remote API's chat models, for the page's picker."""
-    data = get_json(REMOTE["url"], "/models", 10, {"Authorization": f"Bearer {remote_key()}"}, root=False)
+def remote_models(r):
+    """A remote API's chat models, for the page's picker."""
+    if r["dialect"] == "claude":
+        # The Claude API's own listing: the compatibility layer has none.
+        data = get_json(r["url"], "/models?limit=1000", 10,
+                        {"x-api-key": remote_key(r), "anthropic-version": "2023-06-01"}, root=False)
+        return sorted({m["id"] for m in data.get("data", [])}, reverse=True)
+    data = get_json(r["url"], "/models", 10, {"Authorization": f"Bearer {remote_key(r)}"}, root=False)
     ids = set()
     for m in data.get("data", []):
         caps = m.get("capabilities") or {}
@@ -227,9 +255,37 @@ def mistral_id(i):
     return "".join(ALPHABET[(n >> (6 * k)) % len(ALPHABET)] for k in range(9))
 
 
-def for_remote(body, path):
+def for_claude(body):
+    """What the Claude API's compatibility layer would answer with a 400 is left out; the
+    fields it does not know it ignores by itself."""
+    out = dict(body)
+    out.pop("temperature", None)  # only the default is accepted by the current models
+    out.pop("top_p", None)
+    if out.get("n") not in (None, 1):
+        out.pop("n")
+    if out.get("tool_choice") == "required" or isinstance(out.get("tool_choice"), dict):
+        out["tool_choice"] = "auto"  # the current models refuse a forced tool call
+    rf = out.get("response_format")
+    if rf is not None and not (isinstance(rf, dict) and rf.get("type") == "json_schema"
+                               and (rf.get("json_schema") or {}).get("strict") is True):
+        out.pop("response_format")
+    msgs = []
+    for m in body.get("messages") or []:
+        m = dict(m)
+        m.pop("reasoning_content", None)
+        msgs.append(m)
+    if msgs:
+        out["messages"] = msgs
+    return out
+
+
+def for_remote(body, path, dialect):
     if not path.rstrip("/").endswith("/chat/completions"):
         return dict(body)  # embeddings and the like: the caller's fields as they are
+    if dialect == "claude":
+        return for_claude(body)
+    if dialect != "mistral":
+        return dict(body)
     out = {k: v for k, v in body.items() if k in REMOTE_FIELDS}
     if "max_tokens" not in out and "max_completion_tokens" in body:
         out["max_tokens"] = body["max_completion_tokens"]
@@ -258,18 +314,31 @@ def for_remote(body, path):
 
 
 def tiers(model):
-    """[(label, url, upstream model, is_local)] to try in order, for the requested model name."""
+    """[(label, url, upstream model, remote API or None for a local endpoint)] to try in
+    order, for the requested model name."""
     with lock:
         s = json.loads(json.dumps(settings))
-    local = [(e["name"], e["url"], e["model"], True) for e in LOCAL if s["localEnabled"].get(e["name"], True)]
-    remote = [("remote", REMOTE["url"], s["remoteModel"], False)]
+
+    def at(r, m=None):
+        return [(r["name"], r["url"], m or s["remoteModels"][r["name"]], r)]
+
+    local = [(e["name"], e["url"], e["model"], None) for e in LOCAL if s["localEnabled"].get(e["name"], True)]
+    remote = at(BY_NAME[s["remote"]])
     if model in (None, "", NAME):
         return {"local-first": local + remote, "remote": remote, "local": local}[s["route"]]
     if model == f"{NAME}-local":
         return local
     if model == f"{NAME}-remote":
         return remote
-    return [("remote", REMOTE["url"], model, False)]
+    for r in REMOTES:
+        if model == f"{NAME}-{r['name']}":
+            return at(r)
+        if model.startswith(r["name"] + "/") and len(model) > len(r["name"]) + 1:
+            return at(r, model[len(r["name"]) + 1:])
+    for r in REMOTES:
+        if any(model.startswith(p) for p in r.get("prefixes", [])):
+            return at(r, model)
+    return at(REMOTES[0], model)
 
 
 def usage_tokens(tail):
@@ -352,21 +421,27 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urllib.parse.urlsplit(self.path).path.rstrip("/")
         if path in ("/v1/models", "/models"):
-            names = [NAME, f"{NAME}-local", f"{NAME}-remote"]
+            names = [NAME, f"{NAME}-local", f"{NAME}-remote"] + [f"{NAME}-{r['name']}" for r in REMOTES]
             self.reply(200, {"object": "list", "data": [
                 {"id": n, "object": "model", "owned_by": "balaur"} for n in names]})
         elif path in ("/health", "/status", "/api/state"):
             with lock:
                 body = {"local": {k: dict(v) for k, v in state.items()},
                         "localUrls": {e["name"]: e["url"] for e in LOCAL},
-                        "remote": {"url": REMOTE["url"], "key": bool(remote_key())},
+                        "remotes": [{"name": r["name"], "label": r["label"], "url": r["url"],
+                                     "key": bool(remote_key(r))} for r in REMOTES],
                         "settings": settings, "defaults": DEFAULTS,
                         "customised": os.path.exists(SETTINGS_FILE),
                         "recent": list(recent) if path == "/api/state" else None}
             self.reply(200, body)
         elif path == "/api/remote-models":
+            query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+            r = BY_NAME.get((query.get("remote") or [REMOTES[0]["name"]])[0])
+            if r is None:
+                self.reply(404, {"error": {"message": f"the remote APIs are {', '.join(BY_NAME)}"}})
+                return
             try:
-                self.reply(200, {"models": remote_models()})
+                self.reply(200, {"models": remote_models(r)})
             except Exception as ex:
                 self.reply(502, {"error": {"message": f"{type(ex).__name__}: {ex}"}})
         elif path == "":
@@ -420,10 +495,14 @@ class Handler(BaseHTTPRequestHandler):
         if not path.startswith("/v1/"):
             path = "/v1" + path  # clients configured without the /v1
         asked = body.get("model")
+        if not isinstance(asked, (str, type(None))):
+            self.reply(400, {"error": {"message": "model is a name"}})
+            return
         candidates = tiers(asked)
         last_error = "no tier is enabled for it" if not candidates else None
-        for i, (label, url, model, is_local) in enumerate(candidates):
+        for i, (label, url, model, remote) in enumerate(candidates):
             final = i == len(candidates) - 1
+            is_local = remote is None
             if is_local:
                 with lock:
                     up, detail = state[label]["up"], state[label]["detail"]
@@ -447,8 +526,12 @@ class Handler(BaseHTTPRequestHandler):
                 payload = dict(body, model=model)
                 headers = {}
             else:
-                payload = for_remote(dict(body, model=model), path)
-                headers = {"Authorization": f"Bearer {remote_key()}"}
+                key = remote_key(remote)
+                if not key:
+                    last_error = f"{label}: it has no API key on this machine"
+                    continue
+                payload = for_remote(dict(body, model=model), path, remote["dialect"])
+                headers = {"Authorization": f"Bearer {key}"}
             try:
                 answered = self.forward(label, url, path, payload, headers, final, asked)
             finally:
@@ -468,11 +551,19 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(400, {"error": {"message": f"route is one of {', '.join(ROUTES)}"}})
                 return
             new["route"] = body["route"]
-        if body.get("remoteModel") is not None:
-            if not isinstance(body["remoteModel"], str) or not body["remoteModel"].strip():
-                self.reply(400, {"error": {"message": "remoteModel is a model id"}})
+        if body.get("remote") is not None:
+            if body["remote"] not in BY_NAME:
+                self.reply(400, {"error": {"message": f"remote is one of {', '.join(BY_NAME)}"}})
                 return
-            new["remoteModel"] = body["remoteModel"].strip()
+            new["remote"] = body["remote"]
+        models = body.get("remoteModels")
+        if models is not None:
+            if not isinstance(models, dict) or not all(
+                    k in BY_NAME and isinstance(v, str) and v.strip() for k, v in models.items()):
+                self.reply(400, {"error": {"message": "remoteModels maps a remote API's name to a model id"}})
+                return
+            for k, v in models.items():
+                new["remoteModels"][k] = v.strip()
         enabled = body.get("localEnabled")
         if enabled is not None:
             if not isinstance(enabled, dict) or not all(isinstance(v, bool) for v in enabled.values()):
@@ -558,7 +649,7 @@ td,th{text-align:left;padding:7px 10px;border-top:1px solid var(--line);white-sp
 .scroll{overflow-x:auto}.note{color:var(--dim);font-size:13px;margin:8px 2px}code{font-size:13px}#msg{min-height:20px;color:var(--warn);margin-top:8px}
 </style></head><body><main>
 <h1>Balaur AI</h1>
-<p class="sub">One endpoint for the fleet: <code id="endpoint"></code>, models <code>balaur</code>, <code>balaur-local</code>, <code>balaur-remote</code>.</p>
+<p class="sub">One endpoint for the fleet: <code id="endpoint"></code>, models <code>balaur</code>, <code>balaur-local</code>, <code>balaur-remote</code><span id="names"></span>.</p>
 <h2>Tiers</h2><div class="card" id="tiers"></div>
 <h2>Settings</h2><div class="card">
  <div class="row"><div class="t"><b>Route for <code>balaur</code></b><span>What the default model uses. The other two names always mean what they say.</span></div></div>
@@ -566,15 +657,16 @@ td,th{text-align:left;padding:7px 10px;border-top:1px solid var(--line);white-sp
   <label><input type="radio" name="route" value="local-first"><span>Local first, then remote</span></label>
   <label><input type="radio" name="route" value="remote"><span>Remote only</span></label>
   <label><input type="radio" name="route" value="local"><span>Local only</span></label></div></div>
- <div class="row"><div class="t"><b>Remote model</b><span id="remoteinfo"></span></div>
-  <select id="remoteModel"></select></div>
+ <div class="row"><div class="t"><b>Remote API</b><span>What <code>balaur</code> and <code>balaur-remote</code> use. Each one also has a name of its own.</span></div>
+  <select id="remote"></select></div>
+ <div id="remotes"></div>
  <div id="locals"></div>
  <div class="row"><div class="t"><span id="custom"></span></div><button class="flat" id="reset">Reset to defaults</button></div>
 </div><div id="msg"></div>
 <h2>Last requests</h2><div class="card scroll"><table><thead><tr><th>When</th><th>Asked</th><th>Tier</th><th>Model</th><th>Status</th><th>Time</th><th>Tokens in/out</th></tr></thead><tbody id="recent"></tbody></table></div>
 <p class="note">Changes are saved on this machine and apply at once. The defaults come from the fleet's configuration (modules/ai.nix).</p>
 </main><script>
-const $=s=>document.querySelector(s);let models=null,st=null;
+const $=s=>document.querySelector(s);let models={},errs={},st=null;
 document.getElementById('endpoint').textContent=location.origin+'/v1';
 async function api(p,b){const r=await fetch(p,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{});
  const j=await r.json();if(!r.ok)throw new Error(j.error?.message||r.status);return j}
@@ -584,12 +676,20 @@ function render(){const s=st.settings,t=$('#tiers');t.replaceChildren();
  for(const [n,v] of Object.entries(st.local)){const on=s.localEnabled[n];
   t.append(el('div',{className:'row'},el('span',{className:'dot '+(!on?'off':v.up?'up':'down')}),
    el('div',{className:'t'},el('b',{},n+' (local GPU)'),el('span',{},(on?(v.up?'ready':v.detail):'turned off here')+' \\u00b7 '+st.localUrls[n]))))}
- t.append(el('div',{className:'row'},el('span',{className:'dot '+(st.remote.key?'up':'down')}),
-  el('div',{className:'t'},el('b',{},'Remote: '+s.remoteModel),el('span',{},(st.remote.key?'key present':'no key')+' \\u00b7 '+st.remote.url))));
+ for(const r of st.remotes)t.append(el('div',{className:'row'},el('span',{className:'dot '+(r.key?'up':'down')}),
+  el('div',{className:'t'},el('b',{},r.label+': '+s.remoteModels[r.name]+(r.name===s.remote?' (the remote API of balaur)':'')),
+   el('span',{},(r.key?'key present':'no key on this machine')+' \\u00b7 '+r.url))));
+ $('#names').textContent=st.remotes.map(r=>', balaur-'+r.name).join('');
+ const rs=$('#remote');if(!rs.options.length)rs.replaceChildren(...st.remotes.map(r=>el('option',{value:r.name,textContent:r.label})));rs.value=s.remote;
  document.querySelectorAll('#route input').forEach(i=>i.checked=i.value===s.route);
- const sel=$('#remoteModel');const list=[...new Set([s.remoteModel,...(models||[])])];
- if(sel.dataset.k!==list.join()){sel.replaceChildren(...list.map(m=>el('option',{value:m,textContent:m})));sel.dataset.k=list.join()}
- sel.value=s.remoteModel;$('#remoteinfo').textContent=models?'Default: '+st.defaults.remoteModel:'Loading the list\\u2026';
+ const R=$('#remotes');if(!R.children.length)R.replaceChildren(...st.remotes.map(r=>{const sel=el('select',{});sel.dataset.r=r.name;
+  sel.onchange=()=>save({remoteModels:{[r.name]:sel.value}});
+  return el('div',{className:'row'},el('div',{className:'t'},el('b',{},r.label+' model'),el('span',{})),sel)}));
+ for(const row of R.children){const sel=row.querySelector('select'),n=sel.dataset.r,cur=s.remoteModels[n];
+  const list=[...new Set([cur,...(models[n]||[])])];
+  if(sel.dataset.k!==list.join()){sel.replaceChildren(...list.map(m=>el('option',{value:m,textContent:m})));sel.dataset.k=list.join()}
+  sel.value=cur;row.querySelector('.t span').textContent=errs[n]?'Could not list its models: '+errs[n]:
+   models[n]?'balaur-'+n+' \\u00b7 default: '+st.defaults.remoteModels[n]:'Loading the list\\u2026'}
  const L=$('#locals');L.replaceChildren(...Object.keys(st.local).map(n=>{const c=el('input',{type:'checkbox',checked:s.localEnabled[n]});
   c.onchange=()=>save({localEnabled:{[n]:c.checked}});return el('div',{className:'row'},el('div',{className:'t'},el('b',{},'Use '+n),el('span',{},'Its GPU, for local and local-first requests')),c)}));
  $('#custom').textContent=st.customised?'Changed on this page.':'The fleet\\u2019s defaults.';
@@ -598,10 +698,10 @@ function render(){const s=st.settings,t=$('#tiers');t.replaceChildren();
 async function refresh(){try{st=await api('/api/state');render()}catch(e){$('#msg').textContent=e.message}}
 async function save(b){try{await api('/api/settings',b);$('#msg').textContent='';await refresh()}catch(e){$('#msg').textContent=e.message}}
 document.querySelectorAll('#route input').forEach(i=>i.onchange=()=>save({route:i.value}));
-$('#remoteModel').onchange=e=>save({remoteModel:e.target.value});
+$('#remote').onchange=e=>save({remote:e.target.value});
 $('#reset').onclick=async()=>{await api('/api/reset',{});refresh()};
-refresh();setInterval(refresh,5000);
-api('/api/remote-models').then(j=>{models=j.models;render()}).catch(e=>{$('#remoteinfo').textContent='Could not list models: '+e.message});
+refresh().then(()=>{for(const r of (st?st.remotes:[]))api('/api/remote-models?remote='+encodeURIComponent(r.name))
+ .then(j=>{models[r.name]=j.models;render()}).catch(e=>{errs[r.name]=e.message;render()})});setInterval(refresh,5000);
 </script></body></html>"""
 
 
@@ -620,7 +720,7 @@ def main():
     threading.Thread(target=prober, daemon=True).start()
     srv = Server((CFG.get("listen", "127.0.0.1"), CFG["port"]), Handler)
     log(f"balaur-ai on {CFG.get('listen', '127.0.0.1')}:{CFG['port']}: "
-        f"local {[e['name'] for e in LOCAL]}, remote {REMOTE['url']}; settings {json.dumps(settings)}")
+        f"local {[e['name'] for e in LOCAL]}, remote {[r['name'] for r in REMOTES]}; settings {json.dumps(settings)}")
     srv.serve_forever()
 
 

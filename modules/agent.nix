@@ -10,7 +10,8 @@
 # its logins and sessions stay there too, unmanaged):
 #
 #   models.json    the fleet's AI entryway (ai.nix) as the provider `balaur`, with
-#                  the entryway's three names: balaur, balaur-local, balaur-remote
+#                  the entryway's names: balaur, balaur-local, balaur-remote, and one
+#                  for each remote API (balaur-mistral, balaur-claude)
 #   settings.json  that provider and `balaur.agent.model` as the default, and the
 #                  repository's skills (.agents/skills, shared with Claude Code). It
 #                  is read-only: a default saved from inside pi does not stick.
@@ -78,24 +79,30 @@ in
                     maxTokens = 16384;
                   }
                 )
-                [
-                  {
-                    id = "balaur";
-                    name = "Balaur (the entryway's route: local GPU first, Mistral second)";
-                  }
-                  {
-                    id = "balaur-local";
-                    name = "Balaur local (the fleet's GPU only)";
-                    input = [
-                      "text"
-                      "image"
-                    ];
-                  }
-                  {
-                    id = "balaur-remote";
-                    name = "Balaur remote (Mistral only)";
-                  }
-                ];
+                (
+                  [
+                    {
+                      id = "balaur";
+                      name = "Balaur (the entryway's route: local GPU first, a remote API second)";
+                    }
+                    {
+                      id = "balaur-local";
+                      name = "Balaur local (the fleet's GPU only)";
+                      input = [
+                        "text"
+                        "image"
+                      ];
+                    }
+                    {
+                      id = "balaur-remote";
+                      name = "Balaur remote (the entryway's remote API only)";
+                    }
+                  ]
+                  ++ map (r: {
+                    id = "balaur-${r.name}";
+                    name = "${r.label}, through the entryway";
+                  }) (cfg.ai.remotes or [ ])
+                );
           };
         }
       );
@@ -160,8 +167,9 @@ in
         ## Models
 
         You answer through the fleet's AI entryway, `${aiUrl}`: the model `balaur` is the
-        fleet's GPU when it is free and Mistral otherwise, `balaur-local` and
-        `balaur-remote` are one of the two. `curl -s ${lib.removeSuffix "/v1" aiUrl}/health` shows
+        fleet's GPU when it is free and a remote API otherwise, `balaur-local` and
+        `balaur-remote` are one of the two, and `balaur-mistral` and `balaur-claude`
+        are one remote API by name. `curl -s ${lib.removeSuffix "/v1" aiUrl}/health` shows
         which are up.
 
         ## The configuration
@@ -262,13 +270,10 @@ in
     {
       options.balaur.agent = {
         model = lib.mkOption {
-          type = lib.types.enum [
-            "balaur"
-            "balaur-local"
-            "balaur-remote"
-          ];
+          type = lib.types.str;
           default = "balaur";
-          description = "The entryway's model pi starts with (ai.nix).";
+          example = "balaur-claude";
+          description = "The entryway's model pi starts with (ai.nix): `balaur`, `balaur-local`, `balaur-remote`, or `balaur-<remote API>`.";
         };
         clone = lib.mkOption {
           type = lib.types.str;

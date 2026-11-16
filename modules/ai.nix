@@ -4,10 +4,19 @@
 #   https://ai.<domain>       the page: tiers, route, remote model, last requests
 #
 #   model `balaur`          the page's route; by default the local model when it can
-#                           answer now, else Mistral
+#                           answer now, else the remote API the page chose
 #   model `balaur-local`    only the fleet's GPU
-#   model `balaur-remote`   only Mistral, even when the GPU is free
-#   any other name          straight to Mistral ("mistral-small-latest", ...)
+#   model `balaur-remote`   only that remote API, even when the GPU is free
+#   model `balaur-mistral`, `balaur-claude`
+#                           one remote API by name, with the model the page chose for it
+#   `claude/<model>`, `mistral/<model>`
+#                           one remote API with that model
+#   any other name          to Claude when it starts with `claude-`, else straight to
+#                           Mistral ("mistral-small-latest", ...)
+#
+# The remote APIs (`balaur.ai-gateway.remotes`): Mistral (EU, the default) and
+# Claude, through the Claude API's OpenAI compatibility layer. Each has its key in
+# sops; one without a key is listed on the page and answers nothing.
 #
 # Two aspects:
 #
@@ -57,6 +66,12 @@ in
           }:${toString (hostConfig gw).balaur.ai-gateway.port}/v1";
         description = "The fleet's AI entryway, as this machine reaches it (OpenAI-compatible base URL).";
       };
+      options.balaur.ai.remotes = lib.mkOption {
+        type = lib.types.listOf (lib.types.attrsOf lib.types.str);
+        readOnly = true;
+        default = map (r: { inherit (r) name label; }) (hostConfig gw).balaur.ai-gateway.remotes;
+        description = "The entryway's remote APIs: each is also the model `balaur-<name>`.";
+      };
 
       config.environment.sessionVariables = {
         OPENAI_BASE_URL = config.balaur.ai.url;
@@ -80,7 +95,16 @@ in
       cfg = config.balaur.ai-gateway;
       me = config.networking.hostName;
       useSops = options ? sops;
-      keySecret = "assistant-llm-key"; # the fleet's Mistral key (named for the voice assistant it was first for)
+      # Where a remote API's key comes from: its `apiKeyFile`, else its sops secret,
+      # else a file put there by hand.
+      keyFile =
+        r:
+        if r.apiKeyFile != null then
+          toString r.apiKeyFile
+        else if useSops then
+          config.sops.secrets.${r.keySecret}.path
+        else
+          "/var/lib/secrets/balaur-ai-key-${r.name}";
       domain = config.balaur.web.domain or null;
 
       # The fleet's local models: every machine with `local-llm` (llama.cpp on an
@@ -112,11 +136,17 @@ in
           listen = "0.0.0.0"; # loopback and the tailnet; the firewall keeps it off the LAN
           inherit (cfg) port;
           inherit local;
-          remote = {
-            url = cfg.remote.baseUrl;
-            model = cfg.remote.model;
-            keyCredential = "remote-key";
-          };
+          remotes = map (r: {
+            inherit (r)
+              name
+              label
+              model
+              dialect
+              prefixes
+              ;
+            url = r.baseUrl;
+            keyCredential = "key-${r.name}";
+          }) cfg.remotes;
           # The names its page is opened under (a browser's Origin), so another
           # site's page cannot use it through a browser on the tailnet.
           origins = [
@@ -137,31 +167,92 @@ in
           default = 4000;
           description = "The entryway's port, on loopback and the tailnet.";
         };
-        remote = {
-          baseUrl = lib.mkOption {
-            type = lib.types.str;
-            default = "https://api.mistral.ai/v1"; # EU (Paris)
-            description = "The remote tier: an OpenAI-compatible API (requests are trimmed to what Mistral accepts).";
-          };
-          model = lib.mkOption {
-            type = lib.types.str;
-            default = "mistral-medium-latest";
-            description = "The default remote model behind `balaur` and `balaur-remote` (the page can change it). It must support tool calling.";
-          };
-          apiKeyFile = lib.mkOption {
-            type = lib.types.path;
-            default =
-              if useSops then config.sops.secrets.${keySecret}.path else "/var/lib/secrets/balaur-ai-key";
-            defaultText = lib.literalMD "the `assistant-llm-key` sops secret with the `secrets` aspect, else `/var/lib/secrets/balaur-ai-key`, put there by hand";
-            description = "File with the remote API key. Read by systemd (LoadCredential), so its owner does not matter.";
-          };
+        remotes = lib.mkOption {
+          description = ''
+            The remote tier: OpenAI-compatible APIs, each with its key. The first is
+            the default one: what `balaur` and `balaur-remote` use until the page says
+            otherwise, and where a model name no other one claims goes.
+          '';
+          default = [
+            {
+              name = "mistral";
+              label = "Mistral";
+              baseUrl = "https://api.mistral.ai/v1"; # EU (Paris)
+              model = "mistral-medium-latest";
+              dialect = "mistral";
+              # The fleet's Mistral key, in the shared file (named for the voice
+              # assistant it was first for).
+              keySecret = "assistant-llm-key";
+            }
+            {
+              name = "claude";
+              label = "Claude";
+              # The Claude API's OpenAI compatibility layer (US).
+              baseUrl = "https://api.anthropic.com/v1";
+              model = "claude-opus-5-5";
+              dialect = "claude";
+              prefixes = [ "claude-" ];
+              keySecret = "anthropic-api-key";
+              keyInHostFile = true;
+            }
+          ];
+          type = lib.types.listOf (
+            lib.types.submodule {
+              options = {
+                name = lib.mkOption {
+                  type = lib.types.strMatching "[a-z][a-z0-9]*";
+                  description = "Its name: the model `balaur-<name>`, and `<name>/<model>`.";
+                };
+                label = lib.mkOption {
+                  type = lib.types.str;
+                  description = "Its name on the page.";
+                };
+                baseUrl = lib.mkOption {
+                  type = lib.types.str;
+                  description = "Its OpenAI-compatible base URL.";
+                };
+                model = lib.mkOption {
+                  type = lib.types.str;
+                  description = "Its default model (the page can change it). It must support tool calling.";
+                };
+                dialect = lib.mkOption {
+                  type = lib.types.enum [
+                    "mistral"
+                    "claude"
+                    "openai"
+                  ];
+                  default = "openai";
+                  description = "How a request is trimmed on the way there (ai/router.py); `openai` leaves it as it is.";
+                };
+                prefixes = lib.mkOption {
+                  type = lib.types.listOf lib.types.str;
+                  default = [ ];
+                  description = "Model names that start this way go here, when asked for by their plain name.";
+                };
+                keySecret = lib.mkOption {
+                  type = lib.types.str;
+                  description = "The sops secret with its API key, on a machine with the `secrets` aspect.";
+                };
+                keyInHostFile = lib.mkOption {
+                  type = lib.types.bool;
+                  default = false;
+                  description = "The secret is in this machine's own sops file, not the shared one.";
+                };
+                apiKeyFile = lib.mkOption {
+                  type = lib.types.nullOr lib.types.path;
+                  default = null;
+                  description = "A file with its API key, in place of the sops secret (without sops: `/var/lib/secrets/balaur-ai-key-<name>`, put there by hand). Read by systemd (LoadCredential), so its owner does not matter.";
+                };
+              };
+            }
+          );
         };
       };
 
       config = lib.mkMerge [
         {
           systemd.services.balaur-ai = {
-            description = "Balaur AI entryway: local GPU first, Mistral second (:${toString cfg.port})";
+            description = "Balaur AI entryway: local GPU first, a remote API second (:${toString cfg.port})";
             wantedBy = [ "multi-user.target" ];
             wants = [ "network-online.target" ];
             after = [
@@ -170,7 +261,7 @@ in
             ];
             serviceConfig = {
               ExecStart = "${pkgs.python3}/bin/python3 -I ${./ai/router.py} ${routerConfig}";
-              LoadCredential = [ "remote-key:${toString cfg.remote.apiKeyFile}" ];
+              LoadCredential = map (r: "key-${r.name}:${keyFile r}") cfg.remotes;
               StateDirectory = "balaur-ai"; # the page's settings
               Restart = "always";
               RestartSec = 2;
@@ -200,7 +291,7 @@ in
           balaur.services = [
             {
               name = "AI";
-              description = "Local GPU first, Mistral second";
+              description = "Local GPU first, then Mistral or Claude";
               icon = "✨";
               port = cfg.port;
               subdomain = "ai";
@@ -209,8 +300,17 @@ in
             }
           ];
         }
-        # The key from the repo; systemd reads it (LoadCredential), so it stays root's.
-        (lib.optionalAttrs useSops { sops.secrets.${keySecret} = { }; })
+        # The keys from the repo; systemd reads them (LoadCredential), so they stay root's.
+        (lib.optionalAttrs useSops {
+          sops.secrets = lib.listToAttrs (
+            map (
+              r:
+              lib.nameValuePair r.keySecret (
+                lib.optionalAttrs r.keyInHostFile { sopsFile = config.balaur.secrets.hostFile; }
+              )
+            ) (lib.filter (r: r.apiKeyFile == null) cfg.remotes)
+          );
+        })
       ];
     };
 }

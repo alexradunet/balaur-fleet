@@ -45,7 +45,7 @@ choice that is theirs (name, aspects, account).
    - `never-sleep` on a machine the others depend on (a server, a builder, a streaming
      host).
    - `ai` points everything at the fleet's AI entryway (`ai-gateway`, the server only):
-     model `balaur` is the fleet's local model first (`local-llm` on the server), Mistral second.
+     model `balaur` is the fleet's local model first (`local-llm` on the server), a remote API second (Mistral, or Claude: `balaur-claude`).
    - `agent` is pi, the OS agent. A role is pi with other instructions and only the
      tools it is given (`pi-NAME`).
    - A screen: `gnome` and `desktop`. A server stays headless and gets `cockpit` for
