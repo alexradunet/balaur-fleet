@@ -173,6 +173,9 @@ in
         };
         systemd.services.qbittorrent = {
           path = [ pkgs.python3 ]; # the Search tab runs Python plugins
+          # The downloads' disk (`nofail` on the server): without it, stay down
+          # rather than download into the mount point and fill the root filesystem.
+          unitConfig.RequiresMountsFor = [ media ];
           environment.FILELIST_CREDENTIALS = credentials;
           serviceConfig = {
             UMask = "0002"; # files group-writable for `media` (you can tidy them over SSH)
@@ -186,6 +189,11 @@ in
                 ];
                 text = ''
                   conf=${qbProfile}/qBittorrent/config
+                  # The lock of the last run. After a power cut it is still there, and
+                  # qBittorrent, finding its process id taken by something else, takes
+                  # itself for a second instance and exits at once, with status 0 and
+                  # not a word (the server, 2026-11-16). systemd runs only one.
+                  rm -f $conf/lockfile
                   [ -e $conf/qBittorrent.conf ] || install -Dm600 ${qbSeed} $conf/qBittorrent.conf
                   [ -e $conf/categories.json ] || install -Dm644 ${qbCategories} $conf/categories.json
                   # The web UI's protections, whatever the file said before.
@@ -209,6 +217,10 @@ in
               }
             );
             ReadWritePaths = [ media ];
+            # Whatever it exits with: a clean exit nobody asked for is down all the
+            # same, and no failed unit shows it.
+            Restart = "always";
+            RestartSec = 10;
           };
         };
 
