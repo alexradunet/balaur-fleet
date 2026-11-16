@@ -20,6 +20,10 @@
 #     that counts as a failed attempt. A switch that fails after it has already
 #     activated (a unit that does not start) gets the same check. A commit that
 #     leaves this machine's system unchanged has nothing to switch back.
+#   - A commit is deployed only when one of the admin's SSH keys signed it (the
+#     registry's `userKeys`; every machine signs by itself, home.nix). So a stolen
+#     GitHub login, or a commit made in GitHub's web page, deploys nothing: the
+#     unit fails with "not signed", and a signed commit on top is deployed.
 #   - A build or switch that hangs is killed after two hours, and the GitHub
 #     lookup after 30 seconds.
 #   - A manual `nixos-rebuild switch` from a working tree (testing something
@@ -52,6 +56,11 @@ in
       user = config.balaur.user;
       stateDir = "/var/lib/balaur-auto-deploy";
       remote = "https://github.com/${cfg.repo}.git";
+      # Whose signature counts: the admin's key on every machine of the registry.
+      signerKeys = lib.concatMap (h: h.userKeys) (lib.attrValues fleet);
+      signers = pkgs.writeText "balaur-allowed-signers" (
+        lib.concatMapStrings (k: "fleet namespaces=\"git\" ${k}\n") signerKeys
+      );
 
       # One line about this machine, for balaur-fleet-status (here or over SSH):
       #   <deployed rev> <system state> <trying rev or -> <attempts> <failed units, comma-separated or -> <reboot or ->
@@ -87,6 +96,7 @@ in
           pkgs.coreutils
           pkgs.gitMinimal
           pkgs.util-linux # runuser
+          pkgs.balaur-verify-commit
           config.nix.package.out # nix-env, for the roll-back
         ];
         text = ''
@@ -129,6 +139,14 @@ in
           echo "$attempts" >"$state/attempts"
           date +%s >"$state/last-attempt"
           echo "new commit on ${cfg.branch}: $rev (deployed: $(cat "$state/deployed" 2>/dev/null || echo none)), attempt $attempts of 3"
+
+          ${lib.optionalString cfg.requireSigned ''
+            # Before anything of this commit is used: the clone, the build, the switch.
+            if ! balaur-verify-commit ${signers} ${remote} "$rev" "$state/verify.git"; then
+              echo "$rev is not signed by an admin key of the registry (fleet.<host>.userKeys): not deployed; a signed commit on top of it will be"
+              exit 1
+            fi
+          ''}
 
           ${lib.optionalString (cfg.clone != null) ''
             if [ -d ${lib.escapeShellArg cfg.clone}/.git ]; then
@@ -244,6 +262,11 @@ in
           default = "5min";
           description = "How often to look for a new commit (a systemd time span).";
         };
+        requireSigned = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Deploy only a commit signed by one of the registry's `userKeys` (git's SSH signatures).";
+        };
         clone = lib.mkOption {
           type = lib.types.nullOr lib.types.str;
           default = "/home/${user}/Projects/balaur-fleet";
@@ -252,6 +275,13 @@ in
       };
 
       config = {
+        assertions = [
+          {
+            assertion = !cfg.requireSigned || signerKeys != [ ];
+            message = "auto-deploy asks for signed commits, and the registry has no `userKeys`: nothing could ever be deployed";
+          }
+        ];
+
         environment.systemPackages = [
           deployState
           fleetStatus
