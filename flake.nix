@@ -19,6 +19,11 @@
     # Deliberately NOT following our nixpkgs: that keeps their cache hits.
     llm-agents.url = "git+https://github.com/numtide/llm-agents.nix";
 
+    # Hermes Agent (Nous Research): the owner's personal agent on the server
+    # (modules/hermes.nix), with its NixOS module. Not following our nixpkgs: its
+    # Python environment (uv2nix) is locked against its own.
+    hermes-agent.url = "github:NousResearch/hermes-agent";
+
     # Secrets: encrypted in the repo, decrypted into /run/secrets at activation
     # with each machine's own SSH host key (modules/secrets.nix).
     sops-nix.url = "github:Mic92/sops-nix";

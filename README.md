@@ -84,6 +84,7 @@ modules/
   strata.nix              Strata: a local LLM on a discrete NVIDIA card, stopped while a game runs (none at the moment)
   shorts.nix              Proof in Pictures: the humanshorts project's videos ready to post, each with its cover and caption, at https://shorts.<domain> (the server)
   lifelog.nix             lifelog, the life log as files: the keeper on the server (`lifelog`) and its web app at https://life.<domain>, the folder, `lifelog` and Obsidian on the laptop (`lifelog-client`)
+  hermes.nix              Hermes Agent, the owner's personal agent on the server: memory, its own skills, schedules, the life log; its dashboard at https://hermes.<domain>
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
 gnome/                    everything GNOME-facing, in GJS

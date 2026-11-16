@@ -19,6 +19,11 @@ git diff flake.lock
 - **home-manager** follows `release-26.05`: keep it on the same release as nixpkgs.
 - **llm-agents** (Claude Code, pi, Orca) is deliberately not following our nixpkgs,
   for its binary cache. Updated daily upstream.
+- **hermes-agent** (the personal agent on the server, `modules/hermes.nix`) follows
+  upstream's `main`, where Nix is supported on a best-effort basis: an update may not
+  build. It has no binary cache, so the server builds it (a few minutes). After one,
+  open https://hermes.balaur.space and ask it something, and `journalctl -u
+  hermes-agent -u hermes-backend` for a config key that moved.
 
 Then, for each update:
 

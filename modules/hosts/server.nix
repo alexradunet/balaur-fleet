@@ -76,6 +76,9 @@ in
           # The life log's keeper, moved from the tablet (its history imported
           # 2026-11-15): the folder, its checked history and https://life.balaur.space.
           lifelog
+          # Hermes, the owner's personal agent, always on: it reads and writes the
+          # life log and thinks through the entryway. https://hermes.balaur.space.
+          hermes
           # Home Assistant, moved from the tablet (its state imported 2026-11-15):
           # https://home.balaur.space and :8123.
           home-assistant
