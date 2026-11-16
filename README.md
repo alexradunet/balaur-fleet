@@ -82,6 +82,7 @@ modules/
   game-streaming.nix      Sunshine on a host, Moonlight on the clients, over the tailnet (none at the moment)
   ai.nix                  the fleet's AI entryway on the server (`ai-gateway`: local GPU first, Mistral second) and its clients (`ai`)
   strata.nix              Strata: a local LLM on a discrete NVIDIA card, stopped while a game runs (none at the moment)
+  shorts.nix              Proof in Pictures: the humanshorts project's videos ready to post, each with its cover and caption, at https://shorts.<domain> (the server)
   lifelog.nix             lifelog, the life log as files: the keeper on the server (`lifelog`) and its web app at https://life.<domain>, the folder, `lifelog` and Obsidian on the laptop (`lifelog-client`)
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
