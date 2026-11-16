@@ -240,6 +240,11 @@ in
       # The app's People page: who they are; what each opens it works out from the
       # services' `shared` and `url` (gnome/app/src/access.js).
       environment.etc."balaur/people.json".text = builtins.toJSON cfg.people;
+      # Whose signature on a commit counts (git's allowed-signers format): the admin's
+      # keys on every machine. Read by `git log --show-signature` and by auto-deploy.
+      environment.etc."balaur/allowed-signers".text = lib.concatMapStrings (
+        k: "fleet namespaces=\"git\" ${k}\n"
+      ) (lib.concatMap (h: h.userKeys) (lib.attrValues fleet));
 
       programs.ssh.knownHosts = lib.mapAttrs (name: h: {
         hostNames =
