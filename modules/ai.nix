@@ -310,6 +310,13 @@ in
               )
             ) (lib.filter (r: r.apiKeyFile == null) cfg.remotes)
           );
+          # systemd copies a credential when the unit starts: a changed key reaches the
+          # router only through a restart, so the unit follows the files the keys are in.
+          systemd.services.balaur-ai.restartTriggers = lib.unique (
+            map (r: config.sops.secrets.${r.keySecret}.sopsFile) (
+              lib.filter (r: r.apiKeyFile == null) cfg.remotes
+            )
+          );
         })
       ];
     };
