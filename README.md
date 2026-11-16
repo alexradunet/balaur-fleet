@@ -71,7 +71,7 @@ modules/
   home-assistant.nix      Home Assistant: devices and automations, https://home.<domain> and :8123
   web.nix                 https://<domain>: the home page of every machine's web UIs, tailnet only (Caddy, DNS-challenge cert); the owner's devices get all of it, the household's the `household` services
   files.nix               Syncthing: a 200 GiB volume of its own at /srv/files, paired from the registry
-  agent.nix               the Balaur agent on every machine (`balaur`): pi with the fleet's models, machines and services, the life log as its memory; `balaur-ask`; set in `balaur.agent`
+  agent.nix               the Balaur agent on every machine (`balaur`): pi with the fleet's models, machines and services, the life log as its memory; `balaur-think` (a harder question to Claude Code, on the Claude subscription); `balaur-ask`; set in `balaur.agent`
   dev.nix                 Claude Code + Orca (from numtide/llm-agents.nix, daily updates), gh, ripgrep
   orca-server.nix         Orca's runtime as a service from boot (the server): the development sessions, for the other machines' Orca to pair with
   cockpit.nix             Cockpit, the web admin page of a headless machine (the server)

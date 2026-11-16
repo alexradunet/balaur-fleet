@@ -8,6 +8,10 @@
 #   balaur -c                  continue the last conversation in this directory
 #   balaur-ask HOST "question" ask the agent on another machine, which answers from
 #                              what it sees there (its journal, units, hardware)
+#   balaur-think "question"    a harder question, to Claude Code (the owner's Claude
+#                              subscription): Opus, or `-m fable`. The agent runs it
+#                              itself when it is out of its depth; in a session,
+#                              `/think question` and `/fable question` ask for it.
 #   pi                         the engine alone: the same agent without its memory
 #
 # How it is made, and nothing more than this:
@@ -63,6 +67,7 @@ in
       a = cfg.agent;
       me = config.networking.hostName;
       pi = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.pi;
+      claude = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code;
       aiUrl = cfg.ai.url or (throw "the `agent` aspect needs the `ai` aspect on ${me}");
       # The life folder, on a machine with a lifelog aspect: the agent's memory.
       life = cfg.lifelog-folder or null;
@@ -127,6 +132,7 @@ in
             defaultProvider = "balaur";
             defaultModel = a.model;
             inherit (a) skills extensions;
+            prompts = [ "${prompts}" ];
           }
           // a.settings
         )
@@ -269,6 +275,22 @@ in
         - Say what you are about to do before something that is hard to undo
           (deleting data, a push that changes how a service runs).
 
+        ## A harder question
+
+        `balaur-think "<question>"` asks Claude Code, a stronger model than you
+        (${a.think.model}; `balaur-think -m fable "<question>"` is the strongest and
+        the slowest), on the owner's Claude subscription. It answers once and
+        remembers nothing, so the question must carry everything: what you were
+        asked, what you found, the paths of the files worth reading (it can read
+        files and search the web, and changes nothing). Use it when you are out of
+        your depth: a diagnosis you are not sure of, a design with consequences, a
+        medical or legal reading, anything the owner asks you to think hard about or
+        to check with Claude. Not for what you can answer yourself: it is slower and
+        draws on the owner's subscription. Tell the owner the answer came from it,
+        and add what you make of it. What you put in the question goes to Anthropic
+        (the United States), the life log's text included: send what the question
+        needs and no more.
+
         ## Yourself on the other machines
 
         `balaur-ask <machine> "<question>"` asks the agent of another machine and prints
@@ -331,6 +353,53 @@ in
           }
         '';
       };
+
+      # The harder question: Claude Code, once, with the owner's login (~/.claude) and
+      # tools that read only.
+      think = pkgs.writeShellApplication {
+        name = "balaur-think";
+        text = ''
+          usage() { echo "usage: balaur-think [-m opus|fable|MODEL] QUESTION...   (or the question on its input)" >&2; exit 2; }
+          model=${lib.escapeShellArg a.think.model}
+          while getopts m:h opt; do
+            case $opt in
+              m) model=$OPTARG ;;
+              *) usage ;;
+            esac
+          done
+          shift $((OPTIND - 1))
+          case $model in
+            opus) model=claude-opus-5-5 ;;
+            fable) model=claude-fable-5-2 ;;
+          esac
+          if [ $# -gt 0 ]; then question=$*; else question=$(cat); fi
+          [ -n "$question" ] || usage
+          exec ${claude}/bin/claude -p --model "$model" --no-session-persistence \
+            --tools "Read,Grep,Glob,WebSearch,WebFetch" \
+            --allowedTools "Read,Grep,Glob,WebSearch,WebFetch" \
+            --append-system-prompt "You are asked by the Balaur agent, the owner's own agent on this machine, which is a weaker model than you and passes your answer on. Answer the question itself, completely and plainly, and say what you are unsure of. You can read files and search the web; you change nothing." \
+            -- "$question"
+        '';
+      };
+      # `/think` and `/fable` in a session: the owner asks for the harder question.
+      prompts = pkgs.runCommand "pi-prompts" { } ''
+        mkdir $out
+        cat > $out/think.md <<'EOF_'
+        ---
+        description: Ask Claude Code (Opus) through balaur-think and report its answer
+        argument-hint: "<question>"
+        ---
+        Put this to Claude Code with `balaur-think`, with everything it needs to answer (what you know, the paths of the files worth reading), then give me its answer and what you make of it: $@
+        EOF_
+        cat > $out/fable.md <<'EOF_'
+        ---
+        description: Ask Claude Code (Fable, the strongest) through balaur-think -m fable
+        argument-hint: "<question>"
+        ---
+        Put this to Claude Code with `balaur-think -m fable`, with everything it needs to answer (what you know, the paths of the files worth reading), then give me its answer and what you make of it: $@
+        EOF_
+        sed -i 's/^        //' $out/*.md
+      '';
 
       ask = pkgs.writeShellApplication {
         name = "balaur-ask";
@@ -399,6 +468,12 @@ in
           example = lib.literalExpression ''[ "''${./agent/remind.ts}" ]'';
           description = "pi extensions it loads (TypeScript files or directories): its own tools and commands.";
         };
+        think.model = lib.mkOption {
+          type = lib.types.str;
+          default = "claude-opus-5-5";
+          example = "claude-fable-5-2";
+          description = "Claude Code's model for `balaur-think` without `-m`.";
+        };
         settings = lib.mkOption {
           type = (pkgs.formats.json { }).type;
           default = { };
@@ -414,6 +489,7 @@ in
           environment.systemPackages = [
             pi
             balaur
+            think
             ask
           ];
 
