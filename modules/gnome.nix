@@ -103,18 +103,6 @@ in
         "mnjggcdmjocbbbhaepdhchncahnbgone" # SponsorBlock
         "eimadpbcbfnmbkopoojfekhnkhdbieeh" # Dark Reader
       ];
-      # The same for Firefox, which stays installed until its bookmarks have moved
-      # (it is no longer the default): add-on ID -> its addons.mozilla.org slug.
-      # The ID must match the add-on's manifest exactly, or Firefox skips the
-      # entry without saying so.
-      addons = {
-        # The ads a network-level blocker cannot see (same-domain ones, e.g. YouTube).
-        "uBlock0@raymondhill.net" = "ublock-origin";
-        "78272b6fa58f4a1abaac99321d503a20@proton.me" = "proton-pass";
-        "vpn@proton.ch" = "proton-vpn-firefox-extension";
-        "sponsorBlocker@ajay.app" = "sponsorblock";
-        "addon@darkreader.org" = "darkreader";
-      };
     in
     {
       options.balaur.ambient = {
@@ -265,24 +253,6 @@ in
               PrivacySandboxAdTopicsEnabled = false;
               PrivacySandboxSiteEnabledAdsEnabled = false;
               PrivacySandboxAdMeasurementEnabled = false;
-            };
-          };
-          # Firefox, the browser before it: kept, with its policies, until what it
-          # holds (bookmarks, history) has been moved. Then this block and `addons` go.
-          programs.firefox = {
-            enable = true;
-            policies = {
-              DisableTelemetry = true;
-              DisableFirefoxStudies = true;
-              DisablePocket = true;
-              DontCheckDefaultBrowser = true;
-              OverrideFirstRunPage = "";
-              OverridePostUpdatePage = "";
-              NoDefaultBookmarks = true;
-              ExtensionSettings = lib.mapAttrs (_: slug: {
-                installation_mode = "force_installed";
-                install_url = "https://addons.mozilla.org/firefox/downloads/latest/${slug}/latest.xpi";
-              }) addons;
             };
           };
           # Said outright (in /etc/xdg/mimeapps.list, under the user's own list), so
