@@ -252,6 +252,11 @@ in
         are each one remote API by name. `curl -s ${lib.removeSuffix "/v1" aiUrl}/health` shows
         which are up.
 
+        You start on `${a.model}`.${
+          lib.optionalString (a.model == "balaur-local")
+            " That is the server's own GPU and nothing else, so the life log's text stays in the house; when it is down or busy, a request fails rather than going to a remote API. The owner switches to a remote one (`/model`) for what needs a stronger model and holds nothing private."
+        }
+
         ## The configuration
 
         Everything on these machines is declared in one repository, cloned at
@@ -438,8 +443,9 @@ in
       options.balaur.agent = {
         model = lib.mkOption {
           type = lib.types.str;
-          default = "balaur-mistral";
-          example = "balaur-claude";
+          # The fleet's own GPU and nothing else: the life log stays in the house.
+          default = "balaur-local";
+          example = "balaur-mistral";
           description = "The entryway's model the agent starts with (ai.nix): `balaur`, `balaur-local`, `balaur-remote`, or `balaur-<remote API>`. It reads the life log, so this is where the life log's text goes.";
         };
         clone = lib.mkOption {
