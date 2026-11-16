@@ -398,13 +398,12 @@ in
     # being the only app claiming the scheme, but that holds only until
     # something else claims it too (Fragments, Transmission), so say it outright.
     #
-    # Written as hyprland-mimeapps.list rather than through home-manager's
+    # Written as gnome-mimeapps.list rather than through home-manager's
     # xdg.mimeApps, which would take over mimeapps.list entirely — and Claude
     # Code keeps its own x-scheme-handler/claude-cli association in that file.
-    # A desktop reads its own <desktop>-mimeapps.list first (XDG spec, from
-    # XDG_CURRENT_DESKTOP), so this decides magnet: and nothing else, and leaves
-    # the rest of that file alone.
-    xdg.configFile."hyprland-mimeapps.list".text = ''
+    # GNOME reads the desktop-prefixed list first (XDG spec), so this decides
+    # magnet: and nothing else, and leaves the rest of that file alone.
+    xdg.configFile."gnome-mimeapps.list".text = ''
       [Default Applications]
       x-scheme-handler/magnet=balaur-torrent.desktop
       application/x-bittorrent=balaur-torrent.desktop

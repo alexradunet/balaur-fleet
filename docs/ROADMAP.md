@@ -1,8 +1,8 @@
 # Roadmap
 
 Where the fleet is going next, as agreed on 2026-11-04. The direction holds for all of it:
-**native to the platform**: NixOS and home-manager modules before our own code; the
-desktop is Hyprland with libadwaita apps, and the Balaur app is GJS (`gnome/app`).
+**as GNOME-native as possible**. Use GNOME's own mechanism before writing code; everything
+GNOME-facing is GJS (`gnome/`).
 
 ## Done
 
@@ -13,14 +13,12 @@ desktop is Hyprland with libadwaita apps, and the Balaur app is GJS (`gnome/app`
 - Web dashboard, Samsung TV integration and the Go assistant removed; the GJS voice assistant ("Hey Jarvis") removed 2026-11-14.
 - Ambient screen (2026-11-04, Shell extension): after 1 min untouched, a clock, date, weather, the running
   timers and the next reminder (gone with the assistant) over a Jellyfin photo slideshow; a touch ends it, camera movement keeps it up.
-  Photos need a Jellyfin API key: `sudo balaur-photos-login`.
+  Photos need a Jellyfin API key: `sudo balaur-photos-login` (docs/SETUP.md, "The ambient screen").
 - Ambient screen, 2026-11-10: the machines (Tailscale) and services (systemd, or a probe on other machines)
   on the side; photos from `photos` in the Syncthing folder, so any machine can add them.
 - The tablet retired, 2026-11-15: the server took its services over and runs headless (Cockpit), the
   laptop is the only GNOME machine. The household screen, the Duet camera and the always-on laptop settings
   went with it; git history keeps them, and the Duet waits for a new purpose.
-- GNOME removed, 2026-11-15: the laptop runs Hyprland set up like Omarchy (hyprland.nix), with greetd;
-  the Shell extension (the ambient screen, the Scenes menu) went with GNOME.
 
 ## Next
 

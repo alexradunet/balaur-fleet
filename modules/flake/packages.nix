@@ -10,6 +10,7 @@ let
     lifelog = final.callPackage ../../pkgs/lifelog.nix { };
     lifelog-web = final.callPackage ../../pkgs/lifelog-web.nix { };
     balaur-app = final.callPackage ../../pkgs/balaur-app.nix { };
+    balaur-shell-extension = final.callPackage ../../pkgs/balaur-shell-extension.nix { };
   };
 in
 {
@@ -22,6 +23,7 @@ in
         lifelog
         lifelog-web
         balaur-app
+        balaur-shell-extension
         ;
     in
     {
@@ -30,16 +32,18 @@ in
           lifelog
           lifelog-web
           balaur-app
+          balaur-shell-extension
           ;
         default = balaur-app;
       };
 
-      # lifelog, lifelog-web and the app run their tests while building.
+      # lifelog, lifelog-web, the app and the Shell extension run their tests while building.
       checks = {
         inherit
           lifelog
           lifelog-web
           balaur-app
+          balaur-shell-extension
           ;
         # `nix fmt` leaves nothing to change. hosts/ is machine-generated: left as written.
         formatting = pkgs.runCommand "balaur-formatting" { nativeBuildInputs = [ pkgs.nixfmt ]; } ''

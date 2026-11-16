@@ -1,12 +1,11 @@
-"""Keep the desktop session awake while a gamepad is being played.
+"""Keep a GNOME session awake while a gamepad is being played.
 
-The compositor counts only keyboards, mice and touch as activity, so a game
-played on a controller blanks and locks the screen after the idle delay,
-unless the game asks it not to, which games on Proton (Battle.net, WoW) do
-not. This watches every gamepad (joystick evdev devices, which logind's
-uaccess lets the seat's user read) and holds a logind idle inhibitor (which
-hypridle honours) from a gamepad's first real input until HOLD seconds after
-its last one. Then the idle delay applies again.
+GNOME counts only keyboards, mice and touch as activity, so a game played on a
+controller blanks and locks the screen after the idle delay, unless the game
+asks GNOME not to, which games on Proton (Battle.net, WoW) do not. This watches
+every gamepad (joystick evdev devices, which logind's uaccess lets the seat's
+user read) and holds a GNOME idle inhibitor from a gamepad's first real input
+until HOLD seconds after its last one. Then the idle delay applies again.
 
 Noise does not count. Buttons and the d-pad count on press. An analog axis
 (stick or trigger, whatever the layout) counts when it has moved an eighth of
@@ -61,7 +60,7 @@ class Pad:
 
 
 class Inhibitor:
-    """systemd-inhibit holds the inhibitor for as long as it runs."""
+    """gnome-session-inhibit holds the inhibitor for as long as it runs."""
 
     def __init__(self):
         self.proc = None
@@ -69,9 +68,9 @@ class Inhibitor:
     def hold(self):
         if self.proc is None or self.proc.poll() is not None:
             self.proc = subprocess.Popen([
-                "systemd-inhibit", "--what=idle",
-                "--who=balaur-gamepad-awake",
-                "--why=A gamepad is in use",
+                "gnome-session-inhibit", "--inhibit", "idle",
+                "--app-id", "balaur-gamepad-awake",
+                "--reason", "A gamepad is in use",
                 "sleep", "infinity",
             ])
             print("gamepad in use: holding the screen awake", flush=True)

@@ -1,5 +1,6 @@
 # A machine the others depend on never sleeps: the server (the fleet's builder and
-# home server). Sleep, suspend and hibernate are switched off.
+# home server). Sleep, suspend and hibernate are switched off, and GDM's login
+# screen never suspends either, where there is one.
 #
 # A laptop as a server would also want the lid, the power key and the battery
 # handled (the `always-on` aspect did that; it left with the tablet, and git
