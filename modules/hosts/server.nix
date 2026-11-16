@@ -61,7 +61,7 @@ in
           proton-drive
           # Orca's runtime for the laptop's Orca to pair with, from boot (:6768, tailnet).
           orca-server
-          # The fleet's local LLM, on the Radeon 890M (Nemotron 3.5 Lightning).
+          # The fleet's local LLM, on the Radeon 890M (Qwen3.6 35B-A3B).
           local-llm
           # The fleet's AI entryway (http://server:4000/v1), moved from the tablet: the
           # clients take the first machine that has it. Its page is https://ai.balaur.space,

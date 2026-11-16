@@ -1,18 +1,28 @@
 # A local LLM that never sleeps: llama.cpp's llama-server on the machine's AMD iGPU
-# (Vulkan), serving NVIDIA Nemotron 3.5 Lightning 30B-A3B, a mixture-of-experts
-# model that reads ~3B of its 30B parameters per token, so the shared LPDDR5X's
-# bandwidth is enough for it. OpenAI-compatible /v1 and a chat page on :8090,
-# tailnet only: the port is not opened on the LAN, the tailnet is trusted.
+# (Vulkan), serving Qwen3.6 35B-A3B, a mixture-of-experts model that reads ~3B of
+# its 35B parameters per token, so the shared LPDDR5X's bandwidth is enough for it.
+# OpenAI-compatible /v1 and a chat page on :8090, tailnet only: the port is not
+# opened on the LAN, the tailnet is trusted.
 #
 # It is the fleet's local inference tier: the `ai-gateway` aspect (on the server)
 # finds it in the registry and sends model `balaur` here first, Mistral second (ai.nix).
+# Model `balaur-local` is this and nothing else: the Balaur agent's model for what
+# must not leave the house, the life log first (`balaur --model balaur/balaur-local`,
+# or `/model` in a session).
 #
-# The GPU has no memory of its own. It gets the BIOS's UMA carve-out (small: 2 GB)
-# plus, through amdgpu's GTT, up to half of the RAM, which the model takes when it
-# loads: ~19 GB of weights and a small cache (most of Nemotron-H's layers are Mamba
-# layers, which keep no per-token cache).
+# The model drafts its own next tokens (MTP, multi-token prediction: a small head
+# in the same file, `--spec-type draft-mtp`), and the model proper checks them, so
+# the answer is the same and comes faster. Measured on the Radeon 890M (2026-11-16):
+# 27 tokens/s without it, 34-35 with it (87% of the drafts accepted), a prompt read
+# at ~300 tokens/s. Nemotron 3.5 Lightning 30B-A3B, which this replaced, did 28
+# tokens/s and thought longer before it answered.
 #
-# The model is not in the Nix store (19 GB, and every builder would fetch it): on
+# The GPU has no memory of its own. It gets the BIOS's UMA carve-out (8 GB) plus,
+# through amdgpu's GTT, up to half of the RAM, which the model takes when it loads:
+# ~23 GB of weights and the cache of a 128k window, ~28 GB in all. A larger file
+# (Q5 and up) no longer fits.
+#
+# The model is not in the Nix store (23 GB, and every builder would fetch it): on
 # the first boot or deploy, local-llm-fetch downloads it into /var/lib/local-llm,
 # checks its hash and starts the server. To change model, change `model` and deploy;
 # old files stay until removed by hand.
@@ -100,17 +110,17 @@
         model = {
           url = lib.mkOption {
             type = lib.types.str;
-            default = "https://huggingface.co/ggml-org/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF/resolve/ba87e1d2152af029eb0e392b155c72c0dd92aa5b/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0.gguf";
-            description = "Where to download the GGUF file from (pinned to a revision).";
+            default = "https://huggingface.co/unsloth/Qwen3.6-35B-A3B-MTP-GGUF/resolve/5bc3e238d916f48a861bac2f8a1990a0e9b7e98d/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf";
+            description = "Where to download the GGUF file from (pinned to a revision). The server drafts with the model's MTP head, so it must be a file that has one.";
           };
           sha256 = lib.mkOption {
             type = lib.types.str;
-            default = "61f87e75974e4b535dcdf9aad056541a9514f1dfa4538b463b081d19b7a00e3c";
+            default = "0b21525e972670ed59e1812e170b27c26355381f0656ecc4e25617ece7dac58b";
             description = "The file's SHA-256 (Hugging Face shows it as the LFS oid).";
           };
           file = lib.mkOption {
             type = lib.types.str;
-            default = "NVIDIA-Nemotron-3.5-Lightning-30B-A3B-Q4_0.gguf";
+            default = "Qwen3.6-35B-A3B-MTP-UD-Q4_K_M.gguf";
             description = "Its file name in ${state}.";
           };
         };
@@ -124,7 +134,7 @@
         balaur.services = [
           {
             name = "Local LLM";
-            description = "Nemotron 3.5 Lightning on the iGPU: chat";
+            description = "Qwen3.6 35B-A3B on the iGPU: chat";
             icon = "🧠";
             port = cfg.port;
             unit = "local-llm.service";
@@ -158,6 +168,11 @@
               # Every layer on the GPU.
               "--n-gpu-layers"
               "999"
+              # The model's own MTP head drafts two tokens ahead (see the top).
+              "--spec-type"
+              "draft-mtp"
+              "--spec-draft-n-max"
+              "2"
             ];
             Restart = "on-failure";
             RestartSec = 30;
@@ -172,7 +187,7 @@
             # Mesa keeps its compiled shaders here, so later starts skip compiling them.
             CacheDirectory = "local-llm";
             Environment = [ "XDG_CACHE_HOME=/var/cache/local-llm" ];
-            # Loading 19 GB from disk takes a while the first time.
+            # Loading 23 GB from disk takes a while the first time.
             TimeoutStartSec = "5min";
             # Below the other services when it computes.
             Nice = 5;
@@ -180,7 +195,7 @@
         };
 
         # Runs until the model is on disk, then never again. Type=exec, so a deploy
-        # does not wait for 19 GB; when it succeeds it starts the server.
+        # does not wait for 23 GB; when it succeeds it starts the server.
         systemd.services.local-llm-fetch = {
           description = "Local LLM: download the model";
           wantedBy = [ "multi-user.target" ];

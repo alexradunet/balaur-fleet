@@ -75,7 +75,7 @@ modules/
   dev.nix                 Claude Code + Orca (from numtide/llm-agents.nix, daily updates), gh, ripgrep
   orca-server.nix         Orca's runtime as a service from boot (the server): the development sessions, for the other machines' Orca to pair with
   cockpit.nix             Cockpit, the web admin page of a headless machine (the server)
-  local-llm.nix           llama.cpp on the iGPU (Nemotron 3.5 Lightning, the server): the AI entryway's local tier
+  local-llm.nix           llama.cpp on the iGPU (Qwen3.6 35B-A3B, the server): the AI entryway's local tier
   gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow) and the CurseForge app; the laptop
   steam.nix               Steam and GameMode, for a machine that plays locally (none at the moment)
   game-streaming.nix      Sunshine on a host, Moonlight on the clients, over the tailnet (none at the moment)
