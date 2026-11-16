@@ -267,7 +267,8 @@ in
               RestartSec = 2;
               DynamicUser = true;
               CPUWeight = 1000;
-              MemoryMax = "256M";
+              # A 16 MB request is held a few times over while it is passed on.
+              MemoryMax = "512M";
               CapabilityBoundingSet = "";
               NoNewPrivileges = true;
               PrivateTmp = true;

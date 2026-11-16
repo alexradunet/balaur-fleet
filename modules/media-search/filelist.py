@@ -60,7 +60,8 @@ class filelist(object):
         if not creds:
             self._notice("no credentials. On the machine that runs qBittorrent: sudo balaur-filelist-login")
             return
-        query = urllib.parse.unquote(what).replace("+", " ").strip()
+        # nova2.py quotes the words with %20 between them: a `+` is the user's own (C++).
+        query = urllib.parse.unquote(what).strip()
         imdb = query.lower().startswith("tt") and query[2:].isdigit()
         params = {
             "username": creds[0], "passkey": creds[1], "action": "search-torrents",
@@ -74,7 +75,7 @@ class filelist(object):
         except urllib.error.HTTPError as e:
             try:
                 msg = json.load(e).get("error") or e.reason
-            except ValueError:
+            except (ValueError, AttributeError):
                 msg = e.reason
             self._notice("%s (HTTP %d)" % (msg, e.code))
             return
@@ -84,9 +85,15 @@ class filelist(object):
         if isinstance(data, dict):  # {"error": "..."}
             self._notice(str(data.get("error", data)))
             return
+        if not isinstance(data, list):
+            self._notice("an answer that is not a list of torrents")
+            return
 
         prefixes = CATEGORIES.get(cat)
         for t in data:
+            # One result the API shaped differently does not cost the others.
+            if not isinstance(t, dict) or not t.get("name") or not t.get("download_link"):
+                continue
             category = t.get("category") or ""
             if prefixes and not category.startswith(prefixes):
                 continue
@@ -96,8 +103,8 @@ class filelist(object):
             if t.get("doubleup"):
                 tags.append("2x UP")
             try:
-                pub = int(time.mktime(time.strptime(t.get("upload_date", ""), "%Y-%m-%d %H:%M:%S")))
-            except ValueError:
+                pub = int(time.mktime(time.strptime(t.get("upload_date") or "", "%Y-%m-%d %H:%M:%S")))
+            except (ValueError, TypeError, OverflowError):
                 pub = -1
             prettyPrinter({
                 "link": t["download_link"],

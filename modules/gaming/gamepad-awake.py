@@ -22,6 +22,7 @@ from evdev import ecodes
 
 HOLD = 300  # seconds of controller silence before the screen may blank again
 RESCAN = 5  # seconds between looks for newly connected controllers
+RETRY = 10  # seconds before an inhibitor that ended by itself is started again
 
 STICKS = {ecodes.ABS_X, ecodes.ABS_Y, ecodes.ABS_RX, ecodes.ABS_RY}
 HATS = {ecodes.ABS_HAT0X, ecodes.ABS_HAT0Y}
@@ -64,16 +65,26 @@ class Inhibitor:
 
     def __init__(self):
         self.proc = None
+        self.started = -RETRY
 
     def hold(self):
-        if self.proc is None or self.proc.poll() is not None:
-            self.proc = subprocess.Popen([
-                "gnome-session-inhibit", "--inhibit", "idle",
-                "--app-id", "balaur-gamepad-awake",
-                "--reason", "A gamepad is in use",
-                "sleep", "infinity",
-            ])
-            print("gamepad in use: holding the screen awake", flush=True)
+        if self.proc is not None and self.proc.poll() is None:
+            return
+        # One that exits at once (no session to ask) is not tried again on
+        # every movement of a stick.
+        if time.monotonic() - self.started < RETRY:
+            return
+        self.started = time.monotonic()
+        # --inhibit-only: it waits by itself. With a command to run
+        # (`sleep infinity`) it would leave that command behind when it
+        # is ended, one for every time the screen was held.
+        self.proc = subprocess.Popen([
+            "gnome-session-inhibit", "--inhibit", "idle",
+            "--app-id", "balaur-gamepad-awake",
+            "--reason", "A gamepad is in use",
+            "--inhibit-only",
+        ])
+        print("gamepad in use: holding the screen awake", flush=True)
 
     def release(self):
         if self.proc is not None:

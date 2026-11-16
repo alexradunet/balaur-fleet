@@ -48,6 +48,8 @@ import http.client
 import json
 import os
 import re
+import select
+import socket
 import string
 import sys
 import threading
@@ -96,6 +98,7 @@ state = {e["name"]: {"up": False, "since": 0.0, "detail": "not probed yet"} for 
 inflight = {e["name"]: 0 for e in LOCAL}  # requests of ours being answered by each local endpoint
 recent = collections.deque(maxlen=50)
 lock = threading.Lock()
+saving = threading.Lock()  # one change of the settings at a time, from reading them to the file
 
 
 def log(*a):
@@ -143,12 +146,13 @@ def save_settings(new):
 
 def reset_settings():
     global settings
-    try:
-        os.remove(SETTINGS_FILE)
-    except FileNotFoundError:
-        pass
-    with lock:
-        settings = load_settings()
+    with saving:
+        try:
+            os.remove(SETTINGS_FILE)
+        except FileNotFoundError:
+            pass
+        with lock:
+            settings = load_settings()
     log("settings reset to the defaults")
 
 
@@ -380,6 +384,10 @@ class TooLarge(Exception):
     pass
 
 
+class NoLength(Exception):
+    pass
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server_version = "balaur-ai"
@@ -450,7 +458,12 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(404, {"error": {"message": f"no GET {path} here"}})
 
     def read_json(self):
-        """The JSON object in the body; raises ValueError (400) or TooLarge (413)."""
+        """The JSON object in the body; raises ValueError (400), NoLength (411) or TooLarge (413)."""
+        if self.headers.get("Transfer-Encoding"):
+            # A body in chunks is not read here: left in the connection, it would be
+            # taken for the next request.
+            self.close_connection = True
+            raise NoLength("send the body with a Content-Length, not in chunks")
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
@@ -480,6 +493,9 @@ class Handler(BaseHTTPRequestHandler):
             body = self.read_json()
         except TooLarge as ex:
             self.reply(413, {"error": {"message": str(ex)}})
+            return
+        except NoLength as ex:
+            self.reply(411, {"error": {"message": str(ex)}})
             return
         except ValueError as ex:
             self.reply(400, {"error": {"message": f"the body is not a JSON object: {ex}"}})
@@ -530,7 +546,13 @@ class Handler(BaseHTTPRequestHandler):
                 if not key:
                     last_error = f"{label}: it has no API key on this machine"
                     continue
-                payload = for_remote(dict(body, model=model), path, remote["dialect"])
+                try:
+                    payload = for_remote(dict(body, model=model), path, remote["dialect"])
+                except (TypeError, ValueError, AttributeError, KeyError) as ex:
+                    # JSON, but not a chat request: `messages` that are not objects, ...
+                    self.reply(400, {"error": {"message": f"not a request {label} can be sent: "
+                                                          f"{type(ex).__name__}: {ex}"}})
+                    return
                 headers = {"Authorization": f"Bearer {key}"}
             try:
                 answered = self.forward(label, url, path, payload, headers, final, asked)
@@ -544,6 +566,10 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(503, {"error": {"type": "unavailable", "message": f"no tier could answer ({last_error})"}})
 
     def settings_post(self, body):
+        with saving:
+            self.change_settings(body)
+
+    def change_settings(self, body):
         with lock:
             new = json.loads(json.dumps(settings))
         if body.get("route") is not None:
@@ -552,7 +578,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             new["route"] = body["route"]
         if body.get("remote") is not None:
-            if body["remote"] not in BY_NAME:
+            if not isinstance(body["remote"], str) or body["remote"] not in BY_NAME:
                 self.reply(400, {"error": {"message": f"remote is one of {', '.join(BY_NAME)}"}})
                 return
             new["remote"] = body["remote"]
@@ -575,6 +601,28 @@ class Handler(BaseHTTPRequestHandler):
         save_settings(new)
         self.reply(200, {"settings": settings})
 
+    def hung_up(self, upstream):
+        """Waits for the upstream's answer to begin; True when the caller closed its
+        connection first. (A caller that only closes its sending half counts as gone;
+        HTTP clients do not do that while they wait.) It is the local endpoints this
+        is for: over TLS the first bytes back are the session's own, soon after the
+        request, and from then on only the answer is waited for."""
+        watch = [upstream, self.connection]
+        deadline = time.time() + READ_TIMEOUT
+        while True:
+            ready, _, _ = select.select(watch, [], [], max(0, deadline - time.time()))
+            if not ready:
+                raise TimeoutError(f"no answer in {READ_TIMEOUT} s")
+            if upstream in ready:
+                return False
+            try:
+                gone = self.connection.recv(1, socket.MSG_PEEK) == b""
+            except OSError:
+                gone = True
+            if gone:
+                return True
+            watch = [upstream]  # it sent its next request already: it is there
+
     def forward(self, label, url, path, payload, headers, final, asked):
         """Sends the request on; True once an answer (any answer, when final) has been passed back."""
         _, host, _, base = split(url)
@@ -588,6 +636,15 @@ class Handler(BaseHTTPRequestHandler):
             c.connect()
             c.sock.settimeout(READ_TIMEOUT)
             c.request("POST", target, body=data, headers=hdrs)
+            if self.hung_up(c.sock):
+                # Nobody is waiting for it: closing the connection stops the answer
+                # (a local model would otherwise compute it to the end, and count
+                # as busy meanwhile).
+                c.close()
+                self.close_connection = True
+                log(f"{asked} -> {label}: the caller hung up after {time.time() - t0:.1f}s, before the answer")
+                record(asked, label, payload.get("model"), 499, time.time() - t0)
+                return True
             r = c.getresponse()
         except Exception as ex:
             c.close()

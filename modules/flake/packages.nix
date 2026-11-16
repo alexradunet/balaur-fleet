@@ -53,6 +53,16 @@ in
           touch $out
         '';
 
+        # The Python that ships as it is, from modules/ (no package of its own, so no
+        # build that would run a test): each file compiles, and the AI entryway's
+        # router passes its tests (ai/test_router.py), against servers on loopback.
+        python = pkgs.runCommand "balaur-python" { nativeBuildInputs = [ pkgs.python3 ]; } ''
+          export PYTHONPYCACHEPREFIX=$TMPDIR/pyc
+          python3 -m py_compile ${../ai/router.py} ${../media-search/filelist.py} ${../gaming/gamepad-awake.py}
+          python3 -I ${../ai}/test_router.py
+          touch $out
+        '';
+
         # The agents' skills (.agents/skills, AGENTS.md): each a folder with a
         # SKILL.md whose `name` is the folder's and that has a description (the Agent
         # Skills format, which pi and Claude Code both read), and each linked into
