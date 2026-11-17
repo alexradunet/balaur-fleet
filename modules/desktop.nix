@@ -5,7 +5,7 @@
 # Decibels, Loupe, Papers...) and drops the rest, the same on every desktop; what
 # a given machine adds belongs in its host file.
 #
-# The fleet's own front end (the Balaur app, the Shell extension) is installed by
+# The fleet's Shell extension is installed by
 # `gnome`, for every GNOME machine. Here the extension is switched on through
 # home-manager rather than a locked system dconf profile, so it stays a setting
 # the user can turn off.

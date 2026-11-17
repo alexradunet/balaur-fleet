@@ -8,7 +8,7 @@ GNOME-facing is GJS (`gnome/`).
 
 - Stock GNOME as a household tablet on the Duet: auto-login `home`, no lock, on-screen keyboard (en + ro), rotation.
 - Voice assistant in the session: GJS daemon (PipeWire, wake word, Voxtral) + the fleet's pi in its home role.
-- Balaur app (libadwaita) and Shell extension.
+- Balaur app (libadwaita) and Shell extension; the app removed 2026-11-17 for the web home page (https://balaur.space).
 - Web UIs as GNOME web apps; Snapshot for the camera; camera movement keeps the screen awake.
 - Web dashboard, Samsung TV integration and the Go assistant removed; the GJS voice assistant ("Hey Jarvis") removed 2026-11-14.
 - Ambient screen (2026-11-04, Shell extension): after 1 min untouched, a clock, date, weather, the running

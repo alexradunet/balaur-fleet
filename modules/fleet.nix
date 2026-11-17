@@ -160,13 +160,13 @@ in
       );
       haveBuilders = builders != { };
 
-      # ---- the Balaur app's Home page (gnome/app) ----
+      # ---- /etc/balaur/services.json: the ambient screen, the agent ----
       # This machine's services, with their live systemd state, then the web UIs of
       # the other machines, each under "On <host>", reached at its `address` over
       # the tailnet (which `network` trusts). Their units live on another machine,
-      # so the app shows whether the address answers instead, and opens the web
-      # page: a local GNOME app (or a web app installed for 127.0.0.1) would open
-      # the wrong machine's service.
+      # so the ambient screen shows whether the address answers instead. A service
+      # of another machine opens at its web page: a local GNOME app (or a web app
+      # installed for 127.0.0.1) would open the wrong machine's service.
       cfg = config.balaur;
       localUrl =
         s:
@@ -180,9 +180,6 @@ in
       # The `tablet` aspect installed a GNOME web app for each of these; no host has it
       # since the tablet left the fleet (2026-11-15), so this is false everywhere.
       hasWebApp = s: cfg ? tablet && s.port != null && s.appIcon != null;
-      # Whether a household device opens it (the People page): only what a machine
-      # with `web` serves by name, to the `household` audience (web.nix).
-      sharedBy = balaur: s: balaur ? web && s.subdomain != null && s.audience == "household";
       localServices = map (s: {
         inherit (s)
           name
@@ -195,7 +192,6 @@ in
         url = localUrl s;
         desktopId = if hasWebApp s then "${s.webAppId}.desktop" else s.desktopId;
         host = null;
-        shared = sharedBy cfg s;
       }) cfg.services;
       # Where that machine runs the `web` aspect, its subdomain over HTTPS (web.nix).
       remoteUrl =
@@ -223,7 +219,6 @@ in
               url = remoteUrl host s;
               unit = "";
               desktopId = null;
-              shared = sharedBy nixosConfigs.${host}.config.balaur s;
             })
             (
               lib.filter (
@@ -237,9 +232,6 @@ in
     in
     {
       environment.etc."balaur/services.json".text = builtins.toJSON (localServices ++ remoteServices);
-      # The app's People page: who they are; what each opens it works out from the
-      # services' `shared` and `url` (gnome/app/src/access.js).
-      environment.etc."balaur/people.json".text = builtins.toJSON cfg.people;
       # Whose signature on a commit counts (git's allowed-signers format): the admin's
       # keys on every machine. Read by `git log --show-signature` and by auto-deploy.
       environment.etc."balaur/allowed-signers".text = lib.concatMapStrings (

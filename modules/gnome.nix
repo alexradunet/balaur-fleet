@@ -10,15 +10,14 @@
 # (the household screen on the Duet), left with the tablet on 2026-11-15; the
 # `cfg.tablet` and `cfg ? tablet` reads below and in fleet.nix stay harmless.
 #
-# Every GNOME machine gets the fleet's own front end from here: the Balaur app
-# (every service in `balaur.services` with its live state, and the people;
-# gnome/app) and the Shell extension (gnome/shell-extension). So the ambient
-# screen's settings are here too: after a minute untouched, a full-screen clock,
-# date, weather, the fleet's machines and services, over the photos in the synced
-# folder (gnome/shell-extension/ambient.js).
+# Every GNOME machine gets the fleet's Shell extension from here
+# (gnome/shell-extension); the services themselves are on the web home page
+# (web.nix, https://balaur.space). So the ambient screen's settings are here too:
+# after a minute untouched, a full-screen clock, date, weather, the fleet's
+# machines and services, over the photos in the synced folder
+# (gnome/shell-extension/ambient.js).
 #
-# GNOME's own search finds the home's services too (the app is a search
-# provider), and Quick Settings has a "Scenes" menu with Home Assistant's scenes
+# Quick Settings has a "Scenes" menu with Home Assistant's scenes
 # and scripts wherever the fleet runs Home Assistant (balaur.scenes,
 # /etc/balaur/house.json, below).
 { config, ... }:
@@ -269,7 +268,6 @@ in
           environment.systemPackages = [
             pkgs.chromium
             pkgs.ghostty
-            pkgs.balaur-app
             pkgs.balaur-shell-extension
           ];
           environment.gnome.excludePackages = [ pkgs.gnome-console ];

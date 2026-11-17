@@ -69,12 +69,12 @@ balaur.services = [{
   subdomain = "thing";      # https://thing.<domain> through Caddy, where `web` is
   audience = "owner";       # the default; "household" also serves the people the machine is shared with
   unit = "thing.service";   # `user:<unit>` for a unit of the desktop session
-  group = "Home";           # the Home page's section
+  group = "Home";           # its section
   appIcon = null;           # an icon for a GNOME web app, where an aspect installs one (none now)
 }];
 ```
 
-That puts it on the Balaur app's Home page, the web home page, the Balaur agent's
+That puts it on the web home page, the ambient screen, the Balaur agent's
 instructions, and, with `subdomain`, behind `https://<subdomain>.balaur.space`.
 
 **Firewall:** the tailnet (`tailscale0`) is trusted already. Open a port on the LAN

@@ -21,7 +21,7 @@ skipped). The **dendritic pattern** works like this:
   the host. Aspects never import each other. When one aspect reads another's options,
   it must still work without that aspect: `cfg.web.domain or null`, `cfg ? web`.
 - Our own packages (`pkgs/`) are one overlay (`modules/flake/packages.nix`) that `base`
-  puts into every machine's nixpkgs: an aspect says `pkgs.balaur-app`, never
+  puts into every machine's nixpkgs: an aspect says `pkgs.lifelog`, never
   `callPackage ../pkgs/...` (the kernel modules are the exception: they follow the kernel).
 - Machine-generated files (`hardware-configuration.nix`) live in `hosts/<hostname>/`,
   outside `modules/`, so import-tree doesn't load them.

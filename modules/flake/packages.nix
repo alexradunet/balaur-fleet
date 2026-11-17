@@ -1,15 +1,14 @@
 # Our own packages (pkgs/), their checks, and the development shell.
 #
 # The packages are one overlay, `flake.overlays.default`. The `base` aspect puts
-# it into every machine's nixpkgs, so an aspect says `pkgs.balaur-app` instead of
-# calling pkgs/balaur-app.nix itself, and there is one definition of each.
+# it into every machine's nixpkgs, so an aspect says `pkgs.lifelog` instead of
+# calling pkgs/lifelog.nix itself, and there is one definition of each.
 { ... }:
 let
   overlay = final: _prev: {
     # lifelog, the life log as files (lifelog/, modules/lifelog.nix).
     lifelog = final.callPackage ../../pkgs/lifelog.nix { };
     lifelog-web = final.callPackage ../../pkgs/lifelog-web.nix { };
-    balaur-app = final.callPackage ../../pkgs/balaur-app.nix { };
     balaur-shell-extension = final.callPackage ../../pkgs/balaur-shell-extension.nix { };
     # Is this commit signed by one of these keys? What auto-deploy asks before a switch.
     balaur-verify-commit = final.callPackage ../../pkgs/balaur-verify-commit.nix { };
@@ -24,7 +23,6 @@ in
       inherit (pkgs.extend overlay)
         lifelog
         lifelog-web
-        balaur-app
         balaur-shell-extension
         balaur-verify-commit
         ;
@@ -34,19 +32,16 @@ in
         inherit
           lifelog
           lifelog-web
-          balaur-app
           balaur-shell-extension
           balaur-verify-commit
           ;
-        default = balaur-app;
       };
 
-      # lifelog, lifelog-web, the app and the Shell extension run their tests while building.
+      # lifelog, lifelog-web and the Shell extension run their tests while building.
       checks = {
         inherit
           lifelog
           lifelog-web
-          balaur-app
           balaur-shell-extension
           ;
         # `nix fmt` leaves nothing to change. hosts/ is machine-generated: left as written.
@@ -166,12 +161,10 @@ in
           pkgs.gopls
           pkgs.gjs
           pkgs.nodejs_22
-          pkgs.libadwaita
-          pkgs.gtk4
         ];
         shellHook = ''
           echo "dev: lifelog/         go test ./..."
-          echo "     gnome/app/       nix build .#balaur-app && ./result/bin/balaur-app"
+          echo "     gnome/shell-extension/  nix build .#balaur-shell-extension"
         '';
       };
     };

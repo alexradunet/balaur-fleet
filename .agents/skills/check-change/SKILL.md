@@ -45,7 +45,7 @@ that fails and fix it.
    .#checks.x86_64-linux.signed-commits` cost seconds (`python`: the Python under
    `modules/` compiles, and `modules/ai/test_router.py` passes; `signed-commits`:
    what auto-deploy accepts as a signed commit). The
-   package checks (`lifelog`, `lifelog-web`, `balaur-app`, ...) build with their
+   package checks (`lifelog`, `lifelog-web`, `balaur-shell-extension`, ...) build with their
    packages. After a change to `web`, `torrents`, `notify`, `base` or the registry,
    also the tests that boot machines: `nix build -L --no-link
    .#checks.x86_64-linux.web-gate` (and `.torrents`, `.notify`; under a minute each

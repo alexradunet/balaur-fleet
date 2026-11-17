@@ -204,7 +204,7 @@ in
           mkdir $out
           cp ${page} $out/index.html
           cp ${manifest} $out/manifest.webmanifest
-          cp ${../gnome/app/data/org.balaur.Balaur.svg} $out/icon.svg
+          cp ${./web/icon.svg} $out/icon.svg
         '';
     in
     {

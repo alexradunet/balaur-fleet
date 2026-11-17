@@ -62,7 +62,7 @@ modules/
                           and `proton-drive-client`: that folder as /mnt/proton on a desktop (SSHFS)
   notify.nix              a failed unit or an ailing disk (smartd) is told to the owner through Home Assistant: its notifications, and the phones with its app
   never-sleep.nix         a machine on duty never sleeps (the server)
-  gnome.nix               GNOME itself: GDM, the session, PipeWire, the canonical apps (Chromium + its add-ons, Ghostty), the Balaur app + Shell extension, one look and keyboards (US + RO), the ambient screen's settings
+  gnome.nix               GNOME itself: GDM, the session, PipeWire, the canonical apps (Chromium + its add-ons, Ghostty), the Balaur Shell extension, one look and keyboards (US + RO), the ambient screen's settings
   desktop.nix             GNOME as a personal desktop: a normal login, the GNOME apps it drops
   dlna.nix                MiniDLNA: folders served as they are to the players on the home network (the server)
   torrents.nix            qBittorrent + FileList search (aspect `torrents`, the server), and
@@ -84,7 +84,6 @@ modules/
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
 gnome/                    everything GNOME-facing, in GJS
-  app/                    "Balaur", a libadwaita app: the home's services and its people
   shell-extension/        the Scenes menu in Quick Settings (Home Assistant), the ambient screen (photos, machines, services)
 lifelog/                  the life log as markdown + CSV, synced by Syncthing, checked into git (the checker and its commands; web/: the web app, in Node.js)
 ```
@@ -94,11 +93,11 @@ lifelog/                  the life log as markdown + CSV, synced by Syncthing, c
 | Where | What |
 |---|---|
 | AI (aspects `ai-gateway`, `ai`, `strata`) | One entryway for every model call in the fleet: `http://server:4000/v1` (OpenAI-compatible; `OPENAI_BASE_URL` points there on every machine), with a page at **https://ai.balaur.space** to see the tiers and the last requests and to change the route and the remote model. Model `balaur` answers from the server's RTX 5060 Ti (`strata`: Qwen3.8-Flash-Next) when it is up and free (it stops while a game runs), else from Mistral; `balaur-local` and `balaur-remote` pick one; the Balaur agent starts on `balaur-local`, so the life log stays in the house. |
-| The Balaur app | **Home**: every service with its live state and a button that opens its app, and **People**: who of the household opens which service. GNOME's overview search finds the services too. Quick Settings has a **Scenes** menu with Home Assistant's scenes and scripts. |
+| The home page | **https://balaur.space**: every machine's web UIs, tailnet only (`web`). On GNOME, Quick Settings has a **Scenes** menu with Home Assistant's scenes and scripts (the Shell extension). |
 | Ad blocking | The router hands out DNS4EU's ad-blocking resolver (86.54.11.13); no DNS server of our own since 2026-11-17. |
 
-Adding a service = an aspect that appends to `balaur.services`: it shows on the Balaur app's Home
-page with its live systemd state, and on the home page at https://<domain>.
+Adding a service = an aspect that appends to `balaur.services`: it shows on the home page at
+https://<domain>, and on the ambient screen with its live systemd state.
 
 ## Install
 
@@ -124,15 +123,15 @@ by hand once after that (the agents and Orca, the Scenes menu, the ambient scree
 ## Developing
 
 ```bash
-nix develop                                   # Go, GJS, Node 22, libadwaita
+nix develop                                   # Go, GJS, Node 22
 cd lifelog && go test ./...                   # the life log's checker and commands (lifelog/README.md)
-nix build .#balaur-app && ./result/bin/balaur-app # the app (gnome/app/README.md)
+nix build .#balaur-shell-extension             # the Shell extension and its tests (gnome/shell-extension/README.md)
 ```
 Each directory under `gnome/` has a short README.
 
 ## Status
 
-On the laptop: GNOME, the Balaur app and Shell extension. On the server, no monitor (GNOME over RDP): the AI
+On the laptop: GNOME and the Balaur Shell extension. On the server, no monitor (GNOME over RDP): the AI
 entryway and local model, the web front, qBittorrent and DLNA, the life log,
 Home Assistant, Orca, the Proton Drive mirror and Cockpit. The tablet waits for a new
 purpose. Next steps: [docs/ROADMAP.md](docs/ROADMAP.md).

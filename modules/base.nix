@@ -73,50 +73,10 @@ in
           description = "Root for bulk data (synced files).";
         };
 
-        people = lib.mkOption {
-          default = [ ];
-          example = [
-            {
-              name = "Ana";
-              role = "owner";
-            }
-          ];
-          description = ''
-            The people of the household, on the machine they share: the Balaur app's
-            People page shows which of the services each of them can open (written to
-            /etc/balaur/people.json by the `fleet` aspect). It describes what the
-            `web` aspect and the tailnet policy enforce; it grants nothing itself.
-          '';
-          type = lib.types.listOf (
-            lib.types.submodule {
-              options = {
-                name = lib.mkOption {
-                  type = lib.types.str;
-                  description = "The name the page shows.";
-                };
-                role = lib.mkOption {
-                  type = lib.types.enum [
-                    "owner"
-                    "household"
-                    "screen"
-                  ];
-                  description = ''
-                    How this person comes in. `owner`: the admin, whose devices open
-                    everything. `household`: their own devices, through this machine
-                    shared with their Tailscale account, which open the `household`
-                    services. `screen`: the household account on the built-in screen,
-                    with no password, which opens whatever answers on this machine.
-                  '';
-                };
-              };
-            }
-          );
-        };
-
         services = lib.mkOption {
           default = [ ];
           description = ''
-            The home's services, as listed on the Balaur app's Home page (written to
+            The home's services, as listed on the web home page and the ambient screen (written to
             /etc/balaur/services.json by the `fleet` aspect, together with the web UIs
             of the other machines). Feature modules append to this.
           '';
@@ -180,7 +140,7 @@ in
                   unit = lib.mkOption {
                     type = lib.types.str;
                     default = "";
-                    description = "systemd unit whose state the app shows; `user:<unit>` for a unit of the household session.";
+                    description = "systemd unit whose state the ambient screen shows; `user:<unit>` for a unit of the household session.";
                   };
                   group = lib.mkOption {
                     type = lib.types.str;
@@ -211,7 +171,7 @@ in
       };
 
       config = {
-        # pkgs.balaur-app, pkgs.lifelog, ...: one definition each, for every aspect.
+        # pkgs.lifelog, pkgs.balaur-shell-extension, ...: one definition each, for every aspect.
         nixpkgs.overlays = [ overlay ];
 
         boot.loader.systemd-boot = {
