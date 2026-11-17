@@ -334,8 +334,10 @@ in
               icon = "📓";
               socket = webSocket;
               subdomain = "life";
-              # Health data and private notes: not even this machine's own screen.
-              audience = "private";
+              # Health data and private notes: the owner's devices only. This machine's own
+              # screen too, since 2026-11-17: the server is the owner's desktop, its only
+              # account is theirs, and it reads /srv/life directly anyway.
+              audience = "owner";
               unit = "lifelog-web.service";
               group = "Personal";
             }

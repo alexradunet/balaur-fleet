@@ -18,7 +18,7 @@
 # household's, through a machine shared with another person's Tailscale account:
 # it gets the "household" services and a home page that lists only those, and a
 # 403 from the rest. A new device of the owner's is a stranger until it is listed.
-# A "private" service (the life log) is the owner's, and not this machine's own
+# A "private" service (none at present) is the owner's, and not this machine's own
 # address either: a screen on this machine may be the household's, and its
 # browser comes from there.
 #
