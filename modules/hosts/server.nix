@@ -7,6 +7,7 @@
 { inputs, config, ... }:
 let
   aspects = config.flake.modules.nixos;
+  hm = config.flake.modules.homeManager;
 in
 {
   fleet.server = {
@@ -109,6 +110,12 @@ in
         ++ [ ../../hosts/server/hardware-configuration.nix ];
 
       networking.hostName = "server";
+
+      # Also the owner's desktop and gaming PC (since 2026-11-17), so what the laptop
+      # has on screen: Chromium with its extensions comes with `gnome`, and Obsidian
+      # here. Obsidian is the desktop half of `lifelog-client`, whose folder half
+      # this machine already has from `lifelog` (the vault is /srv/life).
+      home-manager.users.${config.balaur.user}.imports = [ hm.lifelog-client ];
 
       # The value this machine's first install wrote. Never "upgrade" it by hand.
       system.stateVersion = "26.05";
