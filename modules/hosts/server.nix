@@ -1,6 +1,7 @@
 # server: the GMKtec NucBox EVO-X1 mini-PC (called `pc` until 2026-11-15), the fleet's most
 # powerful machine and the home's always-on server (taking over from the tablet), and the
-# fleet's first-choice builder. Wired, on a smart socket: the firmware powers it on
+# fleet's first-choice builder. On the home Wi-Fi since 2026-11-17 (moved next to the GPU),
+# on a smart socket: the firmware powers it on
 # when power returns (gmktec-evo-x1.nix has the BIOS settings).
 # Machine-generated files (hardware-configuration.nix) live in hosts/server/.
 { inputs, config, ... }:
@@ -12,7 +13,7 @@ in
     description = "GMKtec NucBox EVO-X1: the home server, fleet builder";
     tailnetIp = "100.118.216.118";
     sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILAacHQ+NIgv8wtFGuzdu3jF52vZJtv9H9p8fqK6F6sb";
-    lanIp = "192.168.50.12"; # wired (eno1, c8:ff:bf:05:0a:44), reserved in the router
+    lanIp = "192.168.50.2"; # Wi-Fi (wlp98s0, 88:f4:da:37:7d:14), reserved in the router; was .12 wired
     userKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICC9pHQla6NLPAlOhbVp204calGMamI9kDCoTLWyUhaH" ];
     syncthingId = "PT5TONV-F2LVWWX-UDUINFG-GRL5DS5-QXBARW3-7LCUJDQ-PCDWATW-IG5PTQJ";
     # qBittorrent's web UI (`torrents`): where `balaur-torrent` can send downloads.
@@ -78,7 +79,7 @@ in
           # behind this machine's web front.
           ai-gateway
           # The LAN's DNS server with ad and tracker blocking (AdGuard Home), moved from
-          # the tablet: the router hands out 192.168.50.12 as the DNS server.
+          # the tablet: the router hands out 192.168.50.2 (lanIp) as the DNS server.
           adblock
           # https://balaur.space: the home page and this machine's web UIs behind Caddy,
           # moved from the tablet (balaur.web below).
