@@ -345,6 +345,13 @@ in
               # and so no failed unit but the one that did fail.
               failed = machine.succeed("systemctl --failed --plain --no-legend | cut -d' ' -f1").split()
               assert failed == ["boom.service"], failed
+              # What nixos-rebuild switches in: a transient unit, collected when it
+              # fails. A failed notifier held on to it, and the next switch was refused
+              # as "already loaded" (the server, 2026-11-17).
+              machine.fail("systemd-run --wait --collect --unit=a-switch false")
+              machine.wait_until_succeeds("journalctl -u 'balaur-notify-failure@a-switch.service.service' | grep -q 'took nothing'", timeout=30)
+              machine.sleep(2)
+              machine.succeed("systemd-run --wait --collect --unit=a-switch true")
               machine.succeed("systemctl start fake-hass")
               machine.wait_for_open_port(8123)
               machine.fail("systemctl start boom")

@@ -96,6 +96,7 @@ in
           pkgs.coreutils
           pkgs.gitMinimal
           pkgs.util-linux # runuser
+          pkgs.systemd # systemctl reset-failed
           pkgs.balaur-verify-commit
           config.nix.package.out # nix-env, for the roll-back
         ];
@@ -165,6 +166,14 @@ in
           # The system profile before the switch: what a roll-back returns to.
           profile=/nix/var/nix/profiles/system
           before=$(readlink -f "$profile")
+
+          # nixos-rebuild switches in a transient unit of this name. One left loaded by
+          # a failed switch (kept by whatever refers to it, such as its OnFailure=
+          # notifier) makes every later switch fail with "already loaded", and only
+          # root can clear it: on 2026-11-17 that held the server for a night. It is
+          # ours alone, so clear it, and anything still holding on to it.
+          systemctl reset-failed nixos-rebuild-switch-to-configuration.service \
+            'balaur-notify-failure@nixos-rebuild-switch-to-configuration.service.service' 2>/dev/null || true
 
           status=0
           ${lib.getExe config.system.build.nixos-rebuild} switch --flake "github:${cfg.repo}/$rev#${host}" || status=$?
