@@ -83,7 +83,7 @@ what one machine needs. A machine without the `secrets` aspect keeps its few key
 
 - Prefers European providers and lean CPU use.
 - On the desktop (the laptop), everything on screen is GNOME-native (GJS, libadwaita). The
-  server is headless: its admin page is Cockpit.
+  server has no monitor: its GNOME desktop is reached over RDP, its admin page is Cockpit.
 - Build the new piece next to the old one, and switch over only once it works.
 - Verify by exercising the thing (the unit runs, the page answers), not by reading
   the config.

@@ -5,7 +5,7 @@ is the body: one flake that configures every machine at home, each one a head wi
 own purpose. They share a common base and know about each other.
 
 There are two heads. **server** (called `pc` until 2026-11-15), a **GMKtec NucBox EVO-X1**
-on ethernet, is the home's always-on server, and it is headless. It runs every house
+on ethernet, is the home's always-on server, with no monitor (its GNOME desktop over RDP). It runs every house
 service: the AI entryway and the fleet's local LLM (on its Radeon iGPU), AdGuard, the web
 front, the life log, Home Assistant, qBittorrent and DLNA, Orca's development sessions
 and the Proton Drive mirror. Its admin page is Cockpit, and it builds for the other
@@ -74,7 +74,8 @@ modules/
   agent.nix               the Balaur agent on every machine (`balaur`): pi with the fleet's models, machines and services, the life log as its memory; `balaur-think` (a harder question to Claude Code, on the Claude subscription); `balaur-ask`; set in `balaur.agent`
   dev.nix                 Claude Code + Orca (from numtide/llm-agents.nix, daily updates), gh, ripgrep
   orca-server.nix         Orca's runtime as a service from boot (the server): the development sessions, for the other machines' Orca to pair with
-  cockpit.nix             Cockpit, the web admin page of a headless machine (the server)
+  cockpit.nix             Cockpit, the web admin page of a machine without a monitor (the server)
+  remote-desktop.nix      GNOME's desktop over RDP, with no monitor (the server; tailnet and LAN), and the laptop's one-click client
   local-llm.nix           llama.cpp on the iGPU (Qwen3.6 35B-A3B, the server): the AI entryway's local tier
   gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow) and the CurseForge app; the laptop
   ai.nix                  the fleet's AI entryway on the server (`ai-gateway`: local GPU first, then a remote API: Mistral or Claude, also as `balaur-mistral` and `balaur-claude`) and its clients (`ai`)
@@ -131,7 +132,7 @@ Each directory under `gnome/` has a short README.
 
 ## Status
 
-On the laptop: GNOME, the Balaur app and Shell extension. On the server, headless: the AI
+On the laptop: GNOME, the Balaur app and Shell extension. On the server, no monitor (GNOME over RDP): the AI
 entryway and local model, AdGuard Home, the web front, qBittorrent and DLNA, the life log,
 Home Assistant, Orca, the Proton Drive mirror and Cockpit. The tablet waits for a new
 purpose. Next steps: [docs/ROADMAP.md](docs/ROADMAP.md).

@@ -54,8 +54,12 @@ in
           # This machine's own.
           # A mini-PC on mains power, a server and a builder: never suspend.
           never-sleep
-          # Headless (no GNOME, no RDP since 2026-11-15): its admin page is Cockpit,
+          # No monitor. Its GNOME desktop is reached over RDP (back since 2026-11-17,
+          # for the work laptop on the LAN, Orca included); its admin page is Cockpit,
           # https://cockpit.balaur.space.
+          gnome
+          desktop
+          remote-desktop
           cockpit
           # /srv/proton (the second NVMe) mirrored to the whole of Proton Drive, hourly.
           proton-drive
@@ -180,8 +184,9 @@ in
           filelistCredentialsFile = config.sops.templates."filelist.json".path;
           manageFilelistCredentials = false;
         };
-        # It stays at home, wired or on the home Wi-Fi: SSH and the Syncthing UI on
-        # the LAN as well.
+        # It stays at home, wired or on the home Wi-Fi: SSH, RDP and the Syncthing UI
+        # on the LAN as well.
+        remote-desktop.lan = true;
         # The work laptop (Windows, outside the tailnet): SSH on the LAN to this
         # machine only. Not in fleet.server.userKeys, so it cannot sign deploys.
         sshKeys = [

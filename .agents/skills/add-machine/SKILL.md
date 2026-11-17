@@ -48,8 +48,8 @@ choice that is theirs (name, aspects, account).
      model `balaur` is the fleet's local model first (`local-llm` on the server), a remote API second (Mistral, or Claude: `balaur-claude`).
    - `agent` is the Balaur agent (`balaur`): pi with the fleet's instructions, and the
      life log as its memory where the machine has the folder.
-   - A screen: `gnome` and `desktop`. A server stays headless and gets `cockpit` for
-     its admin page. Not on a normal laptop: `never-sleep`.
+   - A screen: `gnome` and `desktop`. A server gets `cockpit` for its admin page, and
+     `gnome`, `desktop` and `remote-desktop` if its desktop is wanted over RDP. Not on a normal laptop: `never-sleep`.
    - Services, normally on one machine only: `media`, `adblock`, `home-assistant`,
      `lifelog` (the keeper), `web`, `torrents`, `backup`.
 
