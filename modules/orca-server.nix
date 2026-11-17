@@ -5,9 +5,10 @@
 #
 # `orca serve --supervise` as the admin's user service, started at boot without a
 # login (lingering), on :6768. Only the tailnet reaches it: the firewall trusts
-# tailscale0, and nothing opens the port on the LAN. While Orca's desktop window
-# runs on the machine (a session over RDP), the supervisor waits and the window
-# serves the same profile on the same port; when it closes, the service takes over.
+# tailscale0, and nothing opens the port on the LAN. Orca's window on the machine
+# (a session over RDP) is opened by `balaur-orca-window`, Orca's menu entry here:
+# it stops the service, the window serves the same profile on the same port, and
+# the service starts again when the window closes.
 #
 # Pairing is done once, from Orca's window on the server (it has no command): a
 # pairing link, pasted on the client into Settings -> Remote Orca Servers -> Add
@@ -32,6 +33,48 @@
       user = config.balaur.user;
       home = config.users.users.${user}.home;
       orca = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.orca;
+
+      # Orca's window on this machine (over RDP). The service's Orca holds the
+      # profile and has no screen, so a plain launch hands over to it and nothing
+      # shows. This stops the service, waits for its Orca to let go, runs the window,
+      # and starts the service again once the window closes. The terminals survive
+      # both (their daemon runs in its own scopes). A second launch while the window
+      # is open (the lock is taken) only hands over to that window.
+      orcaWindow = pkgs.writeShellApplication {
+        name = "balaur-orca-window";
+        runtimeInputs = [
+          pkgs.systemd
+          pkgs.procps
+          pkgs.util-linux
+          pkgs.coreutils
+          pkgs.zenity
+        ];
+        text = ''
+          lock=''${XDG_RUNTIME_DIR:-/tmp}/balaur-orca-window.lock
+          exec 9>"$lock"
+          if ! flock -n 9; then
+            exec ${lib.getExe' orca "orca-ide"} "$@"
+          fi
+
+          systemctl --user stop orca-serve.service || true
+          # The service's Orca runs with --serve-port; wait until it has gone.
+          for _ in $(seq 60); do
+            pgrep -u "$(id -u)" -f -- '--serve-port' >/dev/null || break
+            sleep 0.5
+          done
+          if pgrep -u "$(id -u)" -f -- '--serve-port' >/dev/null; then
+            systemctl --user start orca-serve.service || true
+            zenity --error --title=Orca \
+              --text="The background Orca (orca-serve) did not stop, so its window cannot open." || true
+            exit 1
+          fi
+
+          status=0
+          ${lib.getExe' orca "orca-ide"} "$@" || status=$?
+          systemctl --user start orca-serve.service
+          exit "$status"
+        '';
+      };
     in
     {
       options.balaur.orca-server.port = lib.mkOption {
@@ -43,6 +86,25 @@
       config = {
         # The admin's user manager runs from boot, not only while someone is logged in.
         users.users.${user}.linger = true;
+
+        # Orca's menu entry, over the package's own (hiPrio): the window and the
+        # service cannot share the profile at once.
+        environment.systemPackages = [
+          (lib.hiPrio (
+            pkgs.makeDesktopItem {
+              name = "orca-ide";
+              desktopName = "Orca";
+              genericName = "Agentic Development Environment";
+              comment = "Orca's window on this machine (stops orca-serve while it is open)";
+              exec = "${lib.getExe orcaWindow} %U";
+              icon = "orca-ide";
+              categories = [ "Development" ];
+              mimeTypes = [ "x-scheme-handler/orca" ];
+              startupWMClass = "orca";
+            }
+          ))
+          orcaWindow
+        ];
 
         # What `orca serve service install` would write, declared (and only for the admin).
         systemd.user.services.orca-serve = {
