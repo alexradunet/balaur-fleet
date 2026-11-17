@@ -137,11 +137,44 @@
             hash = "sha256-hy0GpwDqKi3ujEdA1aBRA/DBbHyWn1jMoiw2TErBAjo=";
           };
           contents = pkgs.appimageTools.extractType2 { inherit pname version src; };
+          # CurseForge makes itself the default browser at start (through
+          # xdg-settings, into ~/.config/mimeapps.list), so links open in it. It
+          # runs with these two in front on its PATH: they refuse every claim on
+          # the web (http, https, text/html, the default browser) and pass the
+          # rest on, its own curseforge:// and cfauth:// included.
+          webClaims = "default-web-browser|text/html|application/xhtml\\+xml|x-scheme-handler/(https?|about|unknown)|https?";
+          noBrowserClaims = pkgs.symlinkJoin {
+            name = "curseforge-no-browser-claims";
+            paths =
+              map
+                (
+                  tool:
+                  pkgs.writeShellApplication {
+                    name = tool;
+                    text = ''
+                      for arg in "$@"; do
+                        if [[ $arg =~ ^(${webClaims})$ ]]; then exit 0; fi
+                      done
+                      exec ${pkgs.xdg-utils}/bin/${tool} "$@"
+                    '';
+                  }
+                )
+                [
+                  "xdg-settings"
+                  "xdg-mime"
+                ];
+          };
         in
         pkgs.appimageTools.wrapType2 {
           inherit pname version src;
           # The desktop file carries the curseforge:// handler ("Install" on the website).
           extraInstallCommands = ''
+            mv $out/bin/curseforge $out/bin/.curseforge-unguarded
+            cat > $out/bin/curseforge <<EOF
+            #!${pkgs.runtimeShell}
+            PATH=${noBrowserClaims}/bin:\$PATH exec $out/bin/.curseforge-unguarded "\$@"
+            EOF
+            chmod +x $out/bin/curseforge
             install -m 444 -D ${contents}/curseforge.desktop -t $out/share/applications
             substituteInPlace $out/share/applications/curseforge.desktop \
               --replace-fail 'Exec=AppRun --no-sandbox' 'Exec=curseforge'
