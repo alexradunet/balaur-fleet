@@ -55,7 +55,7 @@ in
           # This machine's own.
           # A mini-PC on mains power, a server and a builder: never suspend.
           never-sleep
-          # No monitor. Its GNOME desktop is reached over RDP (back since 2026-11-17,
+          # A monitor only for games, on the 5060 Ti (below). Otherwise its GNOME desktop is reached over RDP (back since 2026-11-17,
           # for the work laptop on the LAN, Orca included); its admin page is Cockpit,
           # https://cockpit.balaur.space.
           gnome
@@ -72,8 +72,15 @@ in
           backup
           # Orca's runtime for the laptop's Orca to pair with, from boot (:6768, tailnet).
           orca-server
-          # The fleet's local LLM, on the Radeon 890M (Qwen3.6 35B-A3B).
-          local-llm
+          # The RTX 5060 Ti, in its dock on the OCuLink port since 2026-11-17.
+          nvidia-egpu
+          # The fleet's local LLM on that card (Qwen3.8-Flash-Next), in place of
+          # local-llm on the Radeon 890M: both do not fit in the RAM. It stops
+          # while a game runs and comes back a minute after.
+          strata
+          # WoW (Battle.net on Proton) and CurseForge, on the same card, with a
+          # monitor on it; as on the laptop. Not over RDP (no relative mouse).
+          gaming
           # The fleet's AI entryway (http://server:4000/v1), moved from the tablet: the
           # clients take the first machine that has it. Its page is https://ai.balaur.space,
           # behind this machine's web front.

@@ -45,7 +45,9 @@ every five minutes into `sensor.fleet_<host>_state`, `_commit`, `_disk_used`,
 - **Behind main.** `trying <rev> (attempt n/3)`: read the auto-deploy journal on that
   machine; the build error is in it. Push a fix. `no answer`: asleep or off the tailnet.
 - **AI.** `curl -s server:4000/health | jq` shows each tier and why it is down. The local
-  model (`local-llm` on the server) takes minutes to load after a start.
+  model (`strata` on the server's 5060 Ti) takes minutes to load after a start, and is
+  stopped on purpose while a game runs (`strata-yield`: it looks for `reaper`,
+  `wineserver`, `umu-run`), starting again a minute after.
 - **A web UI.** On the machine: `curl -sI http://127.0.0.1:<port>`. Through the domain:
   `curl -sI https://<subdomain>.balaur.space` (Caddy and the wildcard certificate on
   the server: `systemctl status caddy acme-balaur.space`).

@@ -114,7 +114,7 @@ in
             baseUrl = aiUrl;
             api = "openai-completions";
             apiKey = "balaur"; # not a secret: the entryway takes no key (ai.nix)
-            # 128k is the local model's window (local-llm, contextSize 131072) and no more than Mistral's.
+            # 128k: no more than Mistral's window, and what the local model was given.
             models =
               map
                 (

@@ -75,8 +75,9 @@ modules/
   orca-server.nix         Orca's runtime as a service from boot (the server): the development sessions, for the other machines' Orca to pair with
   cockpit.nix             Cockpit, the web admin page of a machine without a monitor (the server)
   remote-desktop.nix      GNOME's desktop over RDP, with no monitor (the server; tailnet and LAN), and the laptop's one-click client
-  local-llm.nix           llama.cpp on the iGPU (Qwen3.6 35B-A3B, the server): the AI entryway's local tier
-  gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow) and the CurseForge app; the laptop
+  strata.nix              Strata on the RTX 5060 Ti (Qwen3.8-Flash-Next, the server): the AI entryway's local tier; it stops while a game runs
+  local-llm.nix           llama.cpp on an iGPU (Qwen3.6 35B-A3B): the local tier before Strata, on no host since 2026-11-17
+  gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow) and the CurseForge app; the laptop and the server
   ai.nix                  the fleet's AI entryway on the server (`ai-gateway`: local GPU first, then a remote API: Mistral or Claude, also as `balaur-mistral` and `balaur-claude`) and its clients (`ai`)
   shorts.nix              Proof in Pictures: the humanshorts project's videos ready to post, each with its cover and caption, at https://shorts.<domain> (the server)
   lifelog.nix             lifelog, the life log as files: the keeper on the server (`lifelog`) and its web app at https://life.<domain>, the folder, `lifelog` and Obsidian on the laptop (`lifelog-client`)
@@ -92,7 +93,7 @@ lifelog/                  the life log as markdown + CSV, synced by Syncthing, c
 
 | Where | What |
 |---|---|
-| AI (aspects `ai-gateway`, `ai`, `local-llm`) | One entryway for every model call in the fleet: `http://server:4000/v1` (OpenAI-compatible; `OPENAI_BASE_URL` points there on every machine), with a page at **https://ai.balaur.space** to see the tiers and the last requests and to change the route and the remote model. Model `balaur` answers from the server's Radeon 890M (`local-llm`: Qwen3.6 35B-A3B on llama.cpp) when it is up and free, else from Mistral; `balaur-local` and `balaur-remote` pick one; the Balaur agent starts on `balaur-local`, so the life log stays in the house. |
+| AI (aspects `ai-gateway`, `ai`, `strata`) | One entryway for every model call in the fleet: `http://server:4000/v1` (OpenAI-compatible; `OPENAI_BASE_URL` points there on every machine), with a page at **https://ai.balaur.space** to see the tiers and the last requests and to change the route and the remote model. Model `balaur` answers from the server's RTX 5060 Ti (`strata`: Qwen3.8-Flash-Next) when it is up and free (it stops while a game runs), else from Mistral; `balaur-local` and `balaur-remote` pick one; the Balaur agent starts on `balaur-local`, so the life log stays in the house. |
 | The Balaur app | **Home**: every service with its live state and a button that opens its app, and **People**: who of the household opens which service. GNOME's overview search finds the services too. Quick Settings has a **Scenes** menu with Home Assistant's scenes and scripts. |
 | Ad blocking | The router hands out DNS4EU's ad-blocking resolver (86.54.11.13); no DNS server of our own since 2026-11-17. |
 

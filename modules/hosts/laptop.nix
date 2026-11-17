@@ -57,7 +57,8 @@ in
           # The life log as files: the folder, `lifelog`, Obsidian, and the nightly mirror of
           # the keeper's history from the server (balaur.lifelog-client.mirrorFrom below).
           lifelog-client
-          # WoW, on the RTX 5060 Ti in its USB4 dock when it is plugged in.
+          # WoW, on the RTX 5060 Ti in its USB4 dock when it is plugged in here (it is on
+          # the server since 2026-11-17; the server has WoW too).
           nvidia-egpu
           gaming
           # One click to the server's desktop over RDP (an app per machine with `remote-desktop`).
