@@ -79,7 +79,7 @@ modules/
   local-llm.nix           llama.cpp on an iGPU (Qwen3.6 35B-A3B): the local tier before Strata, on no host since 2026-11-17
   gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow) and the CurseForge app; the laptop and the server
   ai.nix                  the fleet's AI entryway on the server (`ai-gateway`: local GPU first, then a remote API: Mistral or Claude, also as `balaur-mistral` and `balaur-claude`) and its clients (`ai`)
-  shorts.nix              Proof in Pictures: the humanshorts project's videos ready to post, each with its cover and caption, at https://shorts.<domain> (the server)
+  shorts.nix              balaur-videos: the humanshorts project's review page, at https://review.<domain> (the server)
   lifelog.nix             lifelog, the life log as files: the keeper on the server (`lifelog`) and its web app at https://life.<domain>, the folder, `lifelog` and Obsidian on the laptop (`lifelog-client`)
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages

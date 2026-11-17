@@ -95,8 +95,8 @@ in
           # Home Assistant, moved from the tablet (its state imported 2026-11-15):
           # https://home.balaur.space and :8123.
           home-assistant
-          # The humanshorts project is rendered here: its videos ready to post, with cover
-          # and caption, at https://shorts.balaur.space for the laptop and the phone.
+          # The humanshorts project is rendered here: balaur-videos, its review page, at
+          # https://review.balaur.space for the laptop and the phone.
           shorts
           # qBittorrent with FileList search, moved from the tablet: /srv/media.
           torrents
