@@ -26,7 +26,7 @@ Then, for each update:
    `nix store diff-closures /run/current-system ./result` on this machine: the
    versions that moved, and nothing unexpected removed.
 2. For nixpkgs, watch the services that keep state and migrate it on upgrade (Home
-   Assistant, Jellyfin, AdGuard, Syncthing, qBittorrent): read their changelogs for a
+   Assistant, Jellyfin, Syncthing, qBittorrent): read their changelogs for a
    major version step, and make sure the `backup` aspect has run first where it is on.
 3. Commit as `flake: <input> to <version or rev>` with what moved, then skill `deploy`.
 
@@ -38,4 +38,4 @@ for every renamed or removed option first. Move nixpkgs and home-manager togethe
 (`nixos-YY.MM`, `release-YY.MM` in `flake.nix`). Fix every `evaluation warning:`.
 Never change any host's `system.stateVersion` or `home.stateVersion`. Known to recheck
 at 26.11: `networking.firewall.checkReversePath` with Tailscale, Home Assistant's
-`config.http`, the Syncthing and AdGuard modules.
+`config.http`, the Syncthing module.

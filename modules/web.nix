@@ -234,7 +234,7 @@ in
           default = true;
           description = ''
             Whether the domain's records name this machine: the A records at the
-            registrar, and the answers the LAN's DNS (`adblock`) gives. Exactly one
+            registrar. Exactly one
             machine per domain; false on a machine that still serves its own web
             UIs while another one has taken the domain over (a move in progress).
           '';

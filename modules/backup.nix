@@ -9,7 +9,6 @@
 #   home-assistant   /var/lib/hass, without the recorder's history database
 #   lifelog          the keeper's git history of the life folder (the folder itself
 #                    is on every machine that has a lifelog aspect)
-#   adblock          AdGuard Home's settings and statistics
 #   torrents         qBittorrent's settings and the torrents it is seeding
 #
 # Off the machine, and in Europe. Either the repository is itself off-site (an
@@ -43,7 +42,6 @@
       found =
         lib.optionals (has "lifelog") [ "/var/lib/lifelog/life.git" ]
         ++ lib.optionals config.services.home-assistant.enable [ config.services.home-assistant.configDir ]
-        ++ lib.optionals config.services.adguardhome.enable [ "/var/lib/private/AdGuardHome" ]
         ++ lib.optionals config.services.qbittorrent.enable [ "/var/lib/qBittorrent/qBittorrent" ];
     in
     {

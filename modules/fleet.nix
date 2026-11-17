@@ -14,7 +14,7 @@
 # connects directly over the LAN when both are at home, so home and away are one
 # route, one browser origin, one login. A machine reaches itself at 127.0.0.1.
 # LAN addresses (`lanIp`, mDNS `<name>.local`) are for devices outside the tailnet,
-# such as the TV using AdGuard: the fleet accepts them, but never dials them.
+# such as the work laptop: the fleet accepts them, but never dials them.
 { lib, config, ... }:
 let
   inherit (lib) mkOption types;

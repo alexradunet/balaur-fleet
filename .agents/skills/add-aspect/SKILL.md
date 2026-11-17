@@ -42,7 +42,7 @@ the same kind first: a service (`dlna.nix`, `home-assistant.nix`), a program
   suit every machine; a host overrides in its file.
 - **Fleet-level data** (the registry, other hosts' configs) comes from the outer
   function: `{ config, ... }: let fleet = config.fleet; nixosConfigs =
-  config.flake.nixosConfigurations; in { ... }` — see `ai.nix`, `adblock.nix`.
+  config.flake.nixosConfigurations; in { ... }` — see `ai.nix`.
 - **Another aspect's options are optional.** `cfg.web.domain or null`, `config.balaur ?
   web`, `options ? sops`. Never import another aspect; never assume it is there.
 - **Two sides of a feature** (a server on one machine, a client on others) are two

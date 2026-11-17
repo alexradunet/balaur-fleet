@@ -5,8 +5,8 @@ is the body: one flake that configures every machine at home, each one a head wi
 own purpose. They share a common base and know about each other.
 
 There are two heads. **server** (called `pc` until 2026-11-15), a **GMKtec NucBox EVO-X1**
-on ethernet, is the home's always-on server, with no monitor (its GNOME desktop over RDP). It runs every house
-service: the AI entryway and the fleet's local LLM (on its Radeon iGPU), AdGuard, the web
+on the home Wi-Fi, is the home's always-on server, with no monitor (its GNOME desktop over RDP). It runs every house
+service: the AI entryway and the fleet's local LLM (on its Radeon iGPU), the web
 front, the life log, Home Assistant, qBittorrent and DLNA, Orca's development sessions
 and the Proton Drive mirror. Its admin page is Cockpit, and it builds for the other
 machines.
@@ -67,7 +67,6 @@ modules/
   dlna.nix                MiniDLNA: folders served as they are to the players on the home network (the server)
   torrents.nix            qBittorrent + FileList search (aspect `torrents`, the server), and
                           `balaur-torrent` + the magnet handler (aspect `torrents-client`, anywhere)
-  adblock.nix             AdGuard Home: network-wide ad/tracker blocking on :53, UI on :3000
   home-assistant.nix      Home Assistant: devices and automations, https://home.<domain> and :8123; the fleet's machines as its entities (state, commit, disk, backup, reboot) and the rules that tell the owner about them
   web.nix                 https://<domain>: the home page of every machine's web UIs, tailnet only (Caddy, DNS-challenge cert); the owner's devices get all of it, the household's the `household` services
   files.nix               Syncthing: a 200 GiB volume of its own at /srv/files, paired from the registry
@@ -95,7 +94,7 @@ lifelog/                  the life log as markdown + CSV, synced by Syncthing, c
 |---|---|
 | AI (aspects `ai-gateway`, `ai`, `local-llm`) | One entryway for every model call in the fleet: `http://server:4000/v1` (OpenAI-compatible; `OPENAI_BASE_URL` points there on every machine), with a page at **https://ai.balaur.space** to see the tiers and the last requests and to change the route and the remote model. Model `balaur` answers from the server's Radeon 890M (`local-llm`: Qwen3.6 35B-A3B on llama.cpp) when it is up and free, else from Mistral; `balaur-local` and `balaur-remote` pick one; the Balaur agent starts on `balaur-local`, so the life log stays in the house. |
 | The Balaur app | **Home**: every service with its live state and a button that opens its app, and **People**: who of the household opens which service. GNOME's overview search finds the services too. Quick Settings has a **Scenes** menu with Home Assistant's scenes and scripts. |
-| Ad blocking (aspect `adblock`) | AdGuard Home as the LAN DNS server, with European upstreams (Quad9, DNS4EU) and Samsung TV ad/ACR-tracking rules. Set it as the router's DNS 1 (keep a public DNS 2 so the network survives the box being off). |
+| Ad blocking | The router hands out DNS4EU's ad-blocking resolver (86.54.11.13); no DNS server of our own since 2026-11-17. |
 
 Adding a service = an aspect that appends to `balaur.services`: it shows on the Balaur app's Home
 page with its live systemd state, and on the home page at https://<domain>.
@@ -133,6 +132,6 @@ Each directory under `gnome/` has a short README.
 ## Status
 
 On the laptop: GNOME, the Balaur app and Shell extension. On the server, no monitor (GNOME over RDP): the AI
-entryway and local model, AdGuard Home, the web front, qBittorrent and DLNA, the life log,
+entryway and local model, the web front, qBittorrent and DLNA, the life log,
 Home Assistant, Orca, the Proton Drive mirror and Cockpit. The tablet waits for a new
 purpose. Next steps: [docs/ROADMAP.md](docs/ROADMAP.md).

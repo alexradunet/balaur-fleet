@@ -258,7 +258,6 @@ in
               "roborock" # the vacuum, set up in the Roborock app
               "xiaomi_miio" # the same vacuum, if it is in Xiaomi's Mi Home app instead
               "qbittorrent"
-              "adguard"
               "syncthing"
               "upnp" # the router
               "ipp" # printers

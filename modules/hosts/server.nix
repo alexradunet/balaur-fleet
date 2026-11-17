@@ -66,7 +66,7 @@ in
           proton-drive
           # A failed unit or a disk in trouble is told to the owner, through Home Assistant.
           notify
-          # The state only this machine has (Home Assistant, AdGuard, qBittorrent, the
+          # The state only this machine has (Home Assistant, qBittorrent, the
           # life log's history), nightly, into /srv/proton: so on the second disk, and
           # in Proton Drive an hour later (balaur.backup below).
           backup
@@ -78,9 +78,6 @@ in
           # clients take the first machine that has it. Its page is https://ai.balaur.space,
           # behind this machine's web front.
           ai-gateway
-          # The LAN's DNS server with ad and tracker blocking (AdGuard Home), moved from
-          # the tablet: the router hands out 192.168.50.2 (lanIp) as the DNS server.
-          adblock
           # https://balaur.space: the home page and this machine's web UIs behind Caddy,
           # moved from the tablet (balaur.web below).
           web
