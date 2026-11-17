@@ -182,6 +182,14 @@ in
         };
         # It stays at home, wired or on the home Wi-Fi: SSH and the Syncthing UI on
         # the LAN as well.
+        # The work laptop (Windows, outside the tailnet): SSH on the LAN to this
+        # machine only. Not in fleet.server.userKeys, so it cannot sign deploys.
+        # Read off a photo; one character (0/O) unsure, so both readings until the
+        # first login shows which one it is.
+        sshKeys = [
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM8ccP+5/xpPg9/0nC/0b0rpG0YEyGroIk/50K7VpEqG cico@balaur"
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM8ccP+5/xpPg9/0nC/0b0rpG0YEyGroIk/5OK7VpEqG cico@balaur"
+        ];
       };
     };
 }
