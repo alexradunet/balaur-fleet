@@ -13,7 +13,7 @@ in
     description = "GMKtec NucBox EVO-X1: the home server, fleet builder";
     tailnetIp = "100.118.216.118";
     sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILAacHQ+NIgv8wtFGuzdu3jF52vZJtv9H9p8fqK6F6sb";
-    lanIp = "192.168.50.12"; # wired (eno1, c8:ff:bf:05:0a:44), reserved in the router; .2 on Wi-Fi 2026-11-17
+    lanIp = "192.168.50.2"; # wired (eno1, c8:ff:bf:05:0a:44), reserved in the router since 2026-11-18
     userKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICC9pHQla6NLPAlOhbVp204calGMamI9kDCoTLWyUhaH" ];
     syncthingId = "PT5TONV-F2LVWWX-UDUINFG-GRL5DS5-QXBARW3-7LCUJDQ-PCDWATW-IG5PTQJ";
     # qBittorrent's web UI (`torrents`): where `balaur-torrent` can send downloads.
