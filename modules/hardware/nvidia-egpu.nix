@@ -1,7 +1,7 @@
 # An NVIDIA card in an external dock (Thunderbolt/USB4 or OCuLink), next to the
-# machine's own AMD/Intel iGPU. Written for an RTX 5060 Ti, on the
-# server's OCuLink port since 2026-11-17 (it was on the laptop's USB4 port before
-# that). On OCuLink it is there from boot, and does not hot-plug.
+# machine's own AMD/Intel iGPU. Written for an RTX 5060 Ti, on the laptop's USB4
+# port (on the server's OCuLink port 2026-11-17 to 2026-11-18, which kept the
+# server from being always on). On OCuLink it is there from boot, and does not hot-plug.
 #
 # Thunderbolt hot-plugs, but the port's security level is `user`: a new dock must
 # be approved before its PCIe tunnel opens. bolt does that, and remembers it:

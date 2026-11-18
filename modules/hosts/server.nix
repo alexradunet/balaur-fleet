@@ -1,8 +1,7 @@
 # server: the GMKtec NucBox EVO-X1 mini-PC (called `pc` until 2026-11-15), the fleet's most
 # powerful machine and the home's always-on server (taking over from the tablet), and the
-# fleet's first-choice builder. On the home Wi-Fi since 2026-11-17 (moved next to the GPU),
-# on a smart socket: the firmware powers it on
-# when power returns (gmktec-evo-x1.nix has the BIOS settings).
+# fleet's first-choice builder. Wired, next to the router, on a smart socket: the
+# firmware powers it on when power returns (gmktec-evo-x1.nix has the BIOS settings).
 # Machine-generated files (hardware-configuration.nix) live in hosts/server/.
 { inputs, config, ... }:
 let
@@ -14,7 +13,7 @@ in
     description = "GMKtec NucBox EVO-X1: the home server, fleet builder";
     tailnetIp = "100.118.216.118";
     sshHostKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILAacHQ+NIgv8wtFGuzdu3jF52vZJtv9H9p8fqK6F6sb";
-    lanIp = "192.168.50.2"; # Wi-Fi (wlp98s0, 88:f4:da:37:7d:14), reserved in the router; was .12 wired
+    lanIp = "192.168.50.12"; # wired (eno1, c8:ff:bf:05:0a:44), reserved in the router; .2 on Wi-Fi 2026-11-17
     userKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICC9pHQla6NLPAlOhbVp204calGMamI9kDCoTLWyUhaH" ];
     syncthingId = "PT5TONV-F2LVWWX-UDUINFG-GRL5DS5-QXBARW3-7LCUJDQ-PCDWATW-IG5PTQJ";
     # qBittorrent's web UI (`torrents`): where `balaur-torrent` can send downloads.
@@ -56,7 +55,7 @@ in
           # This machine's own.
           # A mini-PC on mains power, a server and a builder: never suspend.
           never-sleep
-          # A monitor only for games, on the 5060 Ti (below). Otherwise its GNOME desktop is reached over RDP (back since 2026-11-17,
+          # Headless again since 2026-11-18: no monitor. Its GNOME desktop is reached over RDP (back since 2026-11-17,
           # for the work laptop on the LAN, Orca included); its admin page is Cockpit,
           # https://cockpit.balaur.space.
           gnome
@@ -73,15 +72,10 @@ in
           backup
           # Orca's runtime for the laptop's Orca to pair with, from boot (:6768, tailnet).
           orca-server
-          # The RTX 5060 Ti, in its dock on the OCuLink port since 2026-11-17.
-          nvidia-egpu
-          # The fleet's local LLM on that card (Qwen3.8-Flash-Next), in place of
-          # local-llm on the Radeon 890M: both do not fit in the RAM. It stops
-          # while a game runs and comes back a minute after.
-          strata
-          # WoW (Battle.net on Proton) and CurseForge, on the same card, with a
-          # monitor on it; as on the laptop. Not over RDP (no relative mouse).
-          gaming
+          # The fleet's local LLM, on the Radeon 890M (Qwen3.6 35B-A3B), back since
+          # 2026-11-18: the RTX 5060 Ti and Strata left with the OCuLink dock, which kept
+          # the server from being always on.
+          local-llm
           # The fleet's AI entryway (http://server:4000/v1), moved from the tablet: the
           # clients take the first machine that has it. Its page is https://ai.balaur.space,
           # behind this machine's web front.
@@ -111,9 +105,8 @@ in
 
       networking.hostName = "server";
 
-      # Also the owner's desktop and gaming PC (since 2026-11-17), so what the laptop
-      # has on screen: Chromium with its extensions comes with `gnome`, and Obsidian
-      # here. Obsidian is the desktop half of `lifelog-client`, whose folder half
+      # The owner's desktop over RDP, so what the laptop has on screen: Chromium with
+      # its extensions comes with `gnome`, and Obsidian here. Obsidian is the desktop half of `lifelog-client`, whose folder half
       # this machine already has from `lifelog` (the vault is /srv/life).
       home-manager.users.${config.balaur.user}.imports = [ hm.lifelog-client ];
 

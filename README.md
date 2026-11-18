@@ -5,7 +5,7 @@ is the body: one flake that configures every machine at home, each one a head wi
 own purpose. They share a common base and know about each other.
 
 There are two heads. **server** (called `pc` until 2026-11-15), a **GMKtec NucBox EVO-X1**
-on the home Wi-Fi, is the home's always-on server, with no monitor (its GNOME desktop over RDP). It runs every house
+wired next to the router, is the home's always-on server, with no monitor (its GNOME desktop over RDP). It runs every house
 service: the AI entryway and the fleet's local LLM (on its Radeon iGPU), the web
 front, the life log, Home Assistant, qBittorrent and DLNA, Orca's development sessions
 and the Proton Drive mirror. Its admin page is Cockpit, and it builds for the other
@@ -75,9 +75,9 @@ modules/
   orca-server.nix         Orca's runtime as a service from boot (the server): the development sessions, for the other machines' Orca to pair with
   cockpit.nix             Cockpit, the web admin page of a machine without a monitor (the server)
   remote-desktop.nix      GNOME's desktop over RDP, with no monitor (the server; tailnet and LAN), and the laptop's one-click client
-  strata.nix              Strata on the RTX 5060 Ti (Qwen3.8-Flash-Next, the server): the AI entryway's local tier; it stops while a game runs
-  local-llm.nix           llama.cpp on an iGPU (Qwen3.6 35B-A3B): the local tier before Strata, on no host since 2026-11-17
-  gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow) and the CurseForge app; the laptop and the server
+  local-llm.nix           llama.cpp on an iGPU (Qwen3.6 35B-A3B, the server): the AI entryway's local tier
+  strata.nix              Strata on an NVIDIA card (Qwen3.8-Flash-Next): it stops while a game runs; on no host since 2026-11-18
+  gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow) and the CurseForge app; the laptop
   ai.nix                  the fleet's AI entryway on the server (`ai-gateway`: local GPU first, then a remote API: Mistral or Claude, also as `balaur-mistral` and `balaur-claude`) and its clients (`ai`)
   shorts.nix              balaur-videos: the humanshorts project's review page, at https://review.<domain> (the server)
   lifelog.nix             lifelog, the life log as files: the keeper on the server (`lifelog`) and its web app at https://life.<domain>, the folder, `lifelog` and Obsidian on the laptop (`lifelog-client`)
@@ -92,7 +92,7 @@ lifelog/                  the life log as markdown + CSV, synced by Syncthing, c
 
 | Where | What |
 |---|---|
-| AI (aspects `ai-gateway`, `ai`, `strata`) | One entryway for every model call in the fleet: `http://server:4000/v1` (OpenAI-compatible; `OPENAI_BASE_URL` points there on every machine), with a page at **https://ai.balaur.space** to see the tiers and the last requests and to change the route and the remote model. Model `balaur` answers from the server's RTX 5060 Ti (`strata`: Qwen3.8-Flash-Next) when it is up and free (it stops while a game runs), else from Mistral; `balaur-local` and `balaur-remote` pick one; the Balaur agent starts on `balaur-local`, so the life log stays in the house. |
+| AI (aspects `ai-gateway`, `ai`, `local-llm`) | One entryway for every model call in the fleet: `http://server:4000/v1` (OpenAI-compatible; `OPENAI_BASE_URL` points there on every machine), with a page at **https://ai.balaur.space** to see the tiers and the last requests and to change the route and the remote model. Model `balaur` answers from the server's Radeon 890M (`local-llm`: Qwen3.6 35B-A3B) when it is up and free, else from Mistral; `balaur-local` and `balaur-remote` pick one; the Balaur agent starts on `balaur-local`, so the life log stays in the house. |
 | The home page | **https://balaur.space**: every machine's web UIs, tailnet only (`web`). On GNOME, Quick Settings has a **Scenes** menu with Home Assistant's scenes and scripts (the Shell extension). |
 | Ad blocking | The router hands out DNS4EU's ad-blocking resolver (86.54.11.13); no DNS server of our own since 2026-11-17. |
 

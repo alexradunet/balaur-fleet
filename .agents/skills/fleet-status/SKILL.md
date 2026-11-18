@@ -1,6 +1,6 @@
 ---
 name: fleet-status
-description: Find out what state the Balaur fleet's machines are in and diagnose one that misbehaves - a machine behind main, a failed unit or deploy, a service that does not answer, the AI entryway or Strata down. Use for any question about how a machine or service of the fleet is doing.
+description: Find out what state the Balaur fleet's machines are in and diagnose one that misbehaves - a machine behind main, a failed unit or deploy, a service that does not answer, the AI entryway or the local model down. Use for any question about how a machine or service of the fleet is doing.
 ---
 
 # Fleet status and diagnosis
@@ -45,9 +45,9 @@ every five minutes into `sensor.fleet_<host>_state`, `_commit`, `_disk_used`,
 - **Behind main.** `trying <rev> (attempt n/3)`: read the auto-deploy journal on that
   machine; the build error is in it. Push a fix. `no answer`: asleep or off the tailnet.
 - **AI.** `curl -s server:4000/health | jq` shows each tier and why it is down. The local
-  model (`strata` on the server's 5060 Ti) takes minutes to load after a start, and is
-  stopped on purpose while a game runs (`strata-yield`: it looks for `reaper`,
-  `wineserver`, `umu-run`), starting again a minute after.
+  model (`local-llm` on the server's Radeon 890M) takes a minute or two to load after a
+  start (`journalctl -u local-llm`). A `strata` host stops on purpose while a game runs
+  (`strata-yield`), starting again a minute after.
 - **A web UI.** On the machine: `curl -sI http://127.0.0.1:<port>`. Through the domain:
   `curl -sI https://<subdomain>.balaur.space` (Caddy and the wildcard certificate on
   the server: `systemctl status caddy acme-balaur.space`).
