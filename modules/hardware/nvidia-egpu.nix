@@ -9,6 +9,9 @@
 # from GNOME's Settings, and it connects by itself from then on. Unplug the dock
 # only with games closed, and before the lid shuts: the driver does not survive
 # its card vanishing under it, nor suspend with the card attached.
+# On the laptop (2026-11-20), a dock plugged in after a wake from sleep was not seen
+# at all (no Thunderbolt event): plug it in, then reboot. Use the AG02's USB4 port
+# and its USB4 cable, not the OCuLink one.
 #
 # Booted without the dock, the driver just finds no card and the iGPU carries on
 # alone, so the same system works both ways.
