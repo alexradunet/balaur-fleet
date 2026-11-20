@@ -308,6 +308,17 @@ in
           # The LAN too (tailscale0 is trusted already): the phone's companion app at home.
           networking.firewall.allowedTCPPorts = [ port ];
 
+          # What was set up in its UI: integrations, dashboards, automations, accounts.
+          balaur.state.home-assistant = {
+            path = hass.configDir;
+            exclude = [
+              # Its history: large, live SQLite, and rebuilt by running.
+              "${hass.configDir}/home-assistant_v2.db*"
+              "${hass.configDir}/backups"
+            ];
+            verify = ''test -s "$restored/.storage/core.config_entries"'';
+          };
+
           balaur.services = [
             {
               name = "Home Assistant";

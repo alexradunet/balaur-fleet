@@ -240,6 +240,13 @@ in
         ];
         networking.firewall.allowedUDPPorts = [ torrentPort ];
 
+        # Its settings and the torrents it is seeding.
+        balaur.state.torrents = {
+          path = "${qbProfile}/qBittorrent";
+          exclude = [ "${qbProfile}/qBittorrent/data/logs" ];
+          verify = ''test -s "$restored/config/qBittorrent.conf"'';
+        };
+
         balaur.services = [
           {
             name = "qBittorrent";

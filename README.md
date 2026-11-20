@@ -57,7 +57,7 @@ modules/
   secrets.nix             sops-nix: shared and per-machine secrets, decrypted with each machine's host key
   base.nix                boot, admin account, SSH, Nix, housekeeping, locale + timezone, printing; the `balaur.services` registry
   network.nix             NetworkManager, Tailscale (+ SSH), <host>.local (mDNS)
-  backup.nix              restic, nightly, of the state only one machine has (the server: into /srv/proton, which Proton Drive copies)
+  backup.nix              restic, nightly, of the state the aspects declare (`balaur.state`: what only one machine has), and a monthly restore drill that proves it comes back (the server: into /srv/proton, which Proton Drive copies)
   proton-drive.nix        rclone, hourly: /srv/proton (the server) mirrored to all of Proton Drive, one way, nothing lost there
                           and `proton-drive-client`: that folder as /mnt/proton on a desktop (SSHFS)
   notify.nix              a failed unit or an ailing disk (smartd) is told to the owner through Home Assistant: its notifications, and the phones with its app

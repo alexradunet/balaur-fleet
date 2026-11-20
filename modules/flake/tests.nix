@@ -365,6 +365,83 @@ in
         '';
       };
 
+      # A backup that comes back (modules/backup.nix): what the aspects declare as
+      # their state (`balaur.state`) is backed up without what they leave out, the
+      # restore drill restores it and runs each state's own check, a state that comes
+      # back damaged fails the drill, and a lost folder is restored in place.
+      checks.backup-restore = pkgs.testers.runNixOSTest {
+        name = "backup-restore";
+        node.pkgsReadOnly = false;
+
+        nodes.machine =
+          { pkgs, ... }:
+          {
+            imports = [
+              machine
+              aspects.backup
+            ];
+            balaur.backup = {
+              repository = "/var/backup-test";
+              passwordFile = "${pkgs.writeText "password" "test"}";
+            };
+            # Two aspects' worth of state: one with something left out, one whose check
+            # runs as another user, as the ledger's does (money.nix).
+            balaur.state.thing = {
+              path = "/var/lib/thing";
+              exclude = [ "/var/lib/thing/cache" ];
+              verify = ''grep -qx precious "$restored/data"'';
+            };
+            balaur.state.other-thing = {
+              path = "/var/lib/other";
+              verify = ''
+                cp "$restored/note" "$scratch/note"
+                chown -R nobody "$scratch"
+                setpriv --reuid=nobody --regid=nogroup --clear-groups grep -qx hello "$scratch/note"
+              '';
+            };
+          };
+
+        testScript = ''
+          machine.wait_for_unit("multi-user.target")
+          machine.succeed(
+              "mkdir -p /var/lib/thing/cache /var/lib/other",
+              "echo precious > /var/lib/thing/data",
+              "echo junk > /var/lib/thing/cache/junk",
+              "echo hello > /var/lib/other/note",
+              "chmod 0700 /var/lib/other",
+          )
+
+          with subtest("the declared state is backed up, without what it leaves out"):
+              machine.succeed("systemctl start restic-backups-balaur")
+              files = machine.succeed("restic-balaur ls latest")
+              assert "/var/lib/thing/data" in files, files
+              assert "/var/lib/other/note" in files, files
+              assert "junk" not in files, files
+
+          with subtest("the drill restores it, checks it and leaves nothing behind"):
+              machine.succeed("systemctl start balaur-restore-drill")
+              said = machine.succeed("journalctl -u balaur-restore-drill --no-pager")
+              assert "thing: /var/lib/thing came back whole" in said, said
+              assert "other-thing: /var/lib/other came back whole" in said, said
+              machine.succeed("test ! -e /var/cache/balaur-restore-drill/restored")
+              machine.succeed("test ! -e /var/cache/balaur-restore-drill/scratch")
+
+          with subtest("a state that comes back damaged fails the drill"):
+              machine.succeed("echo broken > /var/lib/thing/data", "systemctl start restic-backups-balaur")
+              machine.fail("systemctl start balaur-restore-drill")
+              said = machine.succeed("journalctl -u balaur-restore-drill --no-pager")
+              assert "thing: /var/lib/thing came back, and its check failed" in said, said
+              machine.succeed("test ! -e /var/cache/balaur-restore-drill/restored")
+
+          with subtest("a lost folder comes back in place"):
+              machine.succeed("echo precious > /var/lib/thing/data", "systemctl start restic-backups-balaur")
+              machine.succeed("rm -rf /var/lib/thing")
+              machine.succeed("restic-balaur restore latest --target / --include /var/lib/thing")
+              machine.succeed("grep -qx precious /var/lib/thing/data")
+              machine.succeed("systemctl start balaur-restore-drill")
+        '';
+      };
+
       # Not a check: it builds Home Assistant, which no cache has with our set of
       # integrations, so on GitHub it would cost a quarter of an hour on every push.
       # By hand, after a change to home-assistant.nix or the report in notify.nix:

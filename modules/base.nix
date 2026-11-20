@@ -168,6 +168,52 @@ in
             )
           );
         };
+
+        state = lib.mkOption {
+          default = { };
+          example = lib.literalExpression ''
+            {
+              thing = {
+                path = "/var/lib/thing";
+                exclude = [ "/var/lib/thing/cache" ];
+                verify = '''test -s "$restored/thing.db"''';
+              };
+            }
+          '';
+          description = ''
+            The state an aspect keeps on this machine alone, that no rebuild brings back:
+            what its service was told in its own UI, a history. Each aspect declares its
+            own here; the `backup` aspect, where a machine has it, backs every entry up
+            and its restore drill proves each one comes back. Not for what is declared in
+            the repository, or already on more than one machine (a synced folder).
+          '';
+          type = lib.types.attrsOf (
+            lib.types.submodule {
+              options = {
+                path = lib.mkOption {
+                  type = lib.types.str;
+                  description = "The folder or file to back up.";
+                };
+                exclude = lib.mkOption {
+                  type = lib.types.listOf lib.types.str;
+                  default = [ ];
+                  description = "Paths under it that are left out: what is large and rebuilt by running (a cache, logs, a live database of history).";
+                };
+                verify = lib.mkOption {
+                  type = lib.types.lines;
+                  default = "";
+                  description = ''
+                    Shell lines for the restore drill, run as root in bash (`set -eu`) after a
+                    restore: `$restored` is the restored copy of `path`, `$scratch` an empty
+                    folder for this entry. A line that fails fails the drill. That the path
+                    came back at all is checked without them. Another aspect whose data
+                    lives in this state may add lines of its own.
+                  '';
+                };
+              };
+            }
+          );
+        };
       };
 
       config = {

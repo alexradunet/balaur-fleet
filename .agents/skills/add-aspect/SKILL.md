@@ -55,6 +55,12 @@ the same kind first: a service (`dlna.nix`, `home-assistant.nix`), a program
   user, `StateDirectory`, `LoadCredential` for secrets, and the hardening the service
   tolerates (`ai.nix` and `local-llm.nix` are examples); check with
   `systemd-analyze security <unit>` on the machine.
+- **State** that only this machine has and no rebuild brings back (what the service
+  was told in its own UI, a history) is declared, so the `backup` aspect backs it up
+  and its monthly restore drill proves it comes back:
+  `balaur.state.<name> = { path; exclude; verify; }` (base.nix). `verify` is a few
+  shell lines that tell a whole restore from a damaged one (`$restored` is the
+  restored copy). Not for a synced folder or anything the repository declares.
 - **Secrets** come from sops (skill `secrets`), never from the store.
 - **Comments** explain why, in full sentences, like the rest of the repository.
 

@@ -26,6 +26,11 @@
       cfg = config.balaur.money;
       dir = dirOf cfg.ledger;
       webSocket = "/run/fava/http.sock";
+      # The ledger's path inside the life folder (`money/main.beancount`), or null for
+      # a ledger kept somewhere else.
+      life = config.balaur.lifelog-folder or "/srv/life";
+      inLife =
+        if lib.hasPrefix "${life}/" cfg.ledger then lib.removePrefix "${life}/" cfg.ledger else null;
 
       # Fava and the tools in one Python, so that importers the agent writes
       # (beangulp) find beancount next to them.
@@ -172,6 +177,17 @@
             Persistent = true;
           };
         };
+
+        # The ledger's history is the life log's (the keeper commits the whole folder),
+        # so its part of the restore drill goes with that state: the newest ledger in
+        # the restored history still balances. A ledger can name plugins, which are
+        # code, so bean-check does not run as root.
+        balaur.state.lifelog.verify = lib.mkIf (inLife != null) ''
+          git -c safe.directory='*' --git-dir "$restored" archive refs/heads/live ${lib.escapeShellArg (lib.head (lib.splitString "/" inLife))} | tar -x -C "$scratch"
+          chown -R nobody "$scratch"
+          setpriv --reuid=nobody --regid=nogroup --clear-groups ${python}/bin/bean-check "$scratch"/${lib.escapeShellArg inLife}
+          echo "the ledger in the restored history balances"
+        '';
 
         balaur.services = [
           {

@@ -274,6 +274,16 @@ in
             home = "/var/lib/lifelog";
           };
 
+          # The history exists here only (the folder itself is on every machine with a
+          # lifelog aspect). The restored copy belongs to another user than the drill's.
+          balaur.state.lifelog = {
+            path = gitDir;
+            verify = ''
+              git -c safe.directory='*' --git-dir "$restored" fsck --full --no-dangling
+              echo "life.git: live is at $(git -c safe.directory='*' --git-dir "$restored" log -1 --format='%h, %cr' refs/heads/live)"
+            '';
+          };
+
           # The owner's `lifelog restore` and `lifelog check -git-dir` read the
           # keeper's git dir, which another user owns.
           environment.variables.LIFELOG_GIT_DIR = gitDir;
