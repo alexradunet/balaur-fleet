@@ -81,6 +81,7 @@ modules/
   ai.nix                  the fleet's AI entryway on the server (`ai-gateway`: local GPU first, then a remote API: Mistral or Claude, also as `balaur-mistral` and `balaur-claude`) and its clients (`ai`)
   shorts.nix              balaur-videos: the humanshorts project's review page, at https://review.<domain> (the server)
   lifelog.nix             lifelog, the life log as files: the keeper on the server (`lifelog`) and its web app at https://life.<domain>, the folder, `lifelog` and Obsidian on the laptop (`lifelog-client`)
+  money.nix               the owner's finances as a Beancount ledger in the life folder (money/), Fava at https://money.<domain> (the server); the agent keeps it (skill `money`)
 hosts/<hostname>/         machine-generated files only (hardware-configuration.nix)
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
 gnome/                    everything GNOME-facing, in GJS

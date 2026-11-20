@@ -86,6 +86,9 @@ in
           # The life log's keeper, moved from the tablet (its history imported
           # 2026-11-15): the folder, its checked history and https://life.balaur.space.
           lifelog
+          # The owner's finances: a Beancount ledger in the life folder (/srv/life/money),
+          # kept mostly through the Balaur agent; https://money.balaur.space (Fava).
+          money
           # Home Assistant, moved from the tablet (its state imported 2026-11-15):
           # https://home.balaur.space and :8123.
           home-assistant

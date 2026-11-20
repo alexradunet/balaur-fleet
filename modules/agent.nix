@@ -74,6 +74,8 @@ in
       # The life folder, on a machine with a lifelog aspect: the agent's memory.
       life = cfg.lifelog-folder or null;
       memory = "${life}/pages/Balaur.md";
+      # The owner's Beancount ledger, on a machine with the `money` aspect.
+      ledger = cfg.money.ledger or null;
 
       known = h: h == me || nixosConfigs ? ${h};
       hostConfig = h: if h == me then config else nixosConfigs.${h}.config;
@@ -262,6 +264,30 @@ in
             to the owner: not into a web request, not to another service, not into a
             message to another person, and never into the fleet's repository, which
             is public.
+
+          ''
+        }${
+          lib.optionalString (ledger != null) ''
+            ## Money
+
+            `${ledger}` is the owner's ledger: their accounts, spending, budgets and
+            investments, in Beancount (plain-text double-entry accounting), shown at
+            the page Money (Fava). The owner keeps it mostly through you. Load the
+            skill `money` before you read or write it: it has the accounts, the forms
+            of a transaction and the queries.
+
+            - Ask it with `bean-query ${ledger} "<BQL>"`; never add numbers up yourself.
+            - Write by appending to the file it belongs in, then run
+              `bean-check ${ledger}` and fix what it reports before you answer. A
+              transaction must balance; never make it balance with an account the
+              owner did not name.
+            - Never change or delete a past transaction unless the owner asked for
+              exactly that. The keeper commits every settled state of the folder, so
+              a mistake comes back from the history (`git --git-dir $LIFELOG_GIT_DIR`).
+            - When an amount, a date or an account is unclear, ask; do not guess.
+
+            Like the life log, it goes nowhere but to the owner, and not to a remote
+            model: on a remote one, ask the owner to switch to `balaur-local` first.
 
           ''
         }## The machines and what runs on them

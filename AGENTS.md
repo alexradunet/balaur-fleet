@@ -105,3 +105,4 @@ folder and the link, or `nix flake check` fails (`checks.skills`).
 | `add-machine` | a new machine joins the fleet (run on that machine) |
 | `secrets` | adding, changing, rotating or moving a secret; a new machine's recipients |
 | `update-inputs` | `nix flake update`: nixpkgs, home-manager, the agents |
+| `money` | the owner's finances: the Beancount ledger, a transaction, an investment, a bank CSV, a question about money |
