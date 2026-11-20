@@ -5,9 +5,9 @@
 #   nix flake update llm-agents && nixos-rebuild switch --flake .#$(hostname) --sudo
 # Per-project toolchains come from `nix develop` (see each repo's flake).
 #
-# The development sessions live in Orca on the server (`orca-server`): the other
-# machines' Orca apps pair with it (Settings -> Remote Orca Servers), so the work
-# stays there while a laptop sleeps.
+# The development sessions live on the server in zellij: `ssh server`, then
+# `zellij attach -c dev` (any name). A session outlives the SSH connection, so the
+# agents keep working while the laptop sleeps.
 { inputs, ... }:
 {
   flake.modules.nixos.dev =
@@ -18,10 +18,10 @@
     {
       environment.systemPackages = [
         agents.claude-code # `claude`
-        agents.orca # desktop app for parallel agents, each in its own worktree (stablyai/orca)
       ]
       ++ (with pkgs; [
         gh
+        zellij # terminal multiplexer: sessions that outlive the SSH connection
         ripgrep
         fd
         tree

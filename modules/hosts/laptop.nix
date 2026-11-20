@@ -61,8 +61,6 @@ in
           # (the fleet's only gaming machine again since 2026-11-18). No local model here.
           nvidia-egpu
           gaming
-          # One click to the server's desktop over RDP (an app per machine with `remote-desktop`).
-          remote-desktop-client
           # The server's /srv/proton (backed up to Proton Drive) as /mnt/proton, over SSHFS.
           proton-drive-client
           # A failed unit or its disk in trouble is told to the owner's phone, through

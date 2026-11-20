@@ -202,9 +202,7 @@ in
           services.gnome = {
             gnome-initial-setup.enable = false; # every machine is set up by this flake
             gnome-online-accounts.enable = false; # no online account is set up
-            # Over NixOS GNOME's own mkDefault true, at a priority an aspect can still
-            # override (`remote-desktop` does).
-            gnome-remote-desktop.enable = lib.mkOverride 900 false;
+            gnome-remote-desktop.enable = false; # no machine is reached over RDP
             gnome-user-share.enable = false; # files move through Syncthing (`files`)
             gnome-browser-connector.enable = false; # the extensions come from the flake
             rygel.enable = false; # DLNA sharing from the session: `dlna` serves it where wanted

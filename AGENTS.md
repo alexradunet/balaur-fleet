@@ -50,8 +50,8 @@ new commit, switches to its own configuration at that commit and fast-forwards i
 clone. So work from whichever machine you are at — the laptop or the server — and
 deploying is `git push`. Skill `deploy` has the whole routine.
 
-- The development sessions live in Orca on the server (`orca-server`); the other machines' Orca
-  apps pair with it, and the agents keep working while they sleep.
+- The development sessions live on the server in zellij (`ssh server`, `zellij attach -c dev`);
+  a session outlives the connection, and the agents keep working while the laptop sleeps.
 - Each machine builds its own system, and the heavy builds go to the fleet's builders
   (the server first; fleet.nix). So editing on the laptop is fine: the server does its heavy builds.
 - `balaur-fleet-status` shows every machine's deployed commit, state and failed units.
@@ -83,7 +83,7 @@ what one machine needs. A machine without the `secrets` aspect keeps its few key
 
 - Prefers European providers and lean CPU use.
 - On the desktop (the laptop), everything on screen is GNOME-native (GJS, libadwaita). The
-  server has no monitor: its GNOME desktop is reached over RDP, its admin page is Cockpit.
+  server is headless: SSH (zellij) for work, Cockpit for its admin page, no desktop.
 - Build the new piece next to the old one, and switch over only once it works.
 - Verify by exercising the thing (the unit runs, the page answers), not by reading
   the config.

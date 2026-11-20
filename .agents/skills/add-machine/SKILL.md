@@ -49,7 +49,7 @@ choice that is theirs (name, aspects, account).
    - `agent` is the Balaur agent (`balaur`): pi with the fleet's instructions, and the
      life log as its memory where the machine has the folder.
    - A screen: `gnome` and `desktop`. A server gets `cockpit` for its admin page, and
-     `gnome`, `desktop` and `remote-desktop` if its desktop is wanted over RDP. Not on a normal laptop: `never-sleep`.
+     no desktop: it is reached over SSH (zellij). Not on a normal laptop: `never-sleep`.
    - Services, normally on one machine only: `media`, `home-assistant`,
      `lifelog` (the keeper), `web`, `torrents`, `backup`.
 

@@ -2,11 +2,11 @@
 
 The pieces that are set up by hand once, after the machines run the flake. Installing a
 machine is the `add-machine` skill (`.agents/skills/add-machine/SKILL.md`); this is what
-comes after: the agents and Orca's sessions, the Scenes menu, and the ambient screen.
+comes after: the agents and their sessions, the Scenes menu, and the ambient screen.
 
 ---
 
-## Code: the agents and Orca's sessions
+## Code: the agents and their sessions
 
 The agent harnesses come from [numtide/llm-agents.nix](https://github.com/numtide/llm-agents.nix)
 (updated daily, pre-built in a binary cache), not from nixpkgs, which lags by months:
@@ -23,31 +23,22 @@ nixos-rebuild switch --flake .#<host> --sudo --accept-flake-config
 
 (After that first switch the cache is part of the system config, so the flag is not needed.)
 
-**The sessions live on the server,** in Orca: its `orca-server` aspect runs `orca serve` from
-boot (`systemctl --user status orca-serve`), and that runtime owns every project,
-worktree, terminal and agent. The other machines' Orca apps are only windows onto it:
-pair one once (a pairing link from the server's Orca runtime, pasted on the client into
-**Settings → Remote Orca Servers → Add Server**), then make it the **Active Server**.
-Closing the laptop changes nothing on the server; the agents keep working.
-
-**A phone (Orca Mobile)** pairs with the server directly, over the tailnet, so it works
-while the laptop sleeps. The service runs with `--no-pairing` and a running Orca cannot
-make a pairing code, so pair from an SSH session on the server, with the service stopped
-for a minute (the terminals and agents survive it):
+**The sessions live on the server,** in zellij (from `dev`). The server is headless, so
+everything goes over SSH:
 
 ```bash
-systemctl --user stop orca-serve
-ss -ltn | grep 6768            # nothing: the port is free
-orca serve --port 6768 --mobile-pairing --pairing-address "$(tailscale ip -4)"
-# scan the QR it prints with Orca Mobile (Tailscale on), wait until it connects, Ctrl+C
-systemctl --user reset-failed orca-serve; systemctl --user start orca-serve
+ssh server                 # the tailnet; the work laptop: ssh alex@192.168.50.2
+zellij attach -c dev       # attach to `dev`, or create it; any name works
+# Ctrl+o d detaches; the session and its agents keep running
+zellij ls                  # the sessions
 ```
 
-The pairing is kept in `~/.config/orca/orca-devices.json` (scope `mobile`). Pairing the
-phone with the laptop's Orca instead would route it through the laptop.
+A session outlives the SSH connection, so closing the laptop changes nothing on the
+server. After a reboot, `zellij attach -c dev` brings back its layout (zellij saves it);
+the programs in it start again by hand.
 
 The projects are cloned on the server, and so are the logins (`claude`, `pi`,
-`gh auth login`, `orca account add --agent claude`).
+`gh auth login`).
 
 **Updating the agents** (they move fast):
 

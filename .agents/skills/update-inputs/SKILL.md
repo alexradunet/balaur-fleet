@@ -17,7 +17,7 @@ git diff flake.lock
   revision and date come from the channel URL; never lock a release URL by hand, it
   loses them). A stable update is security and bug fixes.
 - **home-manager** follows `release-26.05`: keep it on the same release as nixpkgs.
-- **llm-agents** (Claude Code, pi, Orca) is deliberately not following our nixpkgs,
+- **llm-agents** (Claude Code, pi) is deliberately not following our nixpkgs,
   for its binary cache. Updated daily upstream.
 
 Then, for each update:

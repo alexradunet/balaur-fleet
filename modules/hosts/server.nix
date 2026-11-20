@@ -6,7 +6,6 @@
 { inputs, config, ... }:
 let
   aspects = config.flake.modules.nixos;
-  hm = config.flake.modules.homeManager;
 in
 {
   fleet.server = {
@@ -55,12 +54,9 @@ in
           # This machine's own.
           # A mini-PC on mains power, a server and a builder: never suspend.
           never-sleep
-          # Headless again since 2026-11-18: no monitor. Its GNOME desktop is reached over RDP (back since 2026-11-17,
-          # for the work laptop on the LAN, Orca included); its admin page is Cockpit,
-          # https://cockpit.balaur.space.
-          gnome
-          desktop
-          remote-desktop
+          # A headless server since 2026-11-20: no monitor, no desktop. It is reached over
+          # SSH, where zellij (from `dev`) holds the development sessions; its admin page
+          # is Cockpit, https://cockpit.balaur.space.
           cockpit
           # /srv/proton (the second NVMe) mirrored to the whole of Proton Drive, hourly.
           proton-drive
@@ -70,8 +66,6 @@ in
           # life log's history), nightly, into /srv/proton: so on the second disk, and
           # in Proton Drive an hour later (balaur.backup below).
           backup
-          # Orca's runtime for the laptop's Orca to pair with, from boot (:6768, tailnet).
-          orca-server
           # The fleet's local LLM, on the Radeon 890M (Qwen3.6 35B-A3B), back since
           # 2026-11-18: the RTX 5060 Ti and Strata left with the OCuLink dock, which kept
           # the server from being always on.
@@ -107,11 +101,6 @@ in
         ++ [ ../../hosts/server/hardware-configuration.nix ];
 
       networking.hostName = "server";
-
-      # The owner's desktop over RDP, so what the laptop has on screen: Chromium with
-      # its extensions comes with `gnome`, and Obsidian here. Obsidian is the desktop half of `lifelog-client`, whose folder half
-      # this machine already has from `lifelog` (the vault is /srv/life).
-      home-manager.users.${config.balaur.user}.imports = [ hm.lifelog-client ];
 
       # The value this machine's first install wrote. Never "upgrade" it by hand.
       system.stateVersion = "26.05";
@@ -192,9 +181,6 @@ in
           filelistCredentialsFile = config.sops.templates."filelist.json".path;
           manageFilelistCredentials = false;
         };
-        # It stays at home, wired or on the home Wi-Fi: SSH, RDP and the Syncthing UI
-        # on the LAN as well.
-        remote-desktop.lan = true;
         # The work laptop (Windows, outside the tailnet): SSH on the LAN to this
         # machine only. Not in fleet.server.userKeys, so it cannot sign deploys.
         sshKeys = [

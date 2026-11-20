@@ -5,9 +5,9 @@ is the body: one flake that configures every machine at home, each one a head wi
 own purpose. They share a common base and know about each other.
 
 There are two heads. **server** (called `pc` until 2026-11-15), a **GMKtec NucBox EVO-X1**
-wired next to the router, is the home's always-on server, with no monitor (its GNOME desktop over RDP). It runs every house
+wired next to the router, is the home's always-on server, headless (SSH only, no desktop). It runs every house
 service: the AI entryway and the fleet's local LLM (on its Radeon iGPU), the web
-front, the life log, Home Assistant, qBittorrent and DLNA, Orca's development sessions
+front, the life log, Home Assistant, qBittorrent and DLNA, the development sessions (zellij)
 and the Proton Drive mirror. Its admin page is Cockpit, and it builds for the other
 machines.
 
@@ -71,10 +71,8 @@ modules/
   web.nix                 https://<domain>: the home page of every machine's web UIs, tailnet only (Caddy, DNS-challenge cert); the owner's devices get all of it, the household's the `household` services
   files.nix               Syncthing: a 200 GiB volume of its own at /srv/files, paired from the registry
   agent.nix               the Balaur agent on every machine (`balaur`): pi with the fleet's models, machines and services, the life log as its memory; `balaur-think` (a harder question to Claude Code, on the Claude subscription); `balaur-ask`; set in `balaur.agent`
-  dev.nix                 Claude Code + Orca (from numtide/llm-agents.nix, daily updates), gh, ripgrep
-  orca-server.nix         Orca's runtime as a service from boot (the server): the development sessions, for the other machines' Orca to pair with
+  dev.nix                 Claude Code (from numtide/llm-agents.nix, daily updates), zellij, gh, ripgrep
   cockpit.nix             Cockpit, the web admin page of a machine without a monitor (the server)
-  remote-desktop.nix      GNOME's desktop over RDP, with no monitor (the server; tailnet and LAN), and the laptop's one-click client
   local-llm.nix           llama.cpp on an iGPU (Qwen3.6 35B-A3B, the server): the AI entryway's local tier
   strata.nix              Strata on an NVIDIA card (Qwen3.8-Flash-Next): it stops while a game runs; on no host since 2026-11-18
   gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow) and the CurseForge app; the laptop
@@ -107,7 +105,7 @@ run on that machine in a clone of the repository: it carries the install's setti
 writes the host file and its registry entry, and switches it over safely. Each host imports
 its own `hosts/<hostname>/hardware-configuration.nix` (the installer-generated file), so no
 disk layout is assumed; it must exist and be `git add`ed, or the build fails. What is set up
-by hand once after that (the agents and Orca, the Scenes menu, the ambient screen) is in
+by hand once after that (the agents and their sessions, the Scenes menu, the ambient screen) is in
 **[docs/SETUP.md](docs/SETUP.md)**.
 
 ## First-boot checklist
@@ -132,7 +130,7 @@ Each directory under `gnome/` has a short README.
 
 ## Status
 
-On the laptop: GNOME and the Balaur Shell extension. On the server, no monitor (GNOME over RDP): the AI
+On the laptop: GNOME and the Balaur Shell extension. On the server, headless (SSH and zellij): the AI
 entryway and local model, the web front, qBittorrent and DLNA, the life log,
-Home Assistant, Orca, the Proton Drive mirror and Cockpit. The tablet waits for a new
+Home Assistant, the Proton Drive mirror and Cockpit. The tablet waits for a new
 purpose. Next steps: [docs/ROADMAP.md](docs/ROADMAP.md).
