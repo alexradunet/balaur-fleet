@@ -84,6 +84,9 @@ in
         # A second copy of the life log's history, fetched nightly from the keeper (it
         # runs when the laptop next wakes if it slept through the night).
         lifelog-client.mirrorFrom = "server";
+        # The folder through git with the keeper (plan 005): it starts once
+        # `lifelog-sync init` has made the clone here (P5).
+        lifelog-client.syncWith = "server";
 
         # It roams onto networks nobody here owns: SSH and the Syncthing UI only
         # over the tailnet (tailscale0 is trusted), never on whatever Wi-Fi this is.

@@ -18,13 +18,38 @@
 #   lifelog check /srv/life            the rules, by hand
 #   journalctl -u lifelog-keeper       (server) what the keeper did
 #   lifelog restore pages/X.md         (server) a file back from `checked`
-{ config, ... }:
+{ config, lib, ... }:
 let
   fleet = config.fleet;
   nixosConfigs = config.flake.nixosConfigurations;
   hm = config.flake.modules.homeManager;
   folderId = "balaur-life";
   gitDir = "/var/lib/lifelog/life.git";
+
+  # What git leaves out of the folder, on the keeper and on a client alike: Syncthing's
+  # own files while it still runs, the editors' temporary files, Obsidian's settings.
+  excludes = [
+    "/.stfolder/"
+    "/.stversions/"
+    "/.stignore"
+    ".syncthing.*.tmp"
+    "~syncthing~*.tmp"
+    "/.obsidian/"
+  ];
+
+  # Shell lines that end the run while the folder is not settled (design §4):
+  # something in the content folders changed in the last $quiet seconds. A deletion
+  # changes its folder's time, so folders count too.
+  untilSettled = ''
+    content=()
+    for d in journal pages people places metrics files; do
+      if [ -d "$folder/$d" ]; then content+=("$folder/$d"); fi
+    done
+    since="@$(($(date +%s) - quiet))"
+    if [ ''${#content[@]} -gt 0 ] && [ -n "$(find "''${content[@]}" -newermt "$since" -print -quit)" ]; then
+      exit 0
+    fi
+  '';
 
   # What both aspects need: the group, the folder, its Syncthing folder.
   shared =
@@ -204,19 +229,9 @@ in
           mkdir -p "$gitdir/info"
           # _check.md is committed (plan 005): it reaches a machine that syncs through
           # git, and its deletion there comes back as the acknowledgement.
-          printf '%s\n' /.stfolder/ /.stversions/ /.stignore '.syncthing.*.tmp' '~syncthing~*.tmp' \
-            /.obsidian/ >"$gitdir/info/exclude"
+          printf '%s\n' ${lib.escapeShellArgs excludes} >"$gitdir/info/exclude"
 
-          # Settled: nothing in the content folders changed for $quiet seconds.
-          # A deletion changes its folder's time, so folders count too.
-          content=()
-          for d in journal pages people places metrics files; do
-            if [ -d "$folder/$d" ]; then content+=("$folder/$d"); fi
-          done
-          since="@$(($(date +%s) - quiet))"
-          if [ ''${#content[@]} -gt 0 ] && [ -n "$(find "''${content[@]}" -newermt "$since" -print -quit)" ]; then
-            exit 0
-          fi
+          ${untilSettled}
 
           g add -A
           if ! g rev-parse -q --verify refs/heads/live >/dev/null; then
@@ -498,11 +513,114 @@ in
           fi
         '';
       };
+
+      # The folder synced through git (plan 005): this machine's side. Its history is
+      # a clone of the keeper's, with the folder as its work tree and one branch of its
+      # own, `work`, which it pushes to the keeper's from/<this host>; the keeper merges
+      # that into live. Each run: commit the settled folder, fetch, merge live in
+      # (`lifelog integrate`), push. Offline, it commits and stops; the push goes with
+      # the next run that reaches the keeper.
+      #
+      #   lifelog-sync init   once: make the clone, into an empty folder (P5)
+      #   lifelog-sync        one run (the timer's, every minute)
+      syncWith = cfg.lifelog-client.syncWith;
+      me = config.networking.hostName;
+      sync = pkgs.writeShellApplication {
+        name = "lifelog-sync";
+        runtimeInputs = [
+          pkgs.git
+          pkgs.openssh
+          pkgs.coreutils
+          pkgs.findutils
+          pkgs.lifelog
+        ];
+        text = ''
+          folder=${cfg.lifelog-folder}
+          gitdir=''${LIFELOG_SYNC_GIT_DIR:-$HOME/.local/share/lifelog/sync.git}
+          quiet=${toString cfg.lifelog-client.quietSeconds}
+          remote=${syncWith}:${gitDir}
+
+          export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null LC_ALL=C
+          export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=10"
+          g() { git --git-dir "$gitdir" --work-tree "$folder" -c gc.autoDetach=false \
+                  -c user.name="lifelog ${me}" -c user.email=${me}@lifelog "$@"; }
+
+          if [ "''${1:-}" = init ]; then
+            if [ -e "$gitdir" ]; then
+              echo "$gitdir is there already: this machine syncs through git" >&2
+              exit 1
+            fi
+            # Into an empty folder only: what is in it now would be overwritten or,
+            # worse, committed over the keeper's live at the first run.
+            if [ -n "$(find "$folder" -mindepth 1 -maxdepth 1 ! -name .obsidian ! -name .stfolder ! -name .stversions ! -name .stignore -print -quit)" ]; then
+              echo "$folder is not empty: move it aside first (mv $folder/* somewhere), then run this again" >&2
+              exit 1
+            fi
+            mkdir -p "$(dirname "$gitdir")"
+            git init -q --bare "$gitdir"
+            g remote add origin "$remote"
+            g fetch -q origin
+            g update-ref refs/heads/work refs/remotes/origin/live
+            g symbolic-ref HEAD refs/heads/work
+            printf '%s\n' ${lib.escapeShellArgs excludes} >"$gitdir/info/exclude"
+            g read-tree -u --reset refs/heads/work
+            echo "$folder is now live at $(g log -1 --format='%h, %cr' refs/heads/work), synced through git with ${syncWith}"
+            exit 0
+          fi
+
+          # Not set up here (yet): nothing to do.
+          if [ ! -f "$gitdir/HEAD" ]; then
+            exit 0
+          fi
+
+          ${untilSettled}
+
+          g add -A
+          if ! g diff --cached --quiet; then
+            g commit -q -m "settled on ${me}"
+          fi
+
+          if ! g fetch -q origin; then
+            echo "<5>${syncWith} does not answer: this machine's commits wait for the next run"
+            exit 0
+          fi
+          code=0
+          lifelog integrate -folder "$folder" -git-dir "$gitdir" -from ${syncWith} -machine ${me} \
+            refs/remotes/origin/live || code=$?
+          case $code in
+            0) ;;
+            1) echo "<4>live not merged this time (above); tried again at the next run" >&2 ;;
+            *)
+              echo "<3>the merge of live failed (above)" >&2
+              exit 1
+              ;;
+          esac
+          # What the keeper has not got yet.
+          if ! g merge-base --is-ancestor refs/heads/work refs/remotes/origin/from/${me} 2>/dev/null; then
+            g push -q origin refs/heads/work:refs/heads/from/${me}
+          fi
+        '';
+      };
     in
     {
       imports = [ folderOption ];
 
       options.balaur.lifelog-client = {
+        syncWith = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          example = "server";
+          description = ''
+            The keeper's machine to sync the folder with through git (plan 005), or null
+            for none. It starts once `lifelog-sync init` has made the clone; until then
+            the folder syncs as before.
+          '';
+        };
+        quietSeconds = lib.mkOption {
+          type = lib.types.ints.positive;
+          default = 60;
+          description = "How long nothing in the content folders must change before this machine commits (design §4).";
+        };
         mirrorFrom = lib.mkOption {
           type = lib.types.nullOr lib.types.str;
           default = null;
@@ -531,6 +649,26 @@ in
             timerConfig = {
               OnCalendar = "*-*-* 04:07:00";
               Persistent = true;
+            };
+          };
+
+          environment.systemPackages = lib.optional (syncWith != null) sync;
+          systemd.services.lifelog-sync = lib.mkIf (syncWith != null) {
+            description = "lifelog: sync the folder with ${syncWith} through git";
+            serviceConfig = {
+              Type = "oneshot";
+              User = cfg.user;
+              ExecStart = lib.getExe sync;
+              # What it writes in the folder is the group's (the folder's ACL makes sure).
+              UMask = "0007";
+            };
+          };
+          systemd.timers.lifelog-sync = lib.mkIf (syncWith != null) {
+            wantedBy = [ "timers.target" ];
+            timerConfig = {
+              OnBootSec = "2min";
+              OnUnitInactiveSec = "1min";
+              AccuracySec = "10s";
             };
           };
         }
