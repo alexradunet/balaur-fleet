@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Balaur graph</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <style>
+    :root { --bg: #fafafa; --card: #ffffff; --fg: #1e1e1e; --dim: #5e5c64;
+            --line: #deddda; --accent: #3584e4;
+            --up: #2ec27e; --upbg: #e6f7ee; --bad: #e01b24; --badbg: #fde7e8;
+            --idle: #9a9996; --idlebg: #f0f0ef; --wait: #e5a50a; --waitbg: #fdf3d8;
+            color-scheme: light dark; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #242424; --card: #303030; --fg: #ffffff; --dim: #c0bfbc;
+              --line: #3d3d3d; --accent: #78aeed;
+              --upbg: #1d3b2c; --badbg: #4a1c1f; --idlebg: #383838; --waitbg: #45391a; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg);
+           font: 16px/1.4 Cantarell, "Adwaita Sans", system-ui, sans-serif; }
+    main { max-width: 1600px; margin: 0 auto; padding: 24px 16px 48px; }
+    header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+    header img { width: 44px; height: 44px; }
+    h1 { margin: 0; font-size: 24px; }
+    header p { margin: 2px 0 0; color: var(--dim); font-size: 14px; }
+    .facts { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); margin-bottom: 16px; }
+    .fact { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+    .fact b { display: block; font-size: 12px; color: var(--dim); font-weight: 700; }
+    .fact span { font-variant-numeric: tabular-nums; word-break: break-all; }
+    .fact.bad { border-color: var(--bad); background: var(--badbg); }
+    .fact.warn { border-color: var(--wait); background: var(--waitbg); }
+    a { color: var(--accent); }
+    #failed { margin: 0 0 16px; padding: 10px 14px; border-radius: 10px;
+              border: 1px solid var(--bad); background: var(--badbg); display: none; }
+    #graph { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+             padding: 12px; overflow: auto; }
+    #graph svg { max-width: none !important; height: auto; }
+    .legend { display: flex; gap: 14px; flex-wrap: wrap; color: var(--dim); font-size: 13px; margin: 10px 0 0; }
+    .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+    footer { margin-top: 20px; color: var(--dim); font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="/icon.svg" alt="">
+    <div><h1 id="title">Balaur graph</h1><p id="sub">The configuration this machine runs, and how it is doing</p></div>
+  </header>
+  <div class="facts" id="facts"></div>
+  <div id="failed"></div>
+  <div id="graph">Loading…</div>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--up)"></span>running, or its timer or socket waits</span>
+    <span><span class="dot" style="background:var(--wait)"></span>starting or stopping</span>
+    <span><span class="dot" style="background:var(--idle)"></span>not running, last run fine</span>
+    <span><span class="dot" style="background:var(--bad)"></span>failed</span>
+    <span>Dashed boxes: aspects with no unit of their own (settings only).</span>
+    <span>Dashed arrows: an aspect that also sets a unit drawn elsewhere.</span>
+  </div>
+  <footer id="foot">The graph comes from the flake; the colours from systemd, every 15 seconds.</footer>
+</main>
+<script src="/mermaid.min.js"></script>
+<script>
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  // Mermaid labels are quoted strings: no quotes or brackets inside.
+  const lbl = s => String(s).replace(/["\[\]{}<>]/g, "");
+  let graph = null, lastText = "", renders = 0;
+
+  // The worst state of a node's units (a timer and the service it starts).
+  function stateOf(node, units) {
+    let worst = "unknown";
+    const rank = {failed: 4, wait: 3, up: 2, idle: 1, unknown: 0};
+    let seen = false;
+    for (const u of node.units) {
+      const s = units[u];
+      if (!s) continue;
+      seen = true;
+      let k;
+      if (s.active === "failed" || (s.result && s.result !== "success" && s.active !== "active")) k = "failed";
+      else if (s.active === "active" && ["running", "exited", "mounted", "listening", "waiting"].includes(s.sub)) k = "up";
+      else if (s.active === "active" || s.active === "activating" || s.active === "reloading") k = "wait";
+      else if (s.load === "not-found") k = "unknown";
+      else k = "idle";
+      if (worst === "unknown" || rank[k] > rank[worst]) worst = k;
+    }
+    return seen ? worst : "unknown";
+  }
+
+  function mermaidText(units) {
+    const L = ["flowchart LR"];
+    const classes = {
+      up: `fill:${css("--upbg")},stroke:${css("--up")},color:${css("--fg")}`,
+      failed: `fill:${css("--badbg")},stroke:${css("--bad")},color:${css("--fg")},stroke-width:3px`,
+      wait: `fill:${css("--waitbg")},stroke:${css("--wait")},color:${css("--fg")}`,
+      idle: `fill:${css("--idlebg")},stroke:${css("--idle")},color:${css("--fg")}`,
+      unknown: `fill:${css("--card")},stroke:${css("--line")},color:${css("--dim")},stroke-dasharray:4 3`,
+      aspect: `fill:${css("--card")},stroke:${css("--line")},color:${css("--dim")},stroke-dasharray:4 3`,
+    };
+    L.push(`  internet(("${lbl(graph.domain || graph.host)}"))`);
+    const plain = graph.aspects.filter(a => a.nodes.length === 0);
+    const busy = graph.aspects.filter(a => a.nodes.length > 0);
+    const node = (n, indent) => {
+      const title = (n.icon ? n.icon + " " : "") + (n.name || n.units[0]);
+      const detail = n.name ? (n.units[0] || "") : "";
+      const port = n.port ? ` :${n.port}` : "";
+      L.push(`${indent}${n.id}["${lbl(title)}${detail || port ? "<br/><small>" + lbl(detail + port) + "</small>" : ""}"]:::${stateOf(n, units)}`);
+    };
+    for (const a of busy) {
+      L.push(`  subgraph ${a.id}["${lbl(a.name)}"]`);
+      for (const n of a.nodes) node(n, "    ");
+      L.push("  end");
+    }
+    for (const n of graph.shared || []) node(n, "  ");
+    if (plain.length) {
+      L.push(`  subgraph settings["settings only"]`);
+      for (const a of plain) L.push(`    ${a.id}["${lbl(a.name)}"]:::aspect`);
+      L.push("  end");
+    }
+    // The web front: the domain reaches Caddy, which proxies each subdomain.
+    const front = graph.aspects.flatMap(a => a.nodes).find(n => n.front);
+    if (front) {
+      L.push(`  internet --> ${front.id}`);
+      for (const a of busy) for (const n of a.nodes)
+        if (n.subdomain && n.id !== front.id) L.push(`  ${front.id} -- ${lbl(n.subdomain)} --> ${n.id}`);
+    }
+    for (const l of graph.links || []) L.push(`  ${l.from} -.-> ${l.to}`);
+    for (const a of busy) for (const n of a.nodes)
+      if (n.url) L.push(`  click ${n.id} href "${n.url}" _blank`);
+    for (const [k, v] of Object.entries(classes)) L.push(`  classDef ${k} ${v}`);
+    return L.join("\n");
+  }
+
+  function fact(name, value, cls) {
+    return `<div class="fact ${cls || ""}"><b>${esc(name)}</b><span>${value}</span></div>`;
+  }
+  const dur = s => { s = Math.floor(s); const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`; };
+  const gib = b => (b / 2 ** 30).toFixed(1) + " GiB";
+
+  function facts(st) {
+    const d = st.deploy, m = st.machine, out = [];
+    if (d) {
+      const rev = d.deployed ? d.deployed.slice(0, 7) : "–";
+      const link = d.deployed && graph.repo ? `<a href="https://github.com/${esc(graph.repo)}/commit/${esc(d.deployed)}">${esc(rev)}</a>` : esc(rev);
+      out.push(fact("Deployed commit", link));
+      out.push(fact("System", esc(d.state), d.state === "running" ? "" : "bad"));
+      if (d.trying) out.push(fact("Trying", `${esc(d.trying.slice(0, 7))} (attempt ${d.attempts}/3)`, "warn"));
+      if (d.reboot) out.push(fact("Reboot", "a new kernel waits", "warn"));
+    }
+    if (m.nixos) out.push(fact("NixOS", esc(m.nixos)));
+    if (m.uptime != null) out.push(fact("Up for", dur(m.uptime)));
+    if (m.load.length) out.push(fact("Load (1, 5, 15 min)", m.load.map(x => x.toFixed(2)).join(" · ")));
+    if (m.memory.total) out.push(fact("Memory used", `${gib(m.memory.total - m.memory.available)} of ${gib(m.memory.total)}`));
+    out.push(fact("Aspects / units", `${graph.aspects.length} / ${graph.aspects.reduce((n, a) => n + a.nodes.length, 0)}`));
+    document.getElementById("facts").innerHTML = out.join("");
+    const failed = d ? d.failed : [];
+    const box = document.getElementById("failed");
+    box.style.display = failed.length ? "block" : "none";
+    box.innerHTML = failed.length ? `<b>Failed units:</b> ${failed.map(esc).join(", ")} <small>(journalctl -u &lt;unit&gt;, or Cockpit)</small>` : "";
+  }
+
+  async function refresh() {
+    let st;
+    try {
+      st = await (await fetch("/state.json", {cache: "no-store"})).json();
+    } catch (e) {
+      document.getElementById("foot").textContent = "The machine does not answer: the colours are from the last answer.";
+      return;
+    }
+    facts(st);
+    const text = mermaidText(st.units);
+    if (text !== lastText) {
+      const box = document.getElementById("graph");
+      const scroll = [box.scrollLeft, box.scrollTop];
+      try {
+        const {svg, bindFunctions} = await mermaid.render("g" + (renders++), text);
+        box.innerHTML = svg;
+        if (bindFunctions) bindFunctions(box);
+        [box.scrollLeft, box.scrollTop] = scroll;
+        lastText = text;
+      } catch (e) {
+        box.textContent = "The graph did not draw: " + e;
+      }
+    }
+    document.getElementById("foot").textContent =
+      `The graph comes from the flake (${st.machine.system}); the colours from systemd, updated ${new Date(st.time * 1000).toLocaleTimeString()}.`;
+  }
+
+  async function start() {
+    graph = await (await fetch("/graph.json")).json();
+    document.getElementById("title").textContent = `${graph.host}: the graph`;
+    document.getElementById("sub").textContent = graph.description;
+    // `loose`: the click links. Every label is from the flake, none from a visitor.
+    // The page's own colours, light or dark, for the boxes and lines.
+    mermaid.initialize({startOnLoad: false, securityLevel: "loose", theme: "base",
+                        themeVariables: {background: css("--card"), primaryColor: css("--card"),
+                          primaryTextColor: css("--fg"), primaryBorderColor: css("--line"),
+                          lineColor: css("--dim"), textColor: css("--fg"),
+                          clusterBkg: css("--bg"), clusterBorder: css("--line"),
+                          edgeLabelBackground: css("--card"),
+                          fontFamily: 'Cantarell, "Adwaita Sans", system-ui, sans-serif'},
+                        flowchart: {htmlLabels: true, curve: "basis"}, maxTextSize: 200000});
+    await refresh();
+    setInterval(() => { if (!document.hidden) refresh(); }, 15000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+  }
+  start();
+</script>
+</body>
+</html>

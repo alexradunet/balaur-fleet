@@ -73,6 +73,12 @@ in
           description = "Root for bulk data (synced files).";
         };
 
+        aspects = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ ];
+          description = "The aspects this machine imports, by name (`flake.modules.nixos.<name>`). Set by the host file from the same list it imports; read by the graph page (graph.nix).";
+        };
+
         services = lib.mkOption {
           default = [ ];
           description = ''

@@ -6,6 +6,42 @@
 { inputs, config, ... }:
 let
   aspects = config.flake.modules.nixos;
+  # The aspects this machine imports, by name: so `balaur.aspects` can say which
+  # they are (functions cannot be compared), for the graph page (graph.nix).
+  hostAspects = [
+    "yoga-pro-7"
+    # What every machine has, in the same order on every host.
+    "base"
+    "fleet"
+    "home"
+    "secrets"
+    "network"
+    "gnome"
+    "desktop"
+    "dev"
+    "files"
+    # torrents (the qBittorrent server) is on the server; this is just the
+    # client, so a magnet clicked here can be sent there.
+    "torrents-client"
+    "auto-deploy"
+    # The fleet's AI entryway on the server: its local model first, Mistral second.
+    "ai"
+    # The Balaur agent (`balaur`): pi with the fleet's instructions and the life log as its memory.
+    "agent"
+    # This machine's own.
+    # The life log as files: the folder, `lifelog`, Obsidian, and the nightly mirror of
+    # the keeper's history from the server (balaur.lifelog-client.mirrorFrom below).
+    "lifelog-client"
+    # WoW, on the RTX 5060 Ti in its Thunderbolt/USB4 dock when it is plugged in here
+    # (the fleet's only gaming machine again since 2026-11-18). No local model here.
+    "nvidia-egpu"
+    "gaming"
+    # The server's /srv/proton (backed up to Proton Drive) as /mnt/proton, over SSHFS.
+    "proton-drive-client"
+    # A failed unit or its disk in trouble is told to the owner's phone, through
+    # the server's Home Assistant (over the tailnet, so from anywhere).
+    "notify"
+  ];
 in
 {
   fleet.laptop = {
@@ -33,40 +69,7 @@ in
     { ... }:
     {
       imports =
-        (with aspects; [
-          yoga-pro-7
-          # What every machine has, in the same order on every host.
-          base
-          fleet
-          home
-          secrets
-          network
-          gnome
-          desktop
-          dev
-          files
-          # torrents (the qBittorrent server) is on the server; this is just the
-          # client, so a magnet clicked here can be sent there.
-          torrents-client
-          auto-deploy
-          # The fleet's AI entryway on the server: its local model first, Mistral second.
-          ai
-          # The Balaur agent (`balaur`): pi with the fleet's instructions and the life log as its memory.
-          agent
-          # This machine's own.
-          # The life log as files: the folder, `lifelog`, Obsidian, and the nightly mirror of
-          # the keeper's history from the server (balaur.lifelog-client.mirrorFrom below).
-          lifelog-client
-          # WoW, on the RTX 5060 Ti in its Thunderbolt/USB4 dock when it is plugged in here
-          # (the fleet's only gaming machine again since 2026-11-18). No local model here.
-          nvidia-egpu
-          gaming
-          # The server's /srv/proton (backed up to Proton Drive) as /mnt/proton, over SSHFS.
-          proton-drive-client
-          # A failed unit or its disk in trouble is told to the owner's phone, through
-          # the server's Home Assistant (over the tailnet, so from anywhere).
-          notify
-        ])
+        (map (n: aspects.${n}) hostAspects)
         # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
         # .agents/skills). It must be `git add`ed or flakes cannot see it.
         ++ [ ../../hosts/laptop/hardware-configuration.nix ];
@@ -79,6 +82,7 @@ in
       # what `base` sets: no boot.loader override needed here.
 
       balaur = {
+        aspects = hostAspects;
         # The existing login on this machine; its password is kept as is.
         user = "alex";
         # A second copy of the life log's history, fetched nightly from the keeper (it

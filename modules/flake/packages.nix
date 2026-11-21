@@ -101,11 +101,13 @@ in
 
         # The Python that ships as it is, from modules/ (no package of its own, so no
         # build that would run a test): each file compiles, and the AI entryway's
-        # router passes its tests (ai/test_router.py), against servers on loopback.
+        # router passes its tests (ai/test_router.py), against servers on loopback,
+        # and so does the graph page's server (graph/test_server.py).
         python = pkgs.runCommand "balaur-python" { nativeBuildInputs = [ pkgs.python3 ]; } ''
           export PYTHONPYCACHEPREFIX=$TMPDIR/pyc
-          python3 -m py_compile ${../ai/router.py} ${../media-search/filelist.py} ${../gaming/gamepad-awake.py}
+          python3 -m py_compile ${../ai/router.py} ${../media-search/filelist.py} ${../gaming/gamepad-awake.py} ${../graph/server.py}
           python3 -I ${../ai}/test_router.py
+          python3 -I ${../graph}/test_server.py
           touch $out
         '';
 

@@ -6,6 +6,77 @@
 { inputs, config, ... }:
 let
   aspects = config.flake.modules.nixos;
+  # The aspects this machine imports, by name: so `balaur.aspects` can say which
+  # they are (functions cannot be compared), for the graph page (graph.nix).
+  hostAspects = [
+    "gmktec-evo-x1"
+    # What every machine has, in the same order on every host.
+    "base"
+    "fleet"
+    "home"
+    # Decrypts with its SSH host key, a recipient in .sops.yaml.
+    "secrets"
+    "network"
+    "dev"
+    "files"
+    "torrents-client"
+    "auto-deploy"
+    # The fleet's AI entryway (ai-gateway, below), as a client.
+    "ai"
+    # The Balaur agent (`balaur`): pi with the fleet's instructions and the life log as its memory.
+    "agent"
+    # This machine's own.
+    # A mini-PC on mains power, a server and a builder: never suspend.
+    "never-sleep"
+    # A headless server since 2026-11-20: no monitor, no desktop. It is reached over
+    # SSH, where zellij (from `dev`) holds the development sessions; its admin page
+    # is Cockpit, https://cockpit.balaur.space.
+    "cockpit"
+    # Forgejo, the fleet's own git service: https://git.balaur.space and SSH as
+    # forgejo@server. Next to GitHub for now; the fleet's repository, its issues
+    # and the life log's history move here later.
+    "forgejo"
+    # /srv/proton (the second NVMe) mirrored to the whole of Proton Drive, hourly.
+    "proton-drive"
+    # A failed unit or a disk in trouble is told to the owner, through Home Assistant.
+    "notify"
+    # The state only this machine has (Home Assistant, qBittorrent, the
+    # life log's history), nightly, into /srv/proton: so on the second disk, and
+    # in Proton Drive an hour later (balaur.backup below).
+    "backup"
+    # The fleet's local LLM, on the Radeon 890M (Qwen3.6 35B-A3B), back since
+    # 2026-11-18: the RTX 5060 Ti and Strata left with the OCuLink dock, which kept
+    # the server from being always on.
+    "local-llm"
+    # The fleet's AI entryway (http://server:4000/v1), moved from the tablet: the
+    # clients take the first machine that has it. Its page is https://ai.balaur.space,
+    # behind this machine's web front.
+    "ai-gateway"
+    # https://balaur.space: the home page and this machine's web UIs behind Caddy,
+    # moved from the tablet (balaur.web below).
+    "web"
+    # https://graph.balaur.space: this machine's aspects and units as a diagram,
+    # coloured with their live state (graph.nix).
+    "graph"
+    # The life log's keeper, moved from the tablet (its history imported
+    # 2026-11-15): the folder, its checked history and https://life.balaur.space.
+    "lifelog"
+    # The owner's finances: a Beancount ledger in the life folder (/srv/life/money),
+    # kept mostly through the Balaur agent; https://money.balaur.space (Fava).
+    "money"
+    # Home Assistant, moved from the tablet (its state imported 2026-11-15):
+    # https://home.balaur.space and :8123.
+    "home-assistant"
+    # The humanshorts project is rendered here: balaur-videos, its review page, at
+    # https://review.balaur.space for the laptop and the phone.
+    "shorts"
+    # qBittorrent with FileList search, moved from the tablet: /srv/media.
+    "torrents"
+    # Its movies and shows and a folder of the old disk, for the TV and the other
+    # players on the home network (below). In place of Jellyfin: no transcoding,
+    # next to nothing on the CPU.
+    "dlna"
+  ];
 in
 {
   fleet.server = {
@@ -34,72 +105,7 @@ in
     { config, ... }:
     {
       imports =
-        (with aspects; [
-          gmktec-evo-x1
-          # What every machine has, in the same order on every host.
-          base
-          fleet
-          home
-          # Decrypts with its SSH host key, a recipient in .sops.yaml.
-          secrets
-          network
-          dev
-          files
-          torrents-client
-          auto-deploy
-          # The fleet's AI entryway (ai-gateway, below), as a client.
-          ai
-          # The Balaur agent (`balaur`): pi with the fleet's instructions and the life log as its memory.
-          agent
-          # This machine's own.
-          # A mini-PC on mains power, a server and a builder: never suspend.
-          never-sleep
-          # A headless server since 2026-11-20: no monitor, no desktop. It is reached over
-          # SSH, where zellij (from `dev`) holds the development sessions; its admin page
-          # is Cockpit, https://cockpit.balaur.space.
-          cockpit
-          # Forgejo, the fleet's own git service: https://git.balaur.space and SSH as
-          # forgejo@server. Next to GitHub for now; the fleet's repository, its issues
-          # and the life log's history move here later.
-          forgejo
-          # /srv/proton (the second NVMe) mirrored to the whole of Proton Drive, hourly.
-          proton-drive
-          # A failed unit or a disk in trouble is told to the owner, through Home Assistant.
-          notify
-          # The state only this machine has (Home Assistant, qBittorrent, the
-          # life log's history), nightly, into /srv/proton: so on the second disk, and
-          # in Proton Drive an hour later (balaur.backup below).
-          backup
-          # The fleet's local LLM, on the Radeon 890M (Qwen3.6 35B-A3B), back since
-          # 2026-11-18: the RTX 5060 Ti and Strata left with the OCuLink dock, which kept
-          # the server from being always on.
-          local-llm
-          # The fleet's AI entryway (http://server:4000/v1), moved from the tablet: the
-          # clients take the first machine that has it. Its page is https://ai.balaur.space,
-          # behind this machine's web front.
-          ai-gateway
-          # https://balaur.space: the home page and this machine's web UIs behind Caddy,
-          # moved from the tablet (balaur.web below).
-          web
-          # The life log's keeper, moved from the tablet (its history imported
-          # 2026-11-15): the folder, its checked history and https://life.balaur.space.
-          lifelog
-          # The owner's finances: a Beancount ledger in the life folder (/srv/life/money),
-          # kept mostly through the Balaur agent; https://money.balaur.space (Fava).
-          money
-          # Home Assistant, moved from the tablet (its state imported 2026-11-15):
-          # https://home.balaur.space and :8123.
-          home-assistant
-          # The humanshorts project is rendered here: balaur-videos, its review page, at
-          # https://review.balaur.space for the laptop and the phone.
-          shorts
-          # qBittorrent with FileList search, moved from the tablet: /srv/media.
-          torrents
-          # Its movies and shows and a folder of the old disk, for the TV and the other
-          # players on the home network (below). In place of Jellyfin: no transcoding,
-          # next to nothing on the CPU.
-          dlna
-        ])
+        (map (n: aspects.${n}) hostAspects)
         # Its own disk/boot layout, copied from /etc/nixos (the `add-machine` skill,
         # .agents/skills). It must be `git add`ed or flakes cannot see it.
         ++ [ ../../hosts/server/hardware-configuration.nix ];
@@ -164,6 +170,7 @@ in
       sops.secrets."restic-password".sopsFile = config.balaur.secrets.hostFile;
 
       balaur = {
+        aspects = hostAspects;
         # The existing login on this machine; its password is kept as is.
         user = "alex";
         # The phone the fleet's rules in Home Assistant tell (home-assistant.nix).
