@@ -526,6 +526,148 @@ in
         '';
       };
 
+      # Plan 005 between two machines (P4): the laptop's `lifelog-sync` against the
+      # server's keeper, over SSH, as the owner. The clone is made, an edit on each side
+      # reaches the other, one page changed on both ends as a conflict copy on both,
+      # the report is acknowledged from the laptop, and a laptop cut off from the
+      # server commits and catches up when it is back. The timers are off: the test
+      # starts each run itself, so the order is the one it reads.
+      checks.lifelog-sync = pkgs.testers.runNixOSTest {
+        name = "lifelog-sync";
+        node.pkgsReadOnly = false;
+
+        nodes.server =
+          { lib, ... }:
+          {
+            imports = [
+              machine
+              aspects.lifelog
+            ];
+            # The web app's assertion wants `web`; this test does not need it.
+            options.balaur.web = lib.mkOption {
+              type = lib.types.attrs;
+              default = { };
+            };
+            config = {
+              balaur.lifelog.quietSeconds = 1;
+              systemd.timers.lifelog-keeper.wantedBy = lib.mkForce [ ];
+            };
+          };
+
+        nodes.laptop =
+          { lib, ... }:
+          {
+            imports = [
+              machine
+              aspects.lifelog-client
+            ];
+            # Obsidian comes through home-manager, which this test does not need.
+            options.home-manager = lib.mkOption {
+              type = lib.types.anything;
+              default = { };
+            };
+            config = {
+              balaur.lifelog-client = {
+                syncWith = "server";
+                quietSeconds = 1;
+              };
+              systemd.timers.lifelog-sync.wantedBy = lib.mkForce [ ];
+            };
+          };
+
+        testScript = ''
+          import shlex
+
+          owner = "sudo -u balaur env HOME=/home/balaur"
+          def as_owner(m, cmd):
+              return m.succeed(f"{owner} sh -euc {shlex.quote(cmd)}")
+
+          def keep():
+              server.succeed("sleep 2", "systemctl start lifelog-keeper")
+
+          def sync():
+              laptop.succeed("sleep 2", "systemctl start lifelog-sync")
+
+          git = "git --git-dir /var/lib/lifelog/life.git"
+          start_all()
+          server.wait_for_unit("sshd.service")
+          laptop.wait_for_unit("multi-user.target")
+
+          # The owner's key on the laptop, let in on the server, and the server's host key known.
+          as_owner(laptop, "mkdir -p ~/.ssh && ssh-keygen -q -t ed25519 -N ''' -f ~/.ssh/id_ed25519")
+          key = laptop.succeed("cat /home/balaur/.ssh/id_ed25519.pub").strip()
+          as_owner(server, f"mkdir -p -m 700 ~/.ssh && echo {shlex.quote(key)} >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys")
+          as_owner(laptop, "ssh-keyscan -q -t ed25519 server > ~/.ssh/known_hosts")
+
+          as_owner(server, "mkdir -p /srv/life/pages && echo 'The first line.' > /srv/life/pages/A.md")
+          keep()
+
+          with subtest("before init, a run does nothing"):
+              sync()
+              laptop.succeed("test ! -e /home/balaur/.local/share/lifelog/sync.git")
+
+          with subtest("init refuses a folder with something in it"):
+              as_owner(laptop, "mkdir -p /srv/life/pages && echo old > /srv/life/pages/Old.md")
+              laptop.fail(f"{owner} lifelog-sync init")
+              as_owner(laptop, "rm -r /srv/life/pages")
+
+          with subtest("init makes the clone"):
+              as_owner(laptop, "lifelog-sync init")
+              laptop.succeed("grep -qx 'The first line.' /srv/life/pages/A.md")
+
+          with subtest("a laptop edit reaches the server"):
+              as_owner(laptop, "echo 'From the laptop.' > /srv/life/pages/B.md")
+              sync()
+              keep()
+              server.succeed("grep -qx 'From the laptop.' /srv/life/pages/B.md")
+              server.succeed(f"{git} log --format=%an live | grep -qx 'lifelog laptop'")
+
+          with subtest("a server edit reaches the laptop"):
+              as_owner(server, "echo 'From the web app.' > /srv/life/pages/C.md")
+              keep()
+              sync()
+              laptop.succeed("grep -qx 'From the web app.' /srv/life/pages/C.md")
+
+          with subtest("one page on both sides: a conflict copy, on both machines"):
+              as_owner(laptop, "echo 'The laptop line.' > /srv/life/pages/A.md")
+              sync()
+              as_owner(server, "echo 'The server line.' > /srv/life/pages/A.md")
+              keep()
+              copy = server.succeed("ls /srv/life/pages | grep -x 'A.sync-conflict-[0-9]*-[0-9]*-laptop.md'").strip()
+              sync()
+              laptop.succeed("grep -qx 'The server line.' /srv/life/pages/A.md")
+              laptop.succeed(f"grep -qx 'The laptop line.' '/srv/life/pages/{copy}'")
+              laptop.succeed("grep -q sync-conflict /srv/life/_check.md")
+
+          with subtest("the report deleted on the laptop: acknowledged on the server"):
+              as_owner(laptop, f"rm /srv/life/_check.md '/srv/life/pages/{copy}'")
+              sync()
+              keep()
+              keep()
+              server.succeed("test ! -e /srv/life/_check.md")
+              server.succeed(f"{git} merge-base --is-ancestor from/laptop checked")
+              sync()
+              laptop.succeed("test ! -e /srv/life/_check.md")
+
+          with subtest("cut off, the laptop commits; back, it catches up"):
+              laptop.block()
+              as_owner(laptop, "echo 'Written offline.' > /srv/life/pages/D.md")
+              sync()
+              laptop.succeed("journalctl -u lifelog-sync --no-pager | grep -q 'does not answer'")
+              as_owner(laptop, "git --git-dir ~/.local/share/lifelog/sync.git cat-file -e work:pages/D.md")
+              laptop.unblock()
+              sync()
+              keep()
+              server.succeed("grep -qx 'Written offline.' /srv/life/pages/D.md")
+
+          with subtest("both machines end up at one state"):
+              sync()
+              laptop_tree = as_owner(laptop, "git --git-dir ~/.local/share/lifelog/sync.git rev-parse 'work^{tree}'").strip()
+              server_tree = server.succeed(f"{git} rev-parse 'live^{{tree}}'").strip()
+              assert laptop_tree == server_tree, (laptop_tree, server_tree)
+        '';
+      };
+
       # Not a check: it builds Home Assistant, which no cache has with our set of
       # integrations, so on GitHub it would cost a quarter of an hour on every push.
       # By hand, after a change to home-assistant.nix or the report in notify.nix:
