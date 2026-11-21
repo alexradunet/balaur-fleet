@@ -58,6 +58,10 @@ in
           # SSH, where zellij (from `dev`) holds the development sessions; its admin page
           # is Cockpit, https://cockpit.balaur.space.
           cockpit
+          # Forgejo, the fleet's own git service: https://git.balaur.space and SSH as
+          # forgejo@server. Next to GitHub for now; the fleet's repository, its issues
+          # and the life log's history move here later.
+          forgejo
           # /srv/proton (the second NVMe) mirrored to the whole of Proton Drive, hourly.
           proton-drive
           # A failed unit or a disk in trouble is told to the owner, through Home Assistant.

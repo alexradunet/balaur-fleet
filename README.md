@@ -73,6 +73,7 @@ modules/
   agent.nix               the Balaur agent on every machine (`balaur`): pi with the fleet's models, machines and services, the life log as its memory; `balaur-think` (a harder question to Claude Code, on the Claude subscription); `balaur-ask`; set in `balaur.agent`
   dev.nix                 Claude Code (from numtide/llm-agents.nix, daily updates), zellij, gh, ripgrep
   cockpit.nix             Cockpit, the web admin page of a machine without a monitor (the server)
+  forgejo.nix             Forgejo, the fleet's own git service: repositories and issues at https://git.<domain>, SSH through the machine's sshd (the server)
   local-llm.nix           llama.cpp on an iGPU (Qwen3.6 35B-A3B, the server): the AI entryway's local tier
   strata.nix              Strata on an NVIDIA card (Qwen3.8-Flash-Next): it stops while a game runs; on no host since 2026-11-18
   gaming.nix              Battle.net (WoW: Forever) on GE-Proton via umu-launcher, `wow-addons` (instawow) and the CurseForge app; the laptop
