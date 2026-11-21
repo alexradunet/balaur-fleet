@@ -8,6 +8,7 @@
 //	lifelog merge         merge a Syncthing conflict copy of a CSV into its file
 //	lifelog rename-links  rewrite the links to a renamed page
 //	lifelog restore       write a file back from git (on the keeper's machine)
+//	lifelog integrate     merge another machine's commits into the folder (plan 005)
 package main
 
 import (
@@ -35,6 +36,7 @@ const usage = `usage:
   lifelog merge COPY
   lifelog rename-links OLD NEW
   lifelog restore [-git-dir DIR] PATH [REF]
+  lifelog integrate [-git-dir DIR] [-from MACHINE] [-machine NAME] REF
 Each command except check takes -folder (default $LIFELOG_FOLDER, else /srv/life).`
 
 func main() {
@@ -54,6 +56,7 @@ func run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.
 		"merge":        func() int { return cmdMerge(args[1:], stdin, stdout, stderr) },
 		"rename-links": func() int { return cmdRenameLinks(args[1:], stdout, stderr) },
 		"restore":      func() int { return cmdRestore(ctx, args[1:], stdout, stderr) },
+		"integrate":    func() int { return cmdIntegrate(ctx, args[1:], stdout, stderr) },
 	}
 	cmd, ok := cmds[args[0]]
 	if !ok {

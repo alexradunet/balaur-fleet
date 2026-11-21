@@ -14,8 +14,9 @@ import (
 	"lifelog/check"
 )
 
-// conflictPart is what Syncthing adds to the name of a conflict copy.
-var conflictPart = regexp.MustCompile(`\.sync-conflict-\d{8}-\d{6}-[A-Z0-9]{7}`)
+// conflictPart is what Syncthing adds to the name of a conflict copy (a device
+// id at the end), or `lifelog integrate` (a machine name there).
+var conflictPart = regexp.MustCompile(`\.sync-conflict-\d{8}-\d{6}-(?:[A-Z0-9]{7}|[a-z0-9-]{1,32})`)
 
 type mergeLine struct {
 	text string
