@@ -442,6 +442,90 @@ in
         '';
       };
 
+      # The keeper's side of plan 005 (lifelog/docs/plans/005-git-sync.md): another
+      # machine pushes to life.git and the keeper merges it into live and the folder.
+      # The owner plays that machine here, with a clone on this one: the hook, the
+      # permissions of a push by another user, the merge and its conflict copy, and
+      # the report reaching the clone and its deletion coming back as the
+      # acknowledgement. SSH between two machines is the client's test (P4).
+      checks.lifelog-keeper = pkgs.testers.runNixOSTest {
+        name = "lifelog-keeper";
+        node.pkgsReadOnly = false;
+
+        nodes.server =
+          { lib, ... }:
+          {
+            imports = [
+              machine
+              aspects.lifelog
+            ];
+            # The keeper's web app goes through `web` (Caddy), which this test does not
+            # need: an empty stand-in satisfies the aspect's assertion.
+            options.balaur.web = lib.mkOption {
+              type = lib.types.attrs;
+              default = { };
+            };
+            config.balaur.lifelog.quietSeconds = 1;
+          };
+
+        testScript = ''
+          import shlex
+
+          owner = "sudo -u balaur env HOME=/home/balaur"
+          def as_owner(cmd):
+              return server.succeed(f"{owner} sh -euc {shlex.quote(cmd)}")
+
+          def keep():
+              server.succeed("sleep 2", "systemctl start lifelog-keeper")
+
+          git = "git --git-dir /var/lib/lifelog/life.git"
+          server.wait_for_unit("multi-user.target")
+
+          with subtest("the keeper commits the folder"):
+              as_owner("mkdir -p /srv/life/pages && echo 'The first line.' > /srv/life/pages/A.md")
+              keep()
+              server.succeed(f"{git} cat-file -e live:pages/A.md")
+
+          as_owner(
+              "git config --global user.name owner && git config --global user.email owner@test"
+              " && git clone -q -b live /var/lib/lifelog/life.git ~/clone"
+          )
+
+          with subtest("a push may move from/<host> only"):
+              as_owner("cd ~/clone && echo 'From the clone.' > pages/B.md && git add -A && git commit -qm b")
+              server.fail(f"{owner} git -C /home/balaur/clone push -q origin live:live")
+              as_owner("cd ~/clone && git push -q origin live:refs/heads/from/laptop")
+
+          with subtest("the keeper merges it into the folder, and can write what the push wrote"):
+              keep()
+              server.succeed("grep -qx 'From the clone.' /srv/life/pages/B.md")
+              server.succeed(f"{git} merge-base --is-ancestor from/laptop live")
+              server.succeed("test -z \"$(find /var/lib/lifelog/life.git/objects -type d ! -perm -g+w)\"")
+
+          with subtest("one page on both sides: the folder's stays, the other is a copy, and the report is committed"):
+              as_owner("cd ~/clone && git pull -q && echo 'The laptop line.' > pages/A.md && git commit -qam a"
+                       " && git push -q origin live:refs/heads/from/laptop")
+              as_owner("echo 'The server line.' > /srv/life/pages/A.md")
+              keep()
+              server.succeed("grep -qx 'The server line.' /srv/life/pages/A.md")
+              copy = server.succeed("ls /srv/life/pages | grep -x 'A.sync-conflict-[0-9]*-[0-9]*-laptop.md'").strip()
+              server.succeed(f"grep -qx 'The laptop line.' '/srv/life/pages/{copy}'")
+              server.succeed(f"{git} show live:_check.md | grep -q sync-conflict")
+              server.succeed(f"test -z \"$({git} --work-tree /srv/life status --porcelain)\"")
+
+          with subtest("the copy merged by hand and the report deleted on the clone: acknowledged, nothing left to say"):
+              as_owner(f"cd ~/clone && git pull -q && test -f _check.md && git rm -q '_check.md' 'pages/{copy}'"
+                       " && git commit -qm fixed && git push -q origin live:refs/heads/from/laptop")
+              keep()
+              server.succeed("test ! -e /srv/life/_check.md")
+              keep()
+              server.succeed("test ! -e /srv/life/_check.md")
+              server.fail(f"{git} cat-file -e live:_check.md")
+              server.succeed(f"{git} merge-base --is-ancestor seen live")
+              server.succeed(f"{git} merge-base --is-ancestor from/laptop checked")
+        '';
+      };
+
       # Not a check: it builds Home Assistant, which no cache has with our set of
       # integrations, so on GitHub it would cost a quarter of an hour on every push.
       # By hand, after a change to home-assistant.nix or the report in notify.nix:

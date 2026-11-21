@@ -87,7 +87,8 @@ func cmdIntegrate(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	}
 
 	msg := fmt.Sprintf("integrate %s (from %s)", ref, *from)
-	if _, err := g.out("merge", "--no-edit", "--no-verify", "-q", "-m", msg, other); err == nil {
+	_, mergeErr := g.out("merge", "--no-edit", "--no-verify", "-q", "-m", msg, other)
+	if mergeErr == nil {
 		fmt.Fprintf(stdout, "%s: merged into the folder\n", ref)
 		return exitOK
 	}
@@ -101,7 +102,7 @@ func cmdIntegrate(ctx context.Context, args []string, stdout, stderr io.Writer) 
 	}
 	if len(unmerged) == 0 {
 		g.abort()
-		return refuse(exitProblem, "git did not merge %s, and nothing was changed; it is tried again at the next run", ref)
+		return refuse(exitProblem, "git did not merge %s, and nothing was changed; it is tried again at the next run: %v", ref, mergeErr)
 	}
 	stamp := time.Now().Format("20060102-150405")
 	var copies []string

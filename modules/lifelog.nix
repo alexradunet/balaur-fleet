@@ -60,6 +60,10 @@ let
       systemd.tmpfiles.rules = [
         "d ${folder} 2770 ${syncthingUser} lifelog -"
         "d ${folder}/.stfolder 0770 ${syncthingUser} lifelog -"
+        # A default ACL: what anyone writes in the folder is the group's to write too,
+        # whatever the writer's umask (a `mkdir` over SSH makes 0755). The keeper merges
+        # other machines' commits into it (plan 005), so it must be able to write there.
+        "A+ ${folder} - - - - d:user::rwX,d:group::rwX,d:other::---,group::rwX"
       ];
 
       environment.systemPackages = [ pkgs.lifelog ];
@@ -120,6 +124,20 @@ in
       folder = cfg.lifelog-folder;
       webSocket = "/run/lifelog-web/http.sock";
 
+      # life.git's `update` hook (plan 005): a push may move a machine's own
+      # from/<host> ref only. live, checked and seen are the keeper's, which moves
+      # them in place, without a push, so the hook never stands in its way.
+      hooks = pkgs.writeShellApplication {
+        name = "update";
+        text = ''
+          case $1 in
+            refs/heads/from/*) exit 0 ;;
+          esac
+          echo "life.git takes a push to refs/heads/from/<host> only; $1 is the keeper's" >&2
+          exit 1
+        '';
+      };
+
       # One run of the keeper (design §4). The timer starts it every minute.
       keep = pkgs.writeShellApplication {
         name = "lifelog-keep";
@@ -175,9 +193,19 @@ in
           # detached gc would be killed with the rest of the service when it ends.
           g() { git -c safe.directory="$gitdir" -c gc.autoDetach=false -c user.name="lifelog keeper" -c user.email=keeper@lifelog "$@"; }
           g config diff.renameLimit 0
+          # Plan 005: the other machines push here, as the owner (in the group). What
+          # they write must stay writable by this user, and they may move only their own
+          # from/<host> ref, never live under this folder (the hook).
+          g config core.sharedRepository group
+          g config core.hooksPath ${hooks}/bin
+          # git makes new folders setgid from now on; the ones this user made before
+          # get the bit here, so a push into them takes the group lifelog too.
+          find "$gitdir" -type d -user "$(id -un)" ! -perm -2000 -exec chmod g+s {} +
           mkdir -p "$gitdir/info"
+          # _check.md is committed (plan 005): it reaches a machine that syncs through
+          # git, and its deletion there comes back as the acknowledgement.
           printf '%s\n' /.stfolder/ /.stversions/ /.stignore '.syncthing.*.tmp' '~syncthing~*.tmp' \
-            /.obsidian/ /_check.md >"$gitdir/info/exclude"
+            /.obsidian/ >"$gitdir/info/exclude"
 
           # Settled: nothing in the content folders changed for $quiet seconds.
           # A deletion changes its folder's time, so folders count too.
@@ -196,6 +224,19 @@ in
           elif ! g diff --cached --quiet; then
             g commit -q -m "settled"
           fi
+
+          # What the other machines pushed (plan 005), merged into live and the folder.
+          # One that cannot be merged now (a write landed a moment ago) is tried again
+          # at the next run; the others go on.
+          while read -r ref; do
+            code=0
+            lifelog integrate -folder "$folder" -git-dir "$gitdir" -machine ${config.networking.hostName} "$ref" || code=$?
+            case $code in
+              0) ;;
+              1) echo "<4>$ref: not merged this time (above); tried again at the next run" >&2 ;;
+              *) echo "<3>$ref: the merge failed (above)" >&2 ;;
+            esac
+          done < <(g for-each-ref --format='%(refname)' refs/heads/from/)
           live=$(g rev-parse refs/heads/live)
 
           reported=$state/reported # the commit that _check.md reports on
@@ -219,6 +260,12 @@ in
             chmod 0660 "$tmp"
             mv -f "$tmp" "$folder/_check.md"
           }
+          # The report, or its removal, as a commit of its own on live. The next run
+          # then finds live where this one left it and does not check again.
+          commit_report() {
+            g add -A -- _check.md 2>/dev/null || true
+            if ! g diff --cached --quiet; then g commit -q -m "$1"; fi
+          }
           case $code in
             0 | 1)
               if [ "$code" = 0 ]; then g update-ref refs/heads/checked "$live"; fi
@@ -226,11 +273,13 @@ in
               if grep -q '^## ' "$report"; then
                 publish
                 echo "$live" >"$reported"
+                commit_report "keeper: the check of $(g rev-parse --short "$live")"
               else
                 rm -f "$folder/_check.md" "$reported"
                 g update-ref refs/heads/seen "$live"
+                commit_report "keeper: nothing to report"
               fi
-              echo "$live" >"$lastrun"
+              g rev-parse refs/heads/live >"$lastrun"
               ;;
             *)
               printf '# The check of the life folder\n\nThe check did not run at %s. On the server: journalctl -u lifelog-keeper\n' \
@@ -312,7 +361,9 @@ in
               NoNewPrivileges = true;
               ProtectKernelTunables = true;
               ProtectControlGroups = true;
-              RestrictSUIDSGID = true;
+              # No RestrictSUIDSGID: life.git is shared with the owner's pushes (plan 005),
+              # and its folders must be setgid (group lifelog) for what both write to stay
+              # each other's; git sets that bit itself (core.sharedRepository).
               LockPersonality = true;
             };
           };
