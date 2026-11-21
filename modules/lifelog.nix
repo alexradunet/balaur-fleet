@@ -23,7 +23,6 @@ let
   fleet = config.fleet;
   nixosConfigs = config.flake.nixosConfigurations;
   hm = config.flake.modules.homeManager;
-  folderId = "balaur-life";
   gitDir = "/var/lib/lifelog/life.git";
 
   # What git leaves out of the folder, on the keeper and on a client alike: Syncthing's
@@ -51,7 +50,7 @@ let
     fi
   '';
 
-  # What both aspects need: the group, the folder, its Syncthing folder.
+  # What both aspects need: the group and the folder.
   shared =
     {
       config,
@@ -62,29 +61,18 @@ let
     let
       cfg = config.balaur;
       folder = cfg.lifelog-folder;
-      me = config.networking.hostName;
-      hostConfig = h: if h == me then config else nixosConfigs.${h}.config;
-      # Every other machine with a lifelog aspect whose Syncthing ID we know.
-      peers = lib.filterAttrs (
-        h: e:
-        h != me
-        && e.syncthingId != null
-        && nixosConfigs ? ${h}
-        && ((hostConfig h).balaur ? lifelog || (hostConfig h).balaur ? lifelog-client)
-      ) fleet;
-      syncthingUser = config.services.syncthing.user;
     in
     {
       users.groups.lifelog = { };
       users.users.${cfg.user}.extraGroups = [ "lifelog" ];
-      users.users.${syncthingUser}.extraGroups = [ "lifelog" ];
 
       # 2770: the group writes, nobody else enters; new files and folders take
-      # the group. The marker tells Syncthing this is the synced folder and not
-      # an empty directory in its place.
+      # the group. The marker (Syncthing's name, from when Syncthing carried the
+      # folder) tells the keeper this is the folder and not an empty directory in
+      # its place. Since plan 005 git carries it between the machines.
       systemd.tmpfiles.rules = [
-        "d ${folder} 2770 ${syncthingUser} lifelog -"
-        "d ${folder}/.stfolder 0770 ${syncthingUser} lifelog -"
+        "d ${folder} 2770 ${cfg.user} lifelog -"
+        "d ${folder}/.stfolder 0770 ${cfg.user} lifelog -"
         # A default ACL: what anyone writes in the folder is the group's to write too,
         # whatever the writer's umask (a `mkdir` over SSH makes 0755). The keeper merges
         # other machines' commits into it (plan 005), so it must be able to write there.
@@ -93,37 +81,6 @@ let
 
       environment.systemPackages = [ pkgs.lifelog ];
       environment.variables.LIFELOG_FOLDER = folder;
-
-      services.syncthing = {
-        enable = true;
-        settings = {
-          devices = lib.mapAttrs (_: h: { id = h.syncthingId; }) peers;
-          folders.${folderId} = {
-            label = "Life";
-            path = folder;
-            devices = lib.attrNames peers;
-            type = "sendreceive";
-            # Permissions are each machine's own: the setgid folder, the group and
-            # the umask set them. Synced permission bits would make Syncthing chmod
-            # folders it does not own (the import made them the owner's).
-            ignorePerms = true;
-            # A machine keeps the old version of a change it receives, so
-            # every machine together holds every old version for 30 days
-            # (plan 001, S4).
-            versioning = {
-              type = "trashcan";
-              params.cleanoutDays = "30";
-            };
-            ignorePatterns = [
-              "(?d).obsidian/workspace*"
-              "(?d).obsidian/cache"
-            ];
-          };
-        };
-      };
-      # Files Syncthing brings must stay writable by the group (files.nix sets
-      # the same; this holds without the `files` aspect too).
-      systemd.services.syncthing.serviceConfig.UMask = lib.mkDefault "0002";
     };
 
   folderOption =
@@ -358,7 +315,6 @@ in
 
           systemd.services.lifelog-keeper = {
             description = "lifelog keeper: commit the settled life folder and check it";
-            after = [ "syncthing.service" ];
             serviceConfig = {
               Type = "oneshot";
               User = "lifelog";
@@ -447,7 +403,6 @@ in
           systemd.services.lifelog-web = {
             description = "lifelog web app: the life folder on the phone";
             requires = [ "lifelog-web.socket" ];
-            after = [ "syncthing.service" ];
             environment = {
               LIFELOG_FOLDER = folder;
               LIFELOG_BIN = lib.getExe pkgs.lifelog;
