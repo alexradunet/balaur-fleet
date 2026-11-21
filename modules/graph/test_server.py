@@ -5,6 +5,7 @@
 
 import json
 import os
+import socket
 import sys
 import tempfile
 import threading
@@ -147,6 +148,40 @@ class Serving(unittest.TestCase):
             asked = f.read().split()
         self.assertEqual(asked[-3:], ["caddy.service", "money-check.timer", "money-check.service"])
         self.assertIn("--", asked)
+
+    def test_unix_socket(self):
+        # As under systemd: a listening Unix socket handed over, and no other
+        # address family allowed (the unit's RestrictAddressFamilies).
+        path = os.path.join(self.tmp, "http.sock")
+        sock = socket.socket(socket.AF_UNIX)
+        sock.bind(path)
+        sock.listen()
+        real = socket.socket.__init__
+
+        def unix_only(s, family=-1, *a, **k):
+            if family not in (-1, socket.AF_UNIX):
+                raise OSError(97, "Address family not supported by protocol")
+            real(s, family, *a, **k)
+
+        socket.socket.__init__ = unix_only
+        try:
+            srv = server.on_socket(sock, self.srv.RequestHandlerClass)
+        finally:
+            socket.socket.__init__ = real
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        try:
+            c = socket.socket(socket.AF_UNIX)
+            c.connect(path)
+            c.sendall(b"GET /graph.json HTTP/1.0\r\n\r\n")
+            reply = b""
+            while chunk := c.recv(65536):
+                reply += chunk
+            c.close()
+            self.assertTrue(reply.startswith(b"HTTP/1.0 200"), reply[:80])
+            self.assertIn(b'"host": "server"', reply)
+        finally:
+            srv.shutdown()
+            srv.server_close()
 
     def test_only_site_files(self):
         for path in ("/../secret", "/%2e%2e/secret", "/nothing.js", "/.hidden"):

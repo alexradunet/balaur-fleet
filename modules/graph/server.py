@@ -188,11 +188,20 @@ def server(args):
         return ThreadingHTTPServer((host, int(port)), h)
     if os.environ.get("LISTEN_PID") != str(os.getpid()) or os.environ.get("LISTEN_FDS") != "1":
         raise SystemExit("no --listen and no socket from systemd")
-    sock = socket.socket(fileno=3)
-    srv = ThreadingHTTPServer(("", 0), h, bind_and_activate=False)
+    return on_socket(socket.socket(fileno=3), h)
+
+
+class UnixHTTPServer(ThreadingHTTPServer):
+    # The unit allows Unix sockets only, so even the one socketserver makes
+    # before it is replaced must be one.
+    address_family = socket.AF_UNIX
+
+
+def on_socket(sock, h):
+    """A server on a socket that already listens (systemd's)."""
+    srv = UnixHTTPServer("", h, bind_and_activate=False)
     srv.socket.close()
     srv.socket = sock
-    srv.address_family = sock.family
     return srv
 
 
