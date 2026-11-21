@@ -125,6 +125,9 @@ in
             repository = {
               DEFAULT_PRIVATE = "private";
               DEFAULT_BRANCH = "main";
+              # `git push forgejo@<host>:<owner>/<new>.git` makes the repository (private,
+              # as above): a machine's clone can be moved here without the web page.
+              ENABLE_PUSH_CREATE_USER = true;
             };
             session.COOKIE_SECURE = domain != null;
             # CI on its own runner comes with the move of the fleet's repository (phase 3).
