@@ -79,7 +79,7 @@
       seen = true;
       let k;
       if (s.active === "failed" || (s.result && s.result !== "success" && s.active !== "active")) k = "failed";
-      else if (s.active === "active" && ["running", "exited", "mounted", "listening", "waiting"].includes(s.sub)) k = "up";
+      else if (s.active === "active" && ["running", "exited", "mounted", "listening", "waiting", "elapsed"].includes(s.sub)) k = "up";
       else if (s.active === "active" || s.active === "activating" || s.active === "reloading") k = "wait";
       else if (s.load === "not-found") k = "unknown";
       else k = "idle";
