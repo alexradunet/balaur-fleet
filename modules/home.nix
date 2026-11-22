@@ -44,7 +44,8 @@ in
     };
   };
 
-  # Who commits, and GitHub over HTTPS through `gh` (`gh auth login` once per machine).
+  # Who commits, and GitHub over HTTPS through `gh` (`gh auth login` once per machine;
+  # the fleet's own repository is in Forgejo, pushed over SSH with the same key).
   # Every commit is signed with the admin's SSH key, the one the registry lists as
   # this machine's `userKeys`: auto-deploy switches only to a commit one of those
   # keys signed (auto-deploy.nix). `git log --show-signature` checks against the

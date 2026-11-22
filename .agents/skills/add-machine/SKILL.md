@@ -60,5 +60,8 @@ choice that is theirs (name, aspects, account).
 7. **Secrets,** before it gets the `secrets` aspect (skill `secrets`, "A new machine").
 
 8. **Commit and push** (skill `deploy`). The other machines learn the new one (SSH
-   known_hosts, authorized keys, Syncthing, builders) by themselves. `gh auth login`
-   on it, so you can push from there too. Add it to README.md's description of the fleet.
+   known_hosts, authorized keys, Syncthing, builders) by themselves. Add its SSH key
+   (`~/.ssh/id_ed25519.pub`) in Forgejo's settings (https://git.balaur.space/user/settings/keys)
+   so it can push, point its clone there (`git remote set-url origin
+   https://git.balaur.space/alex/balaur-fleet.git; git remote set-url --push origin
+   forgejo@server:alex/balaur-fleet.git`), and `tea login add` for the issues. Add it to README.md's description of the fleet.

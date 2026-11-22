@@ -1,6 +1,6 @@
 # Balaur
 
-**Open work is in GitHub issues** (`gh issue list`): one per item, labelled `needs-you` (the user), `to-check` (built, not yet seen working), `security`. Close an issue when it is done and verified; open one for what a session leaves undone.
+**Open work is in Forgejo issues** (`tea issues`; https://git.balaur.space/alex/balaur-fleet/issues): one per item, labelled `needs-you` (the user), `to-check` (built, not yet seen working), `security`. Close an issue when it is done and verified (`tea issues close <n>`); open one for what a session leaves undone (`tea issues create --title ... --labels ...`).
 
 These are the instructions for every agent that works on this repository: Claude Code
 (`CLAUDE.md` imports this file) and the Balaur agent, the owner's own agent on every machine (pi; it reads this file
@@ -39,12 +39,15 @@ Skill `check-change`. In short: `nix flake check --no-build` evaluates every hos
 refactor leaves every host's `drvPath` unchanged; build what you touched with
 `nixos-rebuild build --flake .#<host>` and read `nix store diff-closures`. A change to
 a shared aspect (base, fleet, home, secrets, network, dev, files,
-torrents-client, auto-deploy, ai, agent) affects every host: check them all. GitHub Actions runs the same evaluation on every
-push (`.github/workflows/check.yml`); it reports, it does not stop a deploy.
+torrents-client, auto-deploy, ai, agent) affects every host: check them all. Forgejo Actions runs the same evaluation on every
+push (`.forgejo/workflows/check.yml`, on the server's runner); it reports, it does not stop a deploy.
 
 ## Deploying: push, and every machine follows
 
-`main` on GitHub is the fleet's one source of truth; every machine is a copy of it.
+`main` in Forgejo (`alex/balaur-fleet` at https://git.balaur.space, on the server) is the
+fleet's one source of truth; every machine is a copy of it. The clones fetch it over
+HTTPS and push over SSH (`forgejo@server:alex/balaur-fleet.git`); the GitHub copy is
+archived and read by nothing.
 The `auto-deploy` aspect (on every machine) checks `main` every 5 minutes and, on a
 new commit, switches to its own configuration at that commit and fast-forwards its
 clone. So work from whichever machine you are at — the laptop or the server — and
@@ -56,20 +59,21 @@ deploying is `git push`. Skill `deploy` has the whole routine.
   (the server first; fleet.nix). So editing on the laptop is fine: the server does its heavy builds.
 - `balaur-fleet-status` shows every machine's deployed commit, state and failed units.
 - A commit that fails is retried after 15 minutes and an hour, then left until the
-  next push; a switch that loses GitHub is rolled back. Push a fix rather than wait.
+  next push; a switch that loses Forgejo is rolled back. Push a fix rather than wait.
 - Only a commit signed by one of the admin's SSH keys is deployed (the registry's
   `userKeys`). git signs by itself on every machine (home.nix), so there is nothing
-  to do, but never commit with `--no-gpg-sign` or from GitHub's web page: the
+  to do, but never commit with `--no-gpg-sign` or from Forgejo's web page: the
   machines refuse that commit ("not signed") until a signed one is on top of it.
   `git log --show-signature -1` shows it.
 - Other agents and the user may be pushing too: `git pull --rebase` before `git push`,
   never force-push, and never commit or revert changes in the working tree you did
   not make.
-- A secret change must reach GitHub in the same push as, or before, anything that
+- A secret change must reach Forgejo in the same push as, or before, anything that
   needs it, or the machines switch to a config they cannot decrypt.
 - The admin is not a trusted Nix user (base.nix), so `--target-host` cannot copy a
-  closure built elsewhere. By hand, for a machine that cannot follow GitHub: SSH to
-  it and `sudo nixos-rebuild switch --flake github:alexradunet/balaur-fleet#<host>`.
+  closure built elsewhere. By hand, for a machine that cannot follow Forgejo: SSH to
+  it and `sudo nixos-rebuild switch --flake .#<host>` from its clone (the server down
+  means no deploys at all: Forgejo is on it).
 
 ## Secrets
 

@@ -20,7 +20,8 @@
         agents.claude-code # `claude`
       ]
       ++ (with pkgs; [
-        gh
+        gh # GitHub, for other projects' repositories
+        tea # Forgejo's issues and pull requests (`tea login add` once per machine)
         zellij # terminal multiplexer: sessions that outlive the SSH connection
         ripgrep
         fd

@@ -19,7 +19,8 @@ The first head, **tablet** (a Lenovo Yoga Duet 7), was the household screen and 
 server until 2026-11-15, when the server took its services over. It left the fleet that
 day and waits for a new purpose; git history keeps its configuration.
 
-Every machine follows `main` on GitHub by itself (`auto-deploy`): a push is a deploy.
+Every machine follows `main` of the repository in Forgejo on the server
+(https://git.balaur.space/alex/balaur-fleet, `auto-deploy`) by itself: a push is a deploy.
 `balaur-fleet-status` shows what each one runs.
 
 ## For agents
@@ -44,7 +45,7 @@ adding its name to that host's list. Adding a machine: the `add-machine` skill.
 flake.nix                 inputs; outputs = every file under modules/
 AGENTS.md                 the agents' instructions (CLAUDE.md imports it)
 .agents/skills/           the agents' procedures, one folder each (linked from .claude/skills/)
-.github/workflows/        CI: every host evaluates, formatting and skills checked
+.forgejo/workflows/       CI on the server's runner: every host evaluates, every check builds
 modules/
   flake/                  flake wiring: the packages overlay, checks (tests.nix: the tests that boot machines), formatter, dev shell
   hosts/laptop.nix        laptop = its aspects + its own settings (account, roaming, ...)

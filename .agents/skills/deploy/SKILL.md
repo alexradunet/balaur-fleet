@@ -5,7 +5,7 @@ description: Deploy a change to the Balaur fleet by committing and pushing to ma
 
 # Deploy
 
-Every machine follows `main` on GitHub (`modules/auto-deploy.nix`): within about five
+Every machine follows `main` in Forgejo, on the server (`modules/auto-deploy.nix`): within about five
 minutes of a push it builds its own configuration at that commit and switches to it.
 Deploying is committing and pushing; the work is in following it through.
 
@@ -31,7 +31,7 @@ Deploying is committing and pushing; the work is in following it through.
    without a signature (`git log --show-signature -1`). Push a signed commit on top.
 5. **When a machine fails.** The status shows `trying <rev> (attempt n/3)` and the unit
    is failed. Read its journal, fix, and push the fix: a new commit is tried at once.
-   A switch after which the machine could not reach GitHub was rolled back by itself.
+   A switch after which the machine could not reach Forgejo was rolled back by itself.
 
 6. **Verify by exercising the change** on the machines that have it, not by reading
    the config: `systemctl status <unit>`, `curl` the page or `/health`, run the
@@ -44,6 +44,7 @@ Deploying is committing and pushing; the work is in following it through.
 ## By hand
 
 The admin is not a trusted Nix user, so pushing a closure with `--target-host` does
-not work. For a machine that cannot follow GitHub, run on that machine:
-`sudo nixos-rebuild switch --flake github:alexradunet/balaur-fleet#<host>`, or from its
-clone `sudo nixos-rebuild switch --flake .#<host>` (stays until the next push).
+not work. For a machine that cannot follow Forgejo, run on that machine:
+`sudo nixos-rebuild switch --flake 'git+https://git.balaur.space/alex/balaur-fleet.git#<host>'`,
+or from its clone `sudo nixos-rebuild switch --flake .#<host>` (stays until the next push).
+With the server down there is no Forgejo: only the clone works.
