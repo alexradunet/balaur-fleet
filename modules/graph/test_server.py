@@ -39,15 +39,26 @@ ActiveEnterTimestamp=
 """
 
 GRAPH = {
-    "host": "server",
-    "aspects": [
-        {"name": "web", "nodes": [{"id": "n0", "units": ["caddy.service"]}]},
+    "me": "server",
+    "hosts": [
         {
-            "name": "money",
-            "nodes": [
-                {"id": "n1", "units": ["money-check.timer", "money-check.service"]},
-                {"id": "n2", "units": ["caddy.service"]},
+            "host": "server",
+            "aspects": [
+                {"name": "web", "nodes": [{"id": "n0", "units": ["caddy.service"]}]},
+                {
+                    "name": "money",
+                    "nodes": [
+                        {"id": "n1", "units": ["money-check.timer", "money-check.service"]},
+                        {"id": "n2", "units": ["caddy.service"]},
+                    ],
+                },
             ],
+            "shared": [{"id": "s0", "units": ["restic-backups-balaur.service"]}],
+        },
+        {
+            "host": "laptop",
+            "aspects": [{"name": "gaming", "nodes": [{"id": "l0", "units": ["steam.service"]}]}],
+            "shared": [],
         },
     ],
 }
@@ -56,9 +67,15 @@ GRAPH = {
 class Parsing(unittest.TestCase):
     def test_units_once_in_order(self):
         self.assertEqual(
-            server.units_of(GRAPH),
-            ["caddy.service", "money-check.timer", "money-check.service"],
+            server.units_of(GRAPH, "server"),
+            [
+                "caddy.service",
+                "money-check.timer",
+                "money-check.service",
+                "restic-backups-balaur.service",
+            ],
         )
+        self.assertEqual(server.units_of(GRAPH, "laptop"), ["steam.service"])
 
     def test_show(self):
         units = server.parse_show(SHOW)
@@ -112,16 +129,23 @@ class Serving(unittest.TestCase):
         class Args:
             pass
 
-        args = Args()
-        args.site, args.graph, args.listen = site, graph, "127.0.0.1:0"
-        args.systemctl, args.deploy_state = systemctl, deploy
-        cls.srv = server.server(args)
-        cls.url = "http://127.0.0.1:%d" % cls.srv.server_address[1]
-        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+        def start(host, peers):
+            args = Args()
+            args.host, args.peer = host, peers
+            args.site, args.graph, args.listen = site, graph, "127.0.0.1:0"
+            args.systemctl, args.deploy_state = systemctl, deploy
+            srv = server.server(args)
+            threading.Thread(target=srv.serve_forever, daemon=True).start()
+            return srv, "http://127.0.0.1:%d" % srv.server_address[1]
+
+        # The laptop answers; `gone` is asleep (nothing listens there).
+        cls.laptop, laptop_url = start("laptop", None)
+        cls.srv, cls.url = start("server", [f"laptop={laptop_url}", "gone=http://127.0.0.1:1"])
 
     @classmethod
     def tearDownClass(cls):
         cls.srv.shutdown()
+        cls.laptop.shutdown()
 
     def get(self, path):
         with urllib.request.urlopen(self.url + path) as r:
@@ -136,18 +160,42 @@ class Serving(unittest.TestCase):
     def test_graph(self):
         _, ctype, body = self.get("/graph.json")
         self.assertEqual(ctype, "application/json")
-        self.assertEqual(json.loads(body)["host"], "server")
+        self.assertEqual(json.loads(body)["me"], "server")
 
     def test_state(self):
         _, _, body = self.get("/state.json")
-        state = json.loads(body)
+        hosts = json.loads(body)["hosts"]
+        state = hosts["server"]
         self.assertEqual(state["units"]["money-check.service"]["active"], "failed")
         self.assertEqual(state["deploy"]["deployed"], "abc123")
         self.assertIn("load", state["machine"])
+        # The laptop's own answer, passed on; the asleep one is null.
+        self.assertEqual(hosts["laptop"]["deploy"]["deployed"], "abc123")
+        self.assertIn("units", hosts["laptop"])
+        self.assertIsNone(hosts["gone"])
+        self.assertEqual(sorted(hosts), ["gone", "laptop", "server"])
+
+    def test_asks_for_own_units(self):
+        server.State(self.srv_args(), GRAPH).collect()
         with open(self.asked) as f:
             asked = f.read().split()
-        self.assertEqual(asked[-3:], ["caddy.service", "money-check.timer", "money-check.service"])
-        self.assertIn("--", asked)
+        self.assertEqual(
+            asked[asked.index("--") + 1 :],
+            [
+                "caddy.service",
+                "money-check.timer",
+                "money-check.service",
+                "restic-backups-balaur.service",
+            ],
+        )
+
+    def srv_args(self):
+        class Args:
+            host, peer = "server", None
+            systemctl = os.path.join(self.tmp, "systemctl")
+            deploy_state = os.path.join(self.tmp, "deploy-state")
+
+        return Args()
 
     def test_unix_socket(self):
         # As under systemd: a listening Unix socket handed over, and no other
@@ -178,7 +226,7 @@ class Serving(unittest.TestCase):
                 reply += chunk
             c.close()
             self.assertTrue(reply.startswith(b"HTTP/1.0 200"), reply[:80])
-            self.assertIn(b'"host": "server"', reply)
+            self.assertIn(b'"me": "server"', reply)
         finally:
             srv.shutdown()
             srv.server_close()

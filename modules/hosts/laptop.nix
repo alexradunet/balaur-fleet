@@ -41,6 +41,8 @@ let
     # A failed unit or its disk in trouble is told to the owner's phone, through
     # the server's Home Assistant (over the tailnet, so from anywhere).
     "notify"
+    # Its units and state for the graph page on the server (graph.nix), on the tailnet.
+    "graph"
   ];
 in
 {

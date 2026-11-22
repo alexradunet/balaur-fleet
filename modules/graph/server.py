@@ -1,13 +1,15 @@
 """The graph page's server (graph.nix): the page and the graph from the store, and
 the machine's live state as JSON.
 
-    python3 -I server.py --site DIR --graph graph.json --systemctl PATH \
-        [--deploy-state PATH] [--listen HOST:PORT]
+    python3 -I server.py --host NAME --site DIR --graph graph.json --systemctl PATH \
+        [--deploy-state PATH] [--peer NAME=URL ...] [--listen HOST:PORT]
 
 Without --listen it takes the socket systemd passes it (LISTEN_FDS, the socket
-unit's). GET /state.json runs one `systemctl show` for every unit in graph.json
-and `balaur-deploy-state`, at most once every few seconds however many pages are
-open. It changes nothing: it only reads.
+unit's). GET /state.json runs one `systemctl show` for every unit of this host in
+graph.json and `balaur-deploy-state`, and asks each --peer (another machine's
+server) for its own, at most once every few seconds however many pages are open:
+{"time", "hosts": {NAME: state, PEER: state or null when it does not answer}}.
+It changes nothing: it only reads.
 """
 
 import argparse
@@ -17,9 +19,12 @@ import socket
 import subprocess
 import threading
 import time
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 CACHE_SECONDS = 5
+PEER_TIMEOUT = 3
 PROPS = "Id,LoadState,ActiveState,SubState,Result,ActiveEnterTimestamp"
 TYPES = {
     ".html": "text/html; charset=utf-8",
@@ -30,11 +35,13 @@ TYPES = {
 }
 
 
-def units_of(graph):
-    """Every unit the graph shows, once each, in the graph's order."""
+def units_of(graph, host):
+    """Every unit the graph shows for this host, once each, in the graph's order."""
     seen = []
-    for aspect in graph["aspects"]:
-        for node in aspect["nodes"]:
+    for h in graph["hosts"]:
+        if h["host"] != host:
+            continue
+        for node in [n for a in h["aspects"] for n in a["nodes"]] + h.get("shared", []):
             for unit in node["units"]:
                 if unit not in seen:
                     seen.append(unit)
@@ -110,7 +117,8 @@ def machine():
 class State:
     def __init__(self, args, graph):
         self.args = args
-        self.units = units_of(graph)
+        self.units = units_of(graph, args.host)
+        self.peers = dict(p.split("=", 1) for p in args.peer or [])
         self.lock = threading.Lock()
         self.at = 0.0
         self.body = b""
@@ -136,12 +144,28 @@ class State:
                 deploy = parse_deploy(out.strip())
             except (OSError, subprocess.SubprocessError):
                 pass
-        return {"time": time.time(), "units": units, "deploy": deploy, "machine": machine()}
+        return {"units": units, "deploy": deploy, "machine": machine()}
+
+    def peer(self, name):
+        """A peer's own state, or None: asleep, off the tailnet, or not yet deployed."""
+        try:
+            url = self.peers[name].rstrip("/") + "/state.json"
+            with urllib.request.urlopen(url, timeout=PEER_TIMEOUT) as r:
+                return json.load(r)["hosts"][name]
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+
+    def everything(self):
+        with ThreadPoolExecutor(max_workers=len(self.peers) + 1) as pool:
+            theirs = {n: pool.submit(self.peer, n) for n in self.peers}
+            hosts = {self.args.host: self.collect()}
+            hosts.update({n: f.result() for n, f in theirs.items()})
+        return {"time": time.time(), "hosts": hosts}
 
     def json(self):
         with self.lock:
             if time.monotonic() - self.at > CACHE_SECONDS:
-                self.body = json.dumps(self.collect()).encode()
+                self.body = json.dumps(self.everything()).encode()
                 self.at = time.monotonic()
             return self.body
 
@@ -207,10 +231,12 @@ def on_socket(sock, h):
 
 def main():
     p = argparse.ArgumentParser()
+    p.add_argument("--host", required=True)
     p.add_argument("--site", required=True)
     p.add_argument("--graph", required=True)
     p.add_argument("--systemctl", default="systemctl")
     p.add_argument("--deploy-state")
+    p.add_argument("--peer", action="append", help="NAME=URL of another machine's server")
     p.add_argument("--listen")
     server(p.parse_args()).serve_forever()
 
