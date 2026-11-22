@@ -187,7 +187,7 @@ func (c *checker) entry(top, p string, d fs.DirEntry) error {
 	}
 	if strings.Contains(name, ".sync-conflict-") {
 		c.add(Error, "conflict-copy", p, "merge it into its file (`lifelog merge` for a CSV), then delete it",
-			"a Syncthing conflict copy: two machines changed this file while apart")
+			"a conflict copy: two machines changed this file while apart")
 		if d.IsDir() {
 			return fs.SkipDir
 		}

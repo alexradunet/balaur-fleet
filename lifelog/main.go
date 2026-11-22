@@ -5,7 +5,7 @@
 //	lifelog index         print the pages, their links and the metrics as JSON (for the web app)
 //	lifelog new           create a page, refused when the checker would find it in error
 //	lifelog add           append one reading to this machine's CSV of a metric
-//	lifelog merge         merge a Syncthing conflict copy of a CSV into its file
+//	lifelog merge         merge a conflict copy of a CSV into its file
 //	lifelog rename-links  rewrite the links to a renamed page
 //	lifelog restore       write a file back from git (on the keeper's machine)
 //	lifelog integrate     merge another machine's commits into the folder (plan 005)

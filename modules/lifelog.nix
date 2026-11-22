@@ -1,38 +1,36 @@
 # lifelog (lifelog/): the life log as markdown pages and CSV readings in one
-# folder, synced by Syncthing between the owner's machines, with a checked
-# history in git. Two aspects, like `torrents` and `torrents-client`:
+# folder, with a checked history in git that also carries the folder between
+# the owner's machines (plan 005). Two aspects, like `torrents` and `torrents-client`:
 #
-#   lifelog          the always-on machine (the server): the folder, and the
-#                    keeper, which commits each settled state of the folder to
-#                    the branch `live` and moves the refs `checked` and `seen`.
-#   lifelog-client   the machines the owner writes on (the laptop): the folder,
-#                    the `lifelog` command, Obsidian, and on one of them a
-#                    nightly mirror of the history.
+#   lifelog          the always-on machine (the server): the folder, its history
+#                    (life.git, the hub), and the keeper, which commits each settled
+#                    state of the folder to the branch `live`, merges what the other
+#                    machines pushed, and moves the refs `checked` and `seen`.
+#   lifelog-client   the machines the owner writes on (the laptop): the folder as a
+#                    clone of `live`, `lifelog-sync`, the `lifelog` command, Obsidian.
 #
-# The folder is a Syncthing folder of its own (`balaur-life`), not part of the
-# shared `files` folder: it holds health data and private notes, so the group
-# `lifelog` (the owner and Syncthing) owns it, mode 2770, and `media` and the
-# household cannot read it. It is paired from the fleet registry with every
-# machine that has one of the two aspects. The design: lifelog/docs/design.md.
+# The folder holds health data and private notes, so the group `lifelog` (the owner,
+# the keeper, the web app) owns it, mode 2770, and `media` and the household cannot
+# read it. Nothing but git over SSH carries it: no Syncthing, no Forgejo.
+# The design: lifelog/docs/design.md.
 #
 #   lifelog check /srv/life            the rules, by hand
 #   journalctl -u lifelog-keeper       (server) what the keeper did
+#   journalctl -u lifelog-sync         (laptop) what the sync did
 #   lifelog restore pages/X.md         (server) a file back from `checked`
 { config, lib, ... }:
 let
-  fleet = config.fleet;
-  nixosConfigs = config.flake.nixosConfigurations;
   hm = config.flake.modules.homeManager;
   gitDir = "/var/lib/lifelog/life.git";
 
-  # What git leaves out of the folder, on the keeper and on a client alike: Syncthing's
-  # own files while it still runs, the editors' temporary files, Obsidian's settings.
+  # What git leaves out of the folder, on the keeper and on a client alike: the
+  # marker, the writers' temporary files (Syncthing's name, kept by the Go commands
+  # and the web app), Obsidian's settings, and the old versions that Syncthing left
+  # on the server (the owner deletes them when they want; git has the history).
   excludes = [
-    "/.stfolder/"
+    "/.lifelog/"
     "/.stversions/"
-    "/.stignore"
     ".syncthing.*.tmp"
-    "~syncthing~*.tmp"
     "/.obsidian/"
   ];
 
@@ -67,12 +65,11 @@ let
       users.users.${cfg.user}.extraGroups = [ "lifelog" ];
 
       # 2770: the group writes, nobody else enters; new files and folders take
-      # the group. The marker (Syncthing's name, from when Syncthing carried the
-      # folder) tells the keeper this is the folder and not an empty directory in
-      # its place. Since plan 005 git carries it between the machines.
+      # the group. The marker tells the keeper this is the folder and not an empty
+      # directory in its place (it was Syncthing's .stfolder until plan 005).
       systemd.tmpfiles.rules = [
         "d ${folder} 2770 ${cfg.user} lifelog -"
-        "d ${folder}/.stfolder 0770 ${cfg.user} lifelog -"
+        "d ${folder}/.lifelog 0770 ${cfg.user} lifelog -"
         # A default ACL: what anyone writes in the folder is the group's to write too,
         # whatever the writer's umask (a `mkdir` over SSH makes 0755). The keeper merges
         # other machines' commits into it (plan 005), so it must be able to write there.
@@ -139,8 +136,8 @@ in
           export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null LC_ALL=C
 
           # An empty directory where the folder should be is not the folder.
-          if [ ! -d "$folder/.stfolder" ]; then
-            echo "<3>$folder has no .stfolder marker: it is not the synced folder; nothing done" >&2
+          if [ ! -d "$folder/.lifelog" ]; then
+            echo "<3>$folder has no .lifelog marker: it is not the life folder; nothing done" >&2
             exit 1
           fi
 
@@ -448,35 +445,15 @@ in
     }@args:
     let
       cfg = config.balaur;
-      mirror = pkgs.writeShellApplication {
-        name = "lifelog-mirror";
-        runtimeInputs = [
-          pkgs.git
-          pkgs.openssh
-          pkgs.coreutils
-        ];
-        text = ''
-          # A copy of the keeper's history, over SSH: a second place for it, and
-          # history to read on this machine.
-          dest=$HOME/.local/share/lifelog/life.git
-          src=${cfg.lifelog-client.mirrorFrom}:${gitDir}
-          if [ ! -d "$dest" ]; then
-            mkdir -p "$(dirname "$dest")"
-            git clone -q --mirror "$src" "$dest"
-          else
-            git -C "$dest" remote update --prune
-          fi
-        '';
-      };
-
       # The folder synced through git (plan 005): this machine's side. Its history is
       # a clone of the keeper's, with the folder as its work tree and one branch of its
       # own, `work`, which it pushes to the keeper's from/<this host>; the keeper merges
       # that into live. Each run: commit the settled folder, fetch, merge live in
       # (`lifelog integrate`), push. Offline, it commits and stops; the push goes with
-      # the next run that reaches the keeper.
+      # the next run that reaches the keeper. The clone is also a second copy of the
+      # whole history, and the place to read it on this machine.
       #
-      #   lifelog-sync init   once: make the clone, into an empty folder (P5)
+      #   lifelog-sync init   once: make the clone, into an empty folder
       #   lifelog-sync        one run (the timer's, every minute)
       syncWith = cfg.lifelog-client.syncWith;
       me = config.networking.hostName;
@@ -507,7 +484,7 @@ in
             fi
             # Into an empty folder only: what is in it now would be overwritten or,
             # worse, committed over the keeper's live at the first run.
-            if [ -n "$(find "$folder" -mindepth 1 -maxdepth 1 ! -name .obsidian ! -name .stfolder ! -name .stversions ! -name .stignore -print -quit)" ]; then
+            if [ -n "$(find "$folder" -mindepth 1 -maxdepth 1 ! -name .obsidian ! -name .lifelog -print -quit)" ]; then
               echo "$folder is not empty: move it aside first (mv $folder/* somewhere), then run this again" >&2
               exit 1
             fi
@@ -527,6 +504,8 @@ in
           if [ ! -f "$gitdir/HEAD" ]; then
             exit 0
           fi
+          # Each run, as on the keeper: a change of the list reaches a clone made before it.
+          printf '%s\n' ${lib.escapeShellArgs excludes} >"$gitdir/info/exclude"
 
           ${untilSettled}
 
@@ -568,7 +547,7 @@ in
           description = ''
             The keeper's machine to sync the folder with through git (plan 005), or null
             for none. It starts once `lifelog-sync init` has made the clone; until then
-            the folder syncs as before.
+            the folder is not synced.
           '';
         };
         quietSeconds = lib.mkOption {
@@ -576,36 +555,12 @@ in
           default = 60;
           description = "How long nothing in the content folders must change before this machine commits (design §4).";
         };
-        mirrorFrom = lib.mkOption {
-          type = lib.types.nullOr lib.types.str;
-          default = null;
-          example = "server";
-          description = "The keeper's machine to mirror the history from every night, or null for no mirror.";
-        };
       };
 
       config = lib.mkMerge [
         (shared args)
         {
           home-manager.users.${cfg.user}.imports = [ hm.lifelog-client ];
-
-          systemd.services.lifelog-mirror = lib.mkIf (cfg.lifelog-client.mirrorFrom != null) {
-            description = "lifelog: mirror the history from ${cfg.lifelog-client.mirrorFrom}";
-            after = [ "network-online.target" ];
-            wants = [ "network-online.target" ];
-            serviceConfig = {
-              Type = "oneshot";
-              User = cfg.user;
-              ExecStart = lib.getExe mirror;
-            };
-          };
-          systemd.timers.lifelog-mirror = lib.mkIf (cfg.lifelog-client.mirrorFrom != null) {
-            wantedBy = [ "timers.target" ];
-            timerConfig = {
-              OnCalendar = "*-*-* 04:07:00";
-              Persistent = true;
-            };
-          };
 
           environment.systemPackages = lib.optional (syncWith != null) sync;
           systemd.services.lifelog-sync = lib.mkIf (syncWith != null) {

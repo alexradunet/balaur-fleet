@@ -43,7 +43,7 @@ func parseCSV(name, text string) ([]mergeLine, error) {
 	return out, nil
 }
 
-// cmdMerge merges a Syncthing conflict copy of a CSV into its file, by the key
+// cmdMerge merges a conflict copy (`lifelog integrate`'s, or an old one of Syncthing's) of a CSV into its file, by the key
 // (day, taken_at, source) of each line, and removes the copy. It asks about a
 // key with two values. A page's conflict copy is merged by hand.
 func cmdMerge(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
@@ -66,7 +66,7 @@ func cmdMerge(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return refuse("%v", err)
 	}
 	if !conflictPart.MatchString(copyRel) {
-		return refuse("%s is not a Syncthing conflict copy", copyRel)
+		return refuse("%s is not a conflict copy", copyRel)
 	}
 	origRel := conflictPart.ReplaceAllString(copyRel, "")
 	if !strings.HasSuffix(origRel, ".csv") {

@@ -31,5 +31,5 @@ LIFELOG_BIN=/tmp/lifelog npm test            # the tests run the real lifelog
 LIFELOG_FOLDER=/some/synthetic/folder LIFELOG_BIN=/tmp/lifelog LIFELOG_WEB_STATE=/tmp/state npm start   # http://127.0.0.1:7795
 ```
 
-Never point it at the real `/srv/life` from a development machine: Syncthing would bring every test edit to all
+Never point it at the real `/srv/life` from a development machine: the sync would bring every test edit to all
 machines.

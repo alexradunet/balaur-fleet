@@ -29,8 +29,8 @@ let
     # The Balaur agent (`balaur`): pi with the fleet's instructions and the life log as its memory.
     "agent"
     # This machine's own.
-    # The life log as files: the folder, `lifelog`, Obsidian, and the nightly mirror of
-    # the keeper's history from the server (balaur.lifelog-client.mirrorFrom below).
+    # The life log as files: the folder, synced through git with the server's keeper
+    # (balaur.lifelog-client.syncWith below), `lifelog` and Obsidian.
     "lifelog-client"
     # WoW, on the RTX 5060 Ti in its Thunderbolt/USB4 dock when it is plugged in here
     # (the fleet's only gaming machine again since 2026-11-18). No local model here.
@@ -85,11 +85,8 @@ in
         aspects = hostAspects;
         # The existing login on this machine; its password is kept as is.
         user = "alex";
-        # A second copy of the life log's history, fetched nightly from the keeper (it
-        # runs when the laptop next wakes if it slept through the night).
-        lifelog-client.mirrorFrom = "server";
-        # The folder through git with the keeper (plan 005): it starts once
-        # `lifelog-sync init` has made the clone here (P5).
+        # The folder through git with the keeper (plan 005). The clone here is also
+        # the second copy of the whole history.
         lifelog-client.syncWith = "server";
 
         # It roams onto networks nobody here owns: SSH and the Syncthing UI only

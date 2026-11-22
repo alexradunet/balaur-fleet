@@ -510,7 +510,7 @@ in
               server.succeed("grep -qx 'The server line.' /srv/life/pages/A.md")
               copy = server.succeed("ls /srv/life/pages | grep -x 'A.sync-conflict-[0-9]*-[0-9]*-laptop.md'").strip()
               server.succeed(f"grep -qx 'The laptop line.' '/srv/life/pages/{copy}'")
-              server.succeed(f"{git} show live:_check.md | grep -q sync-conflict")
+              server.succeed(f"{git} show live:_check.md | grep sync-conflict >/dev/null")
               server.succeed(f"test -z \"$({git} --work-tree /srv/life status --porcelain)\"")
 
           with subtest("the copy merged by hand and the report deleted on the clone: acknowledged, nothing left to say"):
@@ -620,7 +620,7 @@ in
               sync()
               keep()
               server.succeed("grep -qx 'From the laptop.' /srv/life/pages/B.md")
-              server.succeed(f"{git} log --format=%an live | grep -qx 'lifelog laptop'")
+              server.succeed(f"{git} log --format=%an live | grep -x 'lifelog laptop' >/dev/null")
 
           with subtest("a server edit reaches the laptop"):
               as_owner(server, "echo 'From the web app.' > /srv/life/pages/C.md")
@@ -653,7 +653,7 @@ in
               laptop.block()
               as_owner(laptop, "echo 'Written offline.' > /srv/life/pages/D.md")
               sync()
-              laptop.succeed("journalctl -u lifelog-sync --no-pager | grep -q 'does not answer'")
+              laptop.succeed("journalctl -u lifelog-sync --no-pager | grep 'does not answer' >/dev/null")
               as_owner(laptop, "git --git-dir ~/.local/share/lifelog/sync.git cat-file -e work:pages/D.md")
               laptop.unblock()
               sync()

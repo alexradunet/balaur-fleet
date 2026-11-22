@@ -1,12 +1,14 @@
 # lifelog — design
 
-lifelog keeps the owner's life log as plain files: markdown pages and CSV readings, synced by Syncthing between
-the owner's machines, with a checked history in git. It replaced aminte (one SQLite file) in the Balaur fleet on 2026-11-15. It
-came from an interview, a web research pass, three adversarial reviews and the spikes of
-[plan 001](plans/001-spikes.md); [plan 002](plans/002-into-the-fleet.md) brings it into the fleet.
+lifelog keeps the owner's life log as plain files: markdown pages and CSV readings, with a checked history in git
+that also carries the folder between the owner's machines. It replaced aminte (one SQLite file) in the Balaur fleet
+on 2026-11-15. It came from an interview, a web research pass, three adversarial reviews and the spikes of
+[plan 001](plans/001-spikes.md); [plan 002](plans/002-into-the-fleet.md) brings it into the fleet, and
+[plan 005](plans/005-git-sync.md) replaced Syncthing with git on 2026-11-22.
 
-**Machines: tablet (the keeper), laptop and pc.** All three run NixOS. The phone has no copy of the folder: it opens
-the web app on the tablet ([plan 003](plans/003-the-web-app.md)).
+**Machines: the server (the keeper) and the laptop.** Both run NixOS. The phone has no copy of the folder: it opens
+the web app on the server ([plan 003](plans/003-the-web-app.md)). The plans before 005 name the machines of their
+time: the tablet and the pc were the keeper's machine before the server.
 
 **The idea that keeps it small: git history records what changed.** The keeper commits every settled state, so
 the files need no ids and no append-only rows. Git does not record what a change *means*, so a few rules keep
@@ -15,10 +17,11 @@ writes its own readings.
 
 ## 1. The model, and the guarantee
 
-- One folder, `/srv/life`, synced by Syncthing (send-receive) between the tablet, the laptop and the pc.
+- One folder, `/srv/life`, on each machine. On the server it is the work tree of the keeper's history,
+  `life.git`; on the laptop it is the work tree of a clone of it. Git over SSH carries it between them (§3).
 - Any editor on any machine writes into it. Nothing refuses a write.
-- The tablet runs the **keeper**. It commits each settled state to one branch, `live`, runs the checker, and keeps
-  two refs:
+- The server runs the **keeper**. It commits each settled state to one branch, `live`, merges what the other
+  machines pushed, runs the checker, and keeps two refs:
   - **`checked`**: the newest commit with no error and no unacknowledged loss. **`checked` is the final check.**
   - **`seen`**: the commit the owner last acknowledged. Losses and warnings are computed against `seen`, so they
     stay in `_check.md` until the owner acknowledges them.
@@ -29,17 +32,20 @@ writes its own readings.
 
 ```mermaid
 flowchart LR
-  subgraph DEV["laptop, pc"]
-    ED["Obsidian, any editor, lifelog add"] --> F["/srv/life (Syncthing send-receive, trash-can versioning)"]
+  subgraph DEV["laptop"]
+    ED["Obsidian, any editor, lifelog add"] --> F["/srv/life (a clone's work tree)"]
+    F --> LS["lifelog-sync: commit when settled, merge live, push"]
   end
-  F <-->|"Syncthing, folder balaur-life"| SF["tablet: /srv/life"]
-  SF --> W{"keeper: quiet for 60 s on the content folders?"}
-  W -->|"yes"| L["commit to live"]
+  LS -->|"push from/laptop (SSH)"| H[("server: life.git")]
+  H -->|"fetch live"| LS
+  SF["server: /srv/life"] --> W{"keeper: quiet for 60 s on the content folders?"}
+  W -->|"yes"| L["commit to live, merge from/*"]
+  L --- H
   L --> C{"checker: errors on the tree; losses and warnings against seen"}
   C -->|"no error, no loss"| CH["move checked"]
-  C --> R["write _check.md, or remove it when there is nothing to report"]
+  C --> R["commit _check.md, or its removal when there is nothing to report"]
   R -->|"owner deletes _check.md"| S["move seen"]
-  L -->|"nightly"| B["restic off-site; a mirror clone on the pc"]
+  H -->|"nightly"| B["restic off-site"]
 ```
 
 ```mermaid
@@ -54,15 +60,16 @@ stateDiagram-v2
 ## 2. Layout
 
 ```
-/srv/life/                         the Syncthing folder (work tree); group lifelog, 2770
+/srv/life/                         the work tree; group lifelog, 2770, a default ACL for the group
   journal/2026-11-14.md            day page: the filename is the day
   pages/  people/  places/         the folder is the kind; a move is only a move
   metrics/weight.md                the metric's page: frontmatter holds unit, min, max, daily
   metrics/weight/2026.laptop.csv   readings of that metric, that year, written on the machine "laptop"
   files/2026/x.md + x.jpg          extracted text + small JPEG; frontmatter: sha256, mime
-  _check.md                        written by the keeper; deleted by the owner to acknowledge
-  .stignore                        written by the aspect on each machine (Syncthing does not sync it)
-/var/lib/lifelog/life.git          on the tablet: the git dir, outside the folder (never synced)
+  _check.md                        committed by the keeper; deleted by the owner to acknowledge
+  .lifelog/                        the marker: this is the folder, not an empty directory in its place
+/var/lib/lifelog/life.git          on the server: the keeper's git dir, outside the folder
+~/.local/share/lifelog/sync.git    on the laptop: the clone's git dir, outside the folder
 ```
 
 - **The content folders** are `journal/`, `pages/`, `people/`, `places/`, `metrics/` and `files/`. The checker
@@ -72,44 +79,61 @@ stateDiagram-v2
 - Each machine appends readings only to its own file; the machine's name is its hostname. Two machines never append
   to one file, so an offline week makes no conflict copy. A correction may edit a line in any machine's file.
 
-## 3. Syncthing
+## 3. Sync through git
 
-- The folder `balaur-life` is paired from the fleet registry, like the `files` folder, on the machines that have a
-  lifelog aspect. It is send-receive with **trash-can versioning, 30 days, on every machine.** A machine keeps the
-  old version only of a change it *receives*, so the tablet holds the complete set
-  ([plan 001](plans/001-spikes.md), S4).
-- The group `lifelog` holds the owner and `syncthing`; the folder is 2770. The `media` group and the household
-  cannot read it.
-- The aspect writes `.stignore` on each machine: `.obsidian/workspace*`, `.obsidian/cache`, editor temp files.
+- **The hub is `life.git` on the server.** `live`, `checked` and `seen` are the keeper's, and only the keeper moves
+  them, in place. Each other machine pushes to one ref of its own, `from/<host>`. The repository's `update` hook
+  refuses any other push, so a client never moves `live` under the server's folder.
+- **The laptop, each minute (`lifelog-sync`).** It commits the settled folder to its branch `work`, fetches,
+  merges `live` into it (`lifelog integrate`), and pushes `work` to `from/laptop`. Offline, it commits and stops;
+  the push goes with the next run that reaches the server. Its commits carry the machine's name (`lifelog laptop`).
+- **One merge rule, in Go (`lifelog integrate`)**, used by both sides:
+  - What git merges cleanly is merged. Per-machine CSVs (§2) mean readings never conflict.
+  - A file both sides changed: the version already in the folder stays, and the other side's goes beside it as
+    `<name>.sync-conflict-YYYYMMDD-HHMMSS-<host>.<ext>`. The checker reports it as an error until it is merged (§5).
+  - A file one side deleted and the other changed: the changed one stays.
+- **Permissions.** The group `lifelog` holds the owner, the keeper's user and the web app's. `life.git` has
+  `core.sharedRepository = group`, so what the owner pushes stays writable by the keeper. The folder's default ACL
+  keeps what anyone writes in it writable by the group, whatever the writer's umask. The `media` group and the
+  household cannot read it.
+- A new machine joins with `balaur.lifelog-client.syncWith = "server"` and, once, `lifelog-sync init` into an
+  empty `/srv/life`.
+- Not Forgejo: it would index the folder and keep a copy in its own state, and it cannot hold a repository with a
+  work tree.
 
-## 4. The keeper (tablet)
+## 4. The keeper (server)
 
 1. **Settled** means: no change for 60 seconds in the content folders. The keeper does not wait for machines. A
    writer slower than the window can give a half state ([plan 001](plans/001-spikes.md), S1): `live` records it,
-   and the checker reports what it sees.
-2. Commit the settled state to `live`. The git dir's `info/exclude` holds `.stfolder`, `.stversions/`,
-   `.syncthing.*.tmp`, `~syncthing~*`, `.stignore` and `.obsidian/`.
-3. Run the checker: errors on the tree; losses and warnings against `seen`.
-4. No error and no loss: move `checked`.
-5. Anything to report: write `_check.md` with each problem: its class, the rule, the path, the reason in words, the
-   fix, and the time of the run. Nothing to report: remove `_check.md` and move `seen`.
-6. `_check.md` absent where the keeper wrote one: the owner acknowledged. Move `seen` to the commit of that report.
-7. **The keeper writes only `_check.md`.** It never writes a page or a CSV.
-8. On the tablet, `lifelog restore <path> [<ref>]` writes a file back from `checked` (or another ref) into the
+   and the checker reports what it sees. The laptop's `lifelog-sync` uses the same rule before it commits.
+2. Commit the settled state to `live`. The git dir's `info/exclude` holds `.lifelog/`, `.syncthing.*.tmp` (the
+   writers' temporary files keep Syncthing's name), `.obsidian/`, and `.stversions/` (old versions Syncthing left).
+3. Merge each `from/<host>` that `live` does not contain, into `live` and the folder. A merge that git refuses (a
+   write landed a moment ago) is tried again at the next run.
+4. Run the checker: errors on the tree; losses and warnings against `seen`.
+5. No error and no loss: move `checked`.
+6. Anything to report: write `_check.md` with each problem: its class, the rule, the path, the reason in words, the
+   fix, and the time of the run, and commit it. Nothing to report: remove `_check.md`, commit that, and move `seen`.
+7. `_check.md` absent where the keeper wrote one: the owner acknowledged (on the laptop, the deletion arrives by
+   the merge). Move `seen` to the commit of that report.
+8. **The keeper writes only `_check.md`**, and what the merges bring. It never edits a page or a CSV itself.
+9. On the server, `lifelog restore <path> [<ref>]` writes a file back from `checked` (or another ref) into the
    folder. `_check.md` prints the exact line for each loss.
 
 ## 5. Writers
 
-- Obsidian, or any editor, on the laptop and the pc. On the phone, the web app on the tablet (`lifelog/web`): it saves a page only if
+- Obsidian, or any editor, on the laptop. On the phone, the web app on the server (`lifelog/web`): it saves a page only if
   nobody changed it since it was opened, adds a note to a day page, and adds readings as the machine `web`
   (`metrics/<m>/<year>.web.csv`). It makes pages with `lifelog new` and reads the folder with `lifelog index`. A reading is a line typed into the machine's CSV, or appended
   by `lifelog add weight 81.4`, which adds a missing final newline first and appends one well-formed line.
+  The Balaur agent and the `money` skill write on the server too.
 - A correction of a reading is an edit of its line. Git keeps the old value; the checker warns, so it is visible.
 - A rename outside Obsidian leaves links to the old name. `lifelog rename-links <old> <new>` rewrites them.
-- A Syncthing conflict copy is merged by the owner. For a CSV, `lifelog merge` compares the lines by their key
+- A conflict copy is merged by the owner. For a CSV, `lifelog merge` compares the lines by their key
   `(day, taken_at, source)`: it adds the lines with a new key, asks about a key with two values (a correction on one
-  side, or two readings), and removes the copy. It never reads the device id in the copy's name (S3).
-- History is read on the tablet, or in the pc's mirror clone.
+  side, or two readings), and removes the copy. It never reads the machine's name in the copy's name (S3).
+- History is read on the server (`life.git`), or in the laptop's clone:
+  `git --git-dir ~/.local/share/lifelog/sync.git log`.
 
 ## 6. The rules of the checker
 
@@ -137,11 +161,13 @@ Each rule applies only in the content folders.
 ## 7. Time, and the limits of git as the record
 
 - Page frontmatter holds no instant. `day` is a date. A reading has `day` and an optional `taken_at`.
-- The commit time of a change is when the tablet's folder settled, not when the machine wrote it. A week written on
-  an offline laptop arrives as one commit at the time of its return.
+- The commit time of a change is when the folder of the machine that wrote it settled, and the commit names that
+  machine. A week written on an offline laptop arrives as that week's commits, and the keeper's merge commit is the
+  time of its return.
 - Git does not see a state inside one quiet window: a value typed and corrected within 60 seconds leaves no trace of
   the first value.
-- Git does not see an edit made while the keeper is down; the next commit holds the sum.
+- Git does not see an edit on the server while the keeper is down, or on the laptop while `lifelog-sync` is not
+  running; the next commit holds the sum.
 - "What was this reading on a day, as I knew it then" is answered by `git log -p` on the CSV, with these limits.
 
 ## 8. The importer from aminte
@@ -152,16 +178,17 @@ Each rule applies only in the content folders.
 - It commits each page with its `created_at` as the git author date, so the creation times live in git.
 - It commits each tombstoned page and then deletes it, so the title-reuse warning knows the names that aminte held.
 - It renames each title that the path rules refuse (for example `C#`) and lists each rename in its report.
-- It flattens each reading's correction chain to its current value; the chain stays in the last snapshots of aminte, on the tablet.
+- It flattens each reading's correction chain to its current value; the chain stays in the last snapshots of aminte.
 - It writes the readings to `<year>.import.csv` files, as the machine "import".
 
 ## 9. Backups and privacy
 
-- The `backup` aspect (restic, off-site, in Europe) backs up `/var/lib/lifelog/life.git` on the tablet. That aspect waits for the owner's choice of a repository.
-- The pc keeps a mirror clone of `life.git`, fetched nightly over SSH.
-- The fleet repo is public. The folder, the git dir and any copy of them never enter it.
-- Accepted: deleted pages and replaced pictures stay in git and in each backup. The `.stversions` folders (30 days)
-  and `_check.md` are plain text on each machine.
+- The `backup` aspect (restic, off-site, in Europe) backs up `/var/lib/lifelog/life.git` on the server, and its
+  monthly drill restores it and runs `git fsck`.
+- The laptop's clone is a second copy of the whole history, current to its last sync.
+- The fleet repo is public. The folder, the git dirs and any copy of them never enter it, nor Forgejo.
+- Accepted: deleted pages and replaced pictures stay in git, on the laptop too, and in each backup. `_check.md` is
+  plain text in the history.
 
 ## 10. What is given up, from aminte
 
@@ -176,16 +203,20 @@ Each rule applies only in the content folders.
 
 ## 11. Accepted costs
 
-- A bad file reaches every machine before the check. `live`, `lifelog restore` and trash-can versioning recover it.
+- A bad file reaches every machine before the check. `live` and `lifelog restore` recover it.
 - `checked` can wait days for a fix or an acknowledgement. `live` has no gap while the keeper runs.
-- Two machines that edit one page offline make a conflict copy the owner merges by hand.
-- If the keeper is down, nothing is committed; the folder still syncs; `_check.md` shows the time of its last run.
+- Two machines that edit one page while apart make a conflict copy the owner merges by hand.
+- If the keeper is down, nothing is committed or merged; the laptop's commits wait in `from/laptop`; `_check.md`
+  shows the time of its last run.
+- A laptop edit reaches the server one to two minutes after the typing stops, and only while the laptop reaches it.
+  A laptop that never reaches the server holds its commits; `balaur-fleet-status` does not show that yet.
+- The keeper's merge writes into the server's folder while the web app or the agent may write there. Git refuses a
+  merge over an unsaved change, so the cost is a retry, not a lost write.
 
 ## 12. Deferred
 
-- A copy of the folder on the phone (Syncthing on Android); the web app covers the phone for now.
+- A copy of the folder on the phone; the web app covers the phone for now.
 - A client app (Flutter); if it comes, it calls the Go checker through FFI.
 - Period pages, until they are used.
 - The counts of errors, losses and warnings on the Balaur app's Home page (a status file the keeper writes).
-- The machines that were disconnected, in each commit message: the keeper would need Syncthing's API key, which
-  only the `syncthing` user can read.
+- A laptop's unpushed commits in `balaur-fleet-status`.

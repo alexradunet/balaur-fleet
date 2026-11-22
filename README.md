@@ -85,7 +85,7 @@ hosts/<hostname>/         machine-generated files only (hardware-configuration.n
 pkgs/                     our packages: one overlay (pkgs.<name> in every aspect), also flake packages
 gnome/                    everything GNOME-facing, in GJS
   shell-extension/        the Scenes menu in Quick Settings (Home Assistant), the ambient screen (photos, machines, services)
-lifelog/                  the life log as markdown + CSV, synced by Syncthing, checked into git (the checker and its commands; web/: the web app, in Node.js)
+lifelog/                  the life log as markdown + CSV, its history and sync in git (the checker and its commands; web/: the web app, in Node.js)
 ```
 
 ## What you get

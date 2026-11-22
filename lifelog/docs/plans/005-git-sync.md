@@ -1,5 +1,8 @@
 # Plan 005 — the life folder syncs through git (2026-11-21)
 
+**Done on 2026-11-22.** The laptop syncs through git since 00:14; Syncthing carries no life folder. The design
+(design.md §3) is the current description; this plan stays as the record of why and how.
+
 Syncthing carries `/srv/life` between the server and the laptop today (design §3). This plan replaces it with git:
 the keeper's history, `life.git` on the server, becomes the hub that the laptop pulls from and pushes to. It is
 built next to Syncthing and proven in a VM test first; Syncthing's `balaur-life` folder goes only at the switch-over
@@ -43,7 +46,7 @@ flowchart LR
   one place, with tests:
   - What git merges cleanly is merged. Per-machine CSVs (design §2) mean readings never conflict.
   - A file both sides changed: the version already in the folder stays, and the other side's goes beside it as
-    `<name>.sync-conflict-<host>-<time>.<ext>`. The checker already reports such a file as an error, and
+    `<name>.sync-conflict-YYYYMMDD-HHMMSS-<host>.<ext>`. The checker already reports such a file as an error, and
     `lifelog merge` already merges a CSV copy (design §5). Nothing refuses a write and nothing is lost.
   - A file one side deleted and the other changed: the changed one stays. The checker reports a loss only for what
     is really gone.
@@ -67,14 +70,14 @@ flowchart TD
   P5 --> P6["P6: design.md, README, the skills"]
 ```
 
-| step | where | done when |
-|---|---|---|
-| P1 | `lifelog/cmd_integrate.go` | `go test` covers a clean merge, both sides editing one page, edit against delete, a binary file, a CSV per machine |
-| P2 | `modules/lifelog.nix` (keeper) | deployed; with no `from/*` ref it does what it does today (the server's `live` keeps moving) |
-| P3 | `modules/lifelog.nix` (`lifelog-client`) | the unit exists, but only runs against a folder that is a clone (none yet) |
-| P4 | `modules/flake/tests.nix` | the test passes in `nix flake check`; it never touches the real folder |
-| P5 | the laptop, by hand once | the laptop's `/srv/life` is moved aside, cloned from `live`, and compared with the old copy; Obsidian opens it; an edit on each side reaches the other |
-| P6 | docs | design §1, §3, §4, §5, §7, §9, §11, §12 say git, not Syncthing |
+| step | where | done when | status |
+|---|---|---|---|
+| P1 | `lifelog/cmd_integrate.go` | `go test` covers a clean merge, both sides editing one page, edit against delete, a binary file, a CSV per machine | done |
+| P2 | `modules/lifelog.nix` (keeper) | deployed; with no `from/*` ref it does what it does today (the server's `live` keeps moving) | done |
+| P3 | `modules/lifelog.nix` (`lifelog-client`) | the unit exists, but only runs against a folder that is a clone (none yet) | done |
+| P4 | `modules/flake/tests.nix` | the test passes in `nix flake check`; it never touches the real folder | done |
+| P5 | the laptop, by hand once | the laptop's `/srv/life` is moved aside, cloned from `live`, and compared with the old copy; Obsidian opens it; an edit on each side reaches the other | done, 2026-11-22 |
+| P6 | docs, `lifelog.nix` | design §1, §3, §4, §5, §7, §9, §11, §12 say git, not Syncthing; `lifelog-mirror` is gone; the marker is `.lifelog/` | done |
 
 ## What changes for the owner
 
