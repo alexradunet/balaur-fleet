@@ -1,0 +1,35 @@
+# Every machine switches to whatever lands on main (modules/auto-deploy.nix), so a
+# commit that does not evaluate would be tried by all of them. This says so first:
+# it evaluates every host and builds every check: the packages with their tests,
+# the Python tests, formatting, the skills, and the tests that boot machines
+# (modules/flake/tests.nix). It reports; it does not gate the deploy (AGENTS.md,
+# "Checking a change").
+#
+# It runs on the server's own runner (modules/forgejo.nix), with the system's Nix:
+# no container and no action fetched from elsewhere. The repository is public, so
+# the clone needs no token.
+name: check
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: native
+    timeout-minutes: 60
+    steps:
+      - name: clone the commit
+        run: |
+          git init -q src
+          git -C src fetch -q --depth 1 "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" "$GITHUB_SHA"
+          git -C src checkout -q FETCH_HEAD
+      # Every nixosConfigurations.* evaluates, first and by itself: the step that
+      # says whether the machines can follow this commit at all. Builds nothing.
+      - name: evaluate every host
+        run: nix flake check --no-build ./src
+      # Then every check, built for real. The hosts' systems are not built: each
+      # machine builds its own.
+      - name: build every check
+        run: nix flake check -L ./src

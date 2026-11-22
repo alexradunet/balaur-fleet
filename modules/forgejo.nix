@@ -66,6 +66,27 @@ in
 
       # SQLite's online backup: a whole database even while Forgejo writes to it,
       # which a plain copy of the live file is not.
+      # The runner registers itself once, with a token Forgejo makes for it. Made here,
+      # on the machine, into a file only root and Forgejo read: no person or log sees it.
+      runnerTokenFile = "${state}/actions-runner-token";
+      runnerToken = pkgs.writeShellApplication {
+        name = "balaur-forgejo-runner-token";
+        runtimeInputs = [
+          forgejo.package
+          pkgs.coreutils
+        ];
+        text = ''
+          if [ -s ${runnerTokenFile} ]; then
+            exit 0
+          fi
+          umask 077
+          token=$(forgejo actions generate-runner-token)
+          printf 'TOKEN=%s\n' "$token" >${runnerTokenFile}.tmp
+          mv ${runnerTokenFile}.tmp ${runnerTokenFile}
+          echo "made the runner's registration token in ${runnerTokenFile}"
+        '';
+      };
+
       dbSnapshot = pkgs.writeShellApplication {
         name = "balaur-forgejo-db-snapshot";
         runtimeInputs = [
@@ -134,8 +155,8 @@ in
               ENABLE_PUSH_CREATE_USER = true;
             };
             session.COOKIE_SECURE = domain != null;
-            # CI on its own runner comes with the move of the fleet's repository (phase 3).
-            actions.ENABLED = false;
+            # CI, on the runner below: the workflows in a repository's .forgejo/workflows.
+            actions.ENABLED = true;
             # No mail server: nothing is sent, and nothing waits for a confirmation.
             mailer.ENABLED = false;
             log.LEVEL = "Warn";
@@ -157,6 +178,54 @@ in
             Group = forgejo.group;
             WorkingDirectory = state;
             ExecStart = lib.getExe admin;
+          };
+        };
+
+        systemd.services.forgejo-runner-token = {
+          description = "Forgejo: the runner's registration token, once";
+          after = [ "forgejo.service" ];
+          requires = [ "forgejo.service" ];
+          environment = removeAttrs config.systemd.services.forgejo.environment [ "PATH" ];
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            User = forgejo.user;
+            Group = forgejo.group;
+            WorkingDirectory = state;
+            ExecStart = lib.getExe runnerToken;
+          };
+        };
+
+        # The runner: the jobs run on this machine itself (the `native` label, no
+        # containers), with the system's Nix, so `nix flake check` builds through the
+        # daemon and the fleet's builders like every other build here. One job at a
+        # time, and only on idle CPU. It serves every repository of this Forgejo, which
+        # only the owner can push to.
+        services.gitea-actions-runner = {
+          package = pkgs.forgejo-runner;
+          instances.balaur = {
+            enable = true;
+            name = me;
+            url = rootUrl;
+            tokenFile = runnerTokenFile;
+            labels = [ "native:host" ];
+            hostPackages = with pkgs; [
+              bash
+              coreutils
+              gitMinimal
+              gnused
+              gnugrep
+              config.nix.package
+            ];
+            settings.runner.capacity = 1;
+          };
+        };
+        systemd.services.gitea-runner-balaur = {
+          after = [ "forgejo-runner-token.service" ];
+          requires = [ "forgejo-runner-token.service" ];
+          serviceConfig = {
+            Nice = 19;
+            IOSchedulingClass = "idle";
           };
         };
 
@@ -187,6 +256,7 @@ in
             "${state}/data/queues"
             "${state}/data/tmp"
             "${state}/initial-admin-password"
+            runnerTokenFile
           ];
           verify = ''
             test -d "$restored/repositories"
