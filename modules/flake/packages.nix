@@ -12,6 +12,8 @@ let
     balaur-shell-extension = final.callPackage ../../pkgs/balaur-shell-extension.nix { };
     # Is this commit signed by one of these keys? What auto-deploy asks before a switch.
     balaur-verify-commit = final.callPackage ../../pkgs/balaur-verify-commit.nix { };
+    # zellij 0.46 for its inbox, until our nixpkgs has it (pkgs/zellij.nix).
+    zellij-unwrapped = final.callPackage ../../pkgs/zellij.nix { };
   };
 in
 {
