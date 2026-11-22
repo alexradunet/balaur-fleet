@@ -9,9 +9,11 @@
 #
 # Nobody can sign up: the owner's account is made once, by `forgejo-admin`, with a
 # random password in /var/lib/forgejo/initial-admin-password that must be changed
-# at the first login. Every repository is private unless made public, and nothing
-# can be seen without a login. SSH goes through the machine's own sshd (port 22, as
-# for every other login), with the keys the owner adds in Forgejo's settings.
+# at the first login. Every repository is private unless made public. A public one
+# (the fleet's repository, public on GitHub before) can be read without a login, so
+# every machine fetches it with no credentials; only the tailnet reaches Forgejo.
+# SSH goes through the machine's own sshd (port 22, as for every other login), with
+# the keys the owner adds in Forgejo's settings.
 #
 #   sudo cat /var/lib/forgejo/initial-admin-password   the first login
 #   journalctl -u forgejo                               what it did
@@ -120,7 +122,9 @@ in
             };
             service = {
               DISABLE_REGISTRATION = true;
-              REQUIRE_SIGNIN_VIEW = true;
+              # Private repositories still need a login; public ones are read by anyone
+              # on the tailnet, the machines' auto-deploy among them.
+              REQUIRE_SIGNIN_VIEW = false;
             };
             repository = {
               DEFAULT_PRIVATE = "private";
