@@ -252,7 +252,11 @@ in
         builtins.toJSON {
           inherit me domain hosts;
           links = buildLinks;
-          repo = config.balaur.autoDeploy.repo or null;
+          repo =
+            let
+              d = config.balaur.autoDeploy or null;
+            in
+            if d == null then null else "${d.url}/${d.repo}";
         }
       );
 

@@ -3,9 +3,9 @@
 # It is the software Codeberg (a German non-profit) runs, a single Go binary on
 # SQLite: about 150 MB of memory and no CPU while nobody pushes or browses.
 #
-# It is here so that the fleet's repository, its issues and the life log's history
-# can live in the house instead of on GitHub. Until that move (the plan's phase 3)
-# the machines still follow GitHub; this only runs next to it.
+# The fleet's repository and its issues live here (alex/balaur-fleet, public), moved
+# from GitHub on 2026-11-22: every machine's auto-deploy follows its main, and the
+# runner below checks every push.
 #
 # Nobody can sign up: the owner's account is made once, by `forgejo-admin`, with a
 # random password in /var/lib/forgejo/initial-admin-password that must be changed

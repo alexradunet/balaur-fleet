@@ -1,8 +1,9 @@
-# Auto-deploy: every machine follows `main` on GitHub by itself. Push from any
+# Auto-deploy: every machine follows `main` of the fleet's repository, in Forgejo on
+# the server (forgejo.nix), by itself. Push from any
 # machine, and within a few minutes every machine runs it, with no
 # `nixos-rebuild --target-host` round.
 #
-# Every few minutes a timer asks GitHub for main's commit (`git ls-remote`: one
+# Every few minutes a timer asks Forgejo for main's commit (`git ls-remote`: one
 # small HTTPS request, no evaluation, so it costs next to nothing). Only when
 # that commit is not the one this machine deployed does it build and switch to
 # this machine's configuration at exactly that commit. Heavy builds still go to
@@ -14,7 +15,7 @@
 #     minutes later and an hour after that (a builder asleep, a network blip),
 #     then left alone until the next push. The unit is left failed meanwhile, so
 #     `systemctl --failed` and `balaur-fleet-status` show it.
-#   - After switching, the machine must still reach GitHub: that is how every
+#   - After switching, the machine must still reach Forgejo: that is how every
 #     later fix arrives, since nobody logs in to repair a machine. If it cannot
 #     within two minutes, it switches back to the generation it came from, and
 #     that counts as a failed attempt. A switch that fails after it has already
@@ -22,9 +23,9 @@
 #     leaves this machine's system unchanged has nothing to switch back.
 #   - A commit is deployed only when one of the admin's SSH keys signed it (the
 #     registry's `userKeys`; every machine signs by itself, home.nix). So a stolen
-#     GitHub login, or a commit made in GitHub's web page, deploys nothing: the
+#     Forgejo login, or a commit made in Forgejo's web page, deploys nothing: the
 #     unit fails with "not signed", and a signed commit on top is deployed.
-#   - A build or switch that hangs is killed after two hours, and the GitHub
+#   - A build or switch that hangs is killed after two hours, and the Forgejo
 #     lookup after 30 seconds.
 #   - A manual `nixos-rebuild switch` from a working tree (testing something
 #     before you push) stays until the next push: only a new commit on main
@@ -55,7 +56,7 @@ in
       host = config.networking.hostName;
       user = config.balaur.user;
       stateDir = "/var/lib/balaur-auto-deploy";
-      remote = "https://github.com/${cfg.repo}.git";
+      remote = "${cfg.url}/${cfg.repo}.git";
       # Whose signature counts: the admin's key on every machine of the registry.
       signerKeys = lib.concatMap (h: h.userKeys) (lib.attrValues fleet);
       signers = pkgs.writeText "balaur-allowed-signers" (
@@ -106,7 +107,7 @@ in
 
           rev=$(main || true)
           if [ -z "$rev" ]; then
-            echo "could not read ${cfg.branch} from GitHub; trying again later"
+            echo "could not read ${cfg.branch} from Forgejo; trying again later"
             exit 0
           fi
           if [ "$rev" = "$(cat "$state/deployed" 2>/dev/null || true)" ]; then
@@ -176,7 +177,7 @@ in
             'balaur-notify-failure@nixos-rebuild-switch-to-configuration.service.service' 2>/dev/null || true
 
           status=0
-          ${lib.getExe config.system.build.nixos-rebuild} switch --flake "github:${cfg.repo}/$rev#${host}" || status=$?
+          ${lib.getExe config.system.build.nixos-rebuild} switch --flake "git+${remote}?ref=${cfg.branch}&rev=$rev#${host}" || status=$?
           after=$(readlink -f "$profile")
 
           if [ "$status" -ne 0 ]; then
@@ -186,10 +187,10 @@ in
             if [ "$after" = "$before" ]; then
               exit 1
             fi
-            echo "the new generation is already the system profile; checking that GitHub still answers"
+            echo "the new generation is already the system profile; checking that Forgejo still answers"
           fi
 
-          # The way every later fix arrives: GitHub must still answer. It did a
+          # The way every later fix arrives: Forgejo must still answer. It did a
           # moment ago, so a couple of minutes of silence means this commit broke it.
           for try in 1 2 3 4 5 6; do
             if [ -n "$(main || true)" ]; then
@@ -200,15 +201,15 @@ in
               echo "deployed $rev"
               exit 0
             fi
-            echo "GitHub does not answer after the switch ($try/6)"
+            echo "Forgejo does not answer after the switch ($try/6)"
             sleep 20
           done
 
           if [ "$after" = "$before" ]; then
-            echo "GitHub does not answer, but $rev did not change this machine's system: nothing to switch back"
+            echo "Forgejo does not answer, but $rev did not change this machine's system: nothing to switch back"
             exit 1
           fi
-          echo "this machine lost GitHub after switching to $rev: switching back to $before (attempt $attempts of 3)"
+          echo "this machine lost Forgejo after switching to $rev: switching back to $before (attempt $attempts of 3)"
           if ! { nix-env -p "$profile" --set "$before" && "$before/bin/switch-to-configuration" switch; }; then
             echo "switching back to $before failed"
           fi
@@ -228,7 +229,7 @@ in
         text = ''
           short() { if [ "$1" = - ]; then echo -; else echo "''${1:0:7}"; fi; }
           main=$(git ls-remote ${remote} refs/heads/${cfg.branch} | cut -f1 || true)
-          echo "${cfg.branch} on GitHub: $(short "''${main:--}")"
+          echo "${cfg.branch} on Forgejo: $(short "''${main:--}")"
           printf '%-8s %-9s %-10s %-22s %s\n' MACHINE DEPLOYED STATE TRYING "FAILED UNITS"
           for entry in ${lib.escapeShellArgs (lib.mapAttrsToList (name: h: "${name}=${h.address}") fleet)}; do
             h=''${entry%%=*}
@@ -256,10 +257,15 @@ in
     in
     {
       options.balaur.autoDeploy = {
+        url = lib.mkOption {
+          type = lib.types.str;
+          default = "https://git.balaur.space";
+          description = "Forgejo's address (forgejo.nix): every machine reaches it over the tailnet.";
+        };
         repo = lib.mkOption {
           type = lib.types.str;
-          default = "alexradunet/balaur-fleet";
-          description = "The fleet's GitHub repository (owner/name). Public, so no credentials are needed to read it.";
+          default = "alex/balaur-fleet";
+          description = "The fleet's repository in Forgejo (owner/name). Public, so no credentials are needed to read it.";
         };
         branch = lib.mkOption {
           type = lib.types.str;

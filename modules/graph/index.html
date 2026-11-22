@@ -152,7 +152,7 @@
     const d = st.deploy, m = st.machine, out = [];
     if (d) {
       const rev = d.deployed ? d.deployed.slice(0, 7) : "–";
-      const link = d.deployed && graph.repo ? `<a href="https://github.com/${esc(graph.repo)}/commit/${esc(d.deployed)}">${esc(rev)}</a>` : esc(rev);
+      const link = d.deployed && graph.repo ? `<a href="${esc(graph.repo)}/commit/${esc(d.deployed)}">${esc(rev)}</a>` : esc(rev);
       out.push(fact("Deployed commit", link));
       out.push(fact("System", esc(d.state), d.state === "running" ? "" : "bad"));
       if (d.trying) out.push(fact("Trying", `${esc(d.trying.slice(0, 7))} (attempt ${d.attempts}/3)`, "warn"));
